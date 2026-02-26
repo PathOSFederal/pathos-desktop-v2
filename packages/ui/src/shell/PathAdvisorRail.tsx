@@ -94,37 +94,33 @@ export function PathAdvisorRail(props: PathAdvisorRailProps) {
         </ModuleCard>
       </div>
 
-      {/* Advisor message block: calm, professional */}
-      <div className="px-3 flex-shrink-0">
-        <div
-          className="rounded-[var(--p-radius-lg)] p-3 text-[13px]"
-          style={{
-            background: 'var(--p-surface2)',
-            border: '1px solid var(--p-border)',
-            color: 'var(--p-text-muted)',
-          }}
-        >
-          <p>
+      {/* Advisor message block: framed with ModuleCard (dense) for consistent rail hierarchy */}
+      <div className="px-3 pt-2 flex-shrink-0">
+        <ModuleCard title="PathAdvisor" variant="dense">
+          <p
+            className="text-[13px]"
+            style={{ color: 'var(--p-text-muted)' }}
+          >
             Use this workspace to review your compensation estimates and decision drivers.
             Ask for help comparing grades, understanding benefits, or adjusting assumptions.
           </p>
-        </div>
+        </ModuleCard>
       </div>
 
       {/* Suggested prompts: ModuleCard with action-like rows (hover/focus-visible) */}
       <div className="px-3 pt-2 flex-1 min-h-0 overflow-y-auto">
         <ModuleCard title="Suggested prompts" variant="dense" className="h-full flex flex-col min-h-0">
-          <div className="space-y-1 flex-1 min-h-0">
+          <div className="flex flex-col gap-1 flex-1 min-h-0">
             {SUGGESTED_PROMPTS.map(function (prompt) {
               return (
                 <button
                   key={prompt}
                   type="button"
                   onClick={function () { handlePromptClick(prompt); }}
-                  className="pathos-prompt-row w-full text-left px-3 py-2 text-[12px] rounded-[var(--p-radius)] transition-colors"
+                  className="pathos-prompt-row w-full text-left px-3 py-2 text-[12px] rounded-[var(--p-radius)] transition-colors border"
                   style={{
                     background: 'var(--p-surface2)',
-                    border: '1px solid var(--p-border)',
+                    borderColor: 'var(--p-border)',
                     color: 'var(--p-text)',
                   }}
                 >

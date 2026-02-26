@@ -20,6 +20,7 @@
 :root,
 .pathos-theme {
   /* ---- Background & surfaces (clear separation for instrument-panel hierarchy) ---- */
+  /* Tuned so app background, card surface, and input/chip level read as distinct layers. */
   --p-bg:           #0b0f1a;
   --p-bg-gradient:  linear-gradient(180deg, #0b0f1a 0%, #0d1220 100%);
   --p-surface:      #121829;
@@ -62,8 +63,10 @@
   --p-radius-lg:    0.625rem; /* 10px */
 
   /* ---- Elevation (subtle, consistent; elevation-1 for cards/panels) ---- */
+  /* ModuleCard and other panels use --p-shadow-elevation-1 or --p-shadow-elev-1. */
   --p-shadow:               0 1px 2px rgba(0, 0, 0, 0.25);
   --p-shadow-elevation-1:   0 1px 3px rgba(0, 0, 0, 0.22);
+  --p-shadow-elev-1:        var(--p-shadow-elevation-1);
   --p-shadow-lg:            0 2px 8px rgba(0, 0, 0, 0.3);
 
   /* ---- Focus ---- */
@@ -71,7 +74,10 @@
 }
 
 /* ---- Interaction affordances (instrument panel) ---- */
-/* Prompt rows: hover/focus-visible feel like actions */
+/* Prompt rows: default surface2; hover lifts to surface for clear hierarchy. */
+.pathos-prompt-row {
+  min-height: 2.25rem;
+}
 .pathos-prompt-row:hover {
   background: var(--p-surface);
   border-color: var(--p-accent-muted);
@@ -79,4 +85,7 @@
 .pathos-prompt-row:focus-visible {
   outline: none;
   box-shadow: var(--p-focus-ring);
+}
+.pathos-prompt-row + .pathos-prompt-row {
+  margin-top: 0.25rem;
 }
