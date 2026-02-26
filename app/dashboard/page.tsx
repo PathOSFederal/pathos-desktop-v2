@@ -3,6 +3,7 @@
 import { useState, useCallback } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { NavigationProvider } from '@pathos/adapters';
+import { parseThemeVariant } from '@pathos/core';
 import { useNextNavAdapter, NextNavLink } from '@/lib/adapters/next-nav-adapter';
 import {
   SharedAppShell,
@@ -66,11 +67,7 @@ function SharedDashboardShell(props: { themeVariant?: ThemeVariant }) {
 export default function DashboardPage() {
   const adapter = useNextNavAdapter();
   const searchParams = useSearchParams();
-  const themeParam = searchParams.get('theme');
-  let themeVariant: ThemeVariant | undefined = undefined;
-  if (themeParam === 'legacy' || themeParam === 'mix' || themeParam === 'shared') {
-    themeVariant = themeParam;
-  }
+  const themeVariant = parseThemeVariant(searchParams.get('theme')) ?? undefined;
 
   return (
     <NavigationProvider adapter={adapter} linkComponent={NextNavLink}>

@@ -37,8 +37,23 @@ export {
   GUIDED_TOUR_STORAGE_KEY,
   BENEFITS_WORKSPACE_STORAGE_KEY,
   GUIDED_USAJOBS_GOALS_STORAGE_KEY,
+  THEME_VARIANT_STORAGE_KEY,
   STORAGE_KEYS,
 } from './storage-keys';
+
+// Theme variant helpers
+export type { ThemeVariant } from './theme-variant';
+export {
+  DEFAULT_THEME_VARIANT,
+  THEME_VARIANTS,
+  THEME_VARIANT_CHANGED_EVENT,
+  isThemeVariant,
+  parseThemeVariant,
+  loadThemeVariantPreference,
+  saveThemeVariantPreference,
+  clearThemeVariantPreference,
+  resolveThemeVariant,
+} from './theme-variant';
 
 // Guided Apply types
 export type {

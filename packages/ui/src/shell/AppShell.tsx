@@ -17,8 +17,16 @@
 'use client';
 
 import type React from 'react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Menu } from 'lucide-react';
+import {
+  DEFAULT_THEME_VARIANT,
+  THEME_VARIANT_CHANGED_EVENT,
+  THEME_VARIANT_STORAGE_KEY,
+  loadThemeVariantPreference,
+  resolveThemeVariant,
+  type ThemeVariant,
+} from '@pathos/core';
 import { Sidebar, type SidebarProps } from './Sidebar';
 import { TopBar, type TopBarProps } from './TopBar';
 
@@ -30,14 +38,14 @@ import '../styles/theme.css';
 // ---------------------------------------------------------------------------
 
 export type Platform = 'web' | 'desktop-preview' | 'desktop';
-export type ThemeVariant = 'legacy' | 'mix' | 'shared';
+export type { ThemeVariant } from '@pathos/core';
 
 export interface AppShellProps {
   children: React.ReactNode;
 
   /** Platform flag for tiny visual toggles (not component forks) */
   platform?: Platform;
-  /** Token set variant for side-by-side visual comparison. */
+  /** Optional debug override from route query (?theme=...). */
   themeVariant?: ThemeVariant;
 
   /** Sidebar configuration */
@@ -65,9 +73,39 @@ export interface AppShellProps {
 
 export function SharedAppShell(props: AppShellProps) {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [persistedTheme, setPersistedTheme] = useState<ThemeVariant | null>(null);
   const dock = props.advisorDock ?? 'right';
   const platform = props.platform ?? 'web';
-  const themeVariant = props.themeVariant ?? 'shared';
+  const themeVariant = resolveThemeVariant({
+    queryTheme: props.themeVariant,
+    persistedTheme,
+    defaultTheme: DEFAULT_THEME_VARIANT,
+  });
+
+  useEffect(function () {
+    function refreshThemeFromStorage() {
+      setPersistedTheme(loadThemeVariantPreference());
+    }
+
+    function handleThemeChanged() {
+      refreshThemeFromStorage();
+    }
+
+    refreshThemeFromStorage();
+
+    function handleStorage(e: StorageEvent) {
+      if (e.key === THEME_VARIANT_STORAGE_KEY || e.key === null) {
+        refreshThemeFromStorage();
+      }
+    }
+
+    window.addEventListener('storage', handleStorage);
+    window.addEventListener(THEME_VARIANT_CHANGED_EVENT, handleThemeChanged);
+    return function () {
+      window.removeEventListener('storage', handleStorage);
+      window.removeEventListener(THEME_VARIANT_CHANGED_EVENT, handleThemeChanged);
+    };
+  }, []);
 
   const hamburger = (
     <button

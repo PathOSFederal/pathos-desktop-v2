@@ -20,6 +20,7 @@ export const ONBOARDING_STORAGE_KEY = 'pathos-onboarding-state';
 export const GUIDED_TOUR_STORAGE_KEY = 'pathos-guided-tour-state';
 export const BENEFITS_WORKSPACE_STORAGE_KEY = 'pathos-benefits-workspace-v1';
 export const GUIDED_USAJOBS_GOALS_STORAGE_KEY = 'pathos-guided-usajobs-goals-v1';
+export const THEME_VARIANT_STORAGE_KEY = 'pathos.themeVariant';
 
 export const STORAGE_KEYS = {
   PROFILE: PROFILE_STORAGE_KEY,
@@ -39,4 +40,5 @@ export const STORAGE_KEYS = {
   GUIDED_TOUR: GUIDED_TOUR_STORAGE_KEY,
   BENEFITS_WORKSPACE: BENEFITS_WORKSPACE_STORAGE_KEY,
   GUIDED_USAJOBS_GOALS: GUIDED_USAJOBS_GOALS_STORAGE_KEY,
+  THEME_VARIANT: THEME_VARIANT_STORAGE_KEY,
 } as const;
