@@ -66,16 +66,21 @@ function TodayChecklist(props: {
 
   return (
     <div
-      className="p-5"
+      className="p-4"
       style={{
         background: 'var(--p-surface)',
-        border: '1px solid var(--p-border)',
+        border: '1px solid var(--p-border-strong, var(--p-border))',
         borderRadius: 'var(--p-radius-lg)',
         boxShadow: 'var(--p-shadow)',
       }}
     >
-      <div className="flex items-center justify-between mb-3">
-        <h3 className="text-sm font-semibold" style={{ color: 'var(--p-text)' }}>Today</h3>
+      <div className="flex items-center justify-between mb-2">
+        <h3
+          className="font-semibold uppercase tracking-[var(--p-letter-spacing-section)]"
+          style={{ color: 'var(--p-text)', fontSize: 'var(--p-font-size-section)' }}
+        >
+          Today
+        </h3>
         {doneCount > 0 && (
           <button
             type="button"
@@ -132,7 +137,7 @@ function TodayChecklist(props: {
         })}
       </div>
 
-      <div className="flex items-center gap-2 mt-3 pt-3" style={{ borderTop: '1px solid var(--p-border)' }}>
+      <div className="flex items-center gap-2 mt-2 pt-2" style={{ borderTop: '1px solid var(--p-border)' }}>
         <input
           type="text"
           placeholder="Add a task..."
@@ -171,18 +176,18 @@ function QuickAction(props: {
     <button
       type="button"
       onClick={props.onClick}
-      className="flex items-start gap-3 p-4 text-left transition-colors w-full"
+      className="flex items-start gap-3 p-3 text-left transition-colors w-full"
       style={{
         background: 'var(--p-surface)',
-        border: '1px solid var(--p-border)',
+        border: '1px solid var(--p-border-strong, var(--p-border))',
         borderRadius: 'var(--p-radius-lg)',
         boxShadow: 'var(--p-shadow)',
       }}
     >
       <span className="flex-shrink-0 mt-0.5" style={{ color: 'var(--p-accent)' }}>{props.icon}</span>
       <div className="min-w-0">
-        <p className="text-sm font-medium" style={{ color: 'var(--p-text)' }}>{props.label}</p>
-        <p className="text-xs mt-0.5" style={{ color: 'var(--p-text-dim)' }}>{props.detail}</p>
+        <p className="font-medium" style={{ color: 'var(--p-text)', fontSize: 'var(--p-font-size-body)' }}>{props.label}</p>
+        <p className="mt-0.5" style={{ color: 'var(--p-text-dim)', fontSize: 'var(--p-font-size-section)' }}>{props.detail}</p>
       </div>
     </button>
   );
@@ -195,7 +200,7 @@ function QuickAction(props: {
 export function DashboardScreen(props: DashboardScreenProps) {
   const nav = useNav();
   const isEmployee = props.isEmployee ?? false;
-  const greeting = props.userName ? 'Welcome back, ' + props.userName : 'Welcome back';
+  /* Page title is always "Dashboard"; subtitle is objective per persona */
 
   const [todayStore, setTodayStore] = useState<TodayStore>({
     schemaVersion: 1,
@@ -227,19 +232,27 @@ export function DashboardScreen(props: DashboardScreenProps) {
   }, []);
 
   return (
-    <div className="p-4 lg:p-6 space-y-6">
+    <div className="p-4 lg:p-5 space-y-4">
       <div>
-        <h1 className="text-2xl font-bold" style={{ color: 'var(--p-text)' }}>{greeting}</h1>
-        <p className="text-sm mt-1" style={{ color: 'var(--p-text-muted)' }}>
+        <h1
+          className="font-semibold"
+          style={{ color: 'var(--p-text)', fontSize: 'var(--p-font-size-page-title)' }}
+        >
+          Dashboard
+        </h1>
+        <p
+          className="mt-0.5"
+          style={{ color: 'var(--p-text-muted)', fontSize: 'var(--p-font-size-body)' }}
+        >
           {isEmployee
-            ? 'Your federal career intelligence at a glance.'
-            : 'Your federal job search intelligence at a glance.'}
+            ? 'Federal career intelligence at a glance.'
+            : 'Federal job search intelligence at a glance.'}
         </p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-4">
         {/* Left column: Today checklist + quick actions */}
-        <div className="space-y-6">
+        <div className="space-y-4">
           {mounted && (
             <TodayChecklist
               store={todayStore}
@@ -251,10 +264,13 @@ export function DashboardScreen(props: DashboardScreenProps) {
           )}
 
           <div>
-            <h3 className="text-xs font-semibold uppercase tracking-wider mb-3 px-1" style={{ color: 'var(--p-text-dim)' }}>
+            <h3
+              className="font-semibold uppercase tracking-[var(--p-letter-spacing-section)] mb-2 px-0"
+              style={{ color: 'var(--p-text-dim)', fontSize: 'var(--p-font-size-section)' }}
+            >
               Quick Actions
             </h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               <QuickAction
                 icon={<Search className="w-4 h-4" />}
                 label="Search Jobs"
@@ -284,7 +300,7 @@ export function DashboardScreen(props: DashboardScreenProps) {
         </div>
 
         {/* Right column: summary cards */}
-        <div className="space-y-4">
+        <div className="space-y-3">
           <DashboardCard
             title="Total Compensation"
             description={isEmployee ? 'Your current total compensation package' : 'Estimated federal compensation'}
@@ -306,24 +322,29 @@ export function DashboardScreen(props: DashboardScreenProps) {
 function DashboardCard(props: { title: string; description: string }) {
   return (
     <div
-      className="p-5"
+      className="p-4"
       style={{
         background: 'var(--p-surface)',
-        border: '1px solid var(--p-border)',
+        border: '1px solid var(--p-border-strong, var(--p-border))',
         borderRadius: 'var(--p-radius-lg)',
         boxShadow: 'var(--p-shadow)',
       }}
     >
-      <h3 className="text-sm font-semibold" style={{ color: 'var(--p-text)' }}>{props.title}</h3>
-      <p className="text-xs mt-1" style={{ color: 'var(--p-text-dim)' }}>{props.description}</p>
+      <h3
+        className="font-semibold"
+        style={{ color: 'var(--p-text)', fontSize: 'var(--p-font-size-section)' }}
+      >
+        {props.title}
+      </h3>
+      <p className="mt-0.5" style={{ color: 'var(--p-text-dim)', fontSize: 'var(--p-font-size-body)' }}>{props.description}</p>
       <div
-        className="mt-4 h-20 flex items-center justify-center"
+        className="mt-3 h-16 flex items-center justify-center"
         style={{
           background: 'var(--p-surface2)',
           borderRadius: 'var(--p-radius)',
         }}
       >
-        <span className="text-xs" style={{ color: 'var(--p-text-dim)' }}>Card data loading</span>
+        <span style={{ color: 'var(--p-text-dim)', fontSize: 'var(--p-font-size-section)' }}>Card data loading</span>
       </div>
     </div>
   );

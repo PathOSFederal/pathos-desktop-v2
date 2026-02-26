@@ -19,14 +19,15 @@
 
 :root,
 .pathos-theme {
-  /* ---- Background & surfaces ---- */
+  /* ---- Background & surfaces (subtle gradient for professional feel) ---- */
   --p-bg:           #0b0f1a;
-  --p-bg-gradient:  linear-gradient(168deg, #0b0f1a 0%, #0f1629 50%, #0b0f1a 100%);
+  --p-bg-gradient:  linear-gradient(180deg, #0b0f1a 0%, #0d1220 100%);
   --p-surface:      #131929;
   --p-surface2:     #1a2236;
 
-  /* ---- Borders & separators ---- */
+  /* ---- Borders & separators (slightly stronger for professional cards) ---- */
   --p-border:       #1e293b;
+  --p-border-strong: #252d3d;
   --p-border-light: #2a3654;
 
   /* ---- Text ---- */
@@ -34,11 +35,17 @@
   --p-text-muted:   #94a3b8;
   --p-text-dim:     #64748b;
 
-  /* ---- Accent (amber/orange) ---- */
-  --p-accent:       #d97706;
-  --p-accent-muted: #92400e;
-  --p-accent-bg:    rgba(217, 119, 6, 0.10);
-  --p-accent-text:  #fbbf24;
+  /* ---- Typography (professional workspace) ---- */
+  --p-font-size-page-title: 1.5rem;      /* 24px */
+  --p-font-size-section:    0.8125rem;   /* 13px */
+  --p-font-size-body:       0.8125rem;  /* 13px, calm */
+  --p-letter-spacing-section: 0.05em;
+
+  /* ---- Accent (amber/orange, restrained for sidebar/indicators) ---- */
+  --p-accent:       #b45309;
+  --p-accent-muted: #78350f;
+  --p-accent-bg:    rgba(180, 83, 9, 0.08);
+  --p-accent-text:  #f59e0b;
 
   /* ---- Semantics ---- */
   --p-success:      #22c55e;
@@ -50,13 +57,13 @@
   --p-info:         #3b82f6;
   --p-info-bg:      rgba(59, 130, 246, 0.10);
 
-  /* ---- Geometry ---- */
-  --p-radius:       0.5rem;
-  --p-radius-lg:    0.75rem;
+  /* ---- Geometry (cards 8–10px radius, professional) ---- */
+  --p-radius:       0.5rem;   /* 8px */
+  --p-radius-lg:    0.625rem; /* 10px */
 
-  /* ---- Elevation ---- */
-  --p-shadow:       0 1px 3px rgba(0, 0, 0, 0.3), 0 1px 2px rgba(0, 0, 0, 0.2);
-  --p-shadow-lg:    0 4px 12px rgba(0, 0, 0, 0.4), 0 2px 4px rgba(0, 0, 0, 0.3);
+  /* ---- Elevation (subtle, consistent) ---- */
+  --p-shadow:       0 1px 2px rgba(0, 0, 0, 0.25);
+  --p-shadow-lg:    0 2px 8px rgba(0, 0, 0, 0.3);
 
   /* ---- Focus ---- */
   --p-focus-ring:   0 0 0 2px var(--p-accent);

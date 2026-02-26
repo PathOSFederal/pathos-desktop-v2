@@ -164,25 +164,25 @@ function NavItemRow(props: {
         onClick={handleClick}
         data-tour={props.dataTourId}
         className={cn(
-          'flex items-center gap-3 px-3 py-2.5 text-sm transition-colors relative group',
+          'flex items-center gap-2.5 px-3 py-2 text-[13px] transition-colors relative group',
           props.isActive ? 'font-medium' : '',
         )}
       >
-        {/* Active indicator bar */}
+        {/* Active indicator bar (restrained accent) */}
         {props.isActive && (
           <div
-            className="absolute left-0 top-1 bottom-1 w-[3px] rounded-r"
+            className="absolute left-0 top-1 bottom-1 w-[2px] rounded-r"
             style={{ background: 'var(--p-accent)' }}
           />
         )}
         {/* Row background */}
         <div
-          className="absolute inset-0 rounded-lg transition-colors"
+          className="absolute inset-0 rounded-md transition-colors"
           style={{
-            background: props.isActive ? 'var(--p-surface2)' : 'transparent',
+            background: props.isActive ? 'var(--p-accent-bg)' : 'transparent',
           }}
         />
-        <span className="flex-shrink-0 relative z-10" style={{ color: props.isActive ? 'var(--p-accent-text)' : 'var(--p-text-dim)' }}>{props.item.icon}</span>
+        <span className="flex-shrink-0 relative z-10" style={{ color: props.isActive ? 'var(--p-accent)' : 'var(--p-text-dim)' }}>{props.item.icon}</span>
         <span className="flex-1 relative z-10" style={{ color: props.isActive ? 'var(--p-text)' : 'var(--p-text-muted)' }}>{props.item.label}</span>
         {hasBadge && (
           <span
@@ -281,25 +281,25 @@ export function Sidebar(props: SidebarProps) {
       aria-label="Main sidebar navigation"
       style={{ background: 'var(--p-surface)', borderRight: '1px solid var(--p-border)' }}
     >
-      <div className="p-4" style={{ borderBottom: '1px solid var(--p-border)' }}>
-        <h2 className="text-lg font-bold" style={{ color: 'var(--p-text)' }}>PathOS</h2>
-        <p className="text-xs font-medium mt-0.5" style={{ color: 'var(--p-accent)' }}>Career Intelligence Dashboard</p>
-        <p className="text-xs mt-1" style={{ color: 'var(--p-text-dim)' }}>
+      <div className="px-3 py-3" style={{ borderBottom: '1px solid var(--p-border)' }}>
+        <h2 className="text-base font-semibold" style={{ color: 'var(--p-text)' }}>PathOS</h2>
+        <p className="text-[11px] font-medium mt-0.5" style={{ color: 'var(--p-accent-muted)' }}>Career Intelligence Dashboard</p>
+        <p className="text-[11px] mt-0.5" style={{ color: 'var(--p-text-dim)' }}>
           {isEmployee ? 'For federal employees' : 'For federal job seekers'}
         </p>
       </div>
 
-      <nav className="flex-1 px-3 py-4 space-y-6 overflow-y-auto">
+      <nav className="flex-1 px-3 py-3 space-y-4 overflow-y-auto">
         {visibleSections.map(function (section) {
           return (
             <div key={section.title}>
               <h3
-                className="text-xs font-semibold uppercase tracking-wider px-3 mb-2"
-                style={{ color: 'var(--p-accent-muted)' }}
+                className="text-[11px] font-semibold uppercase tracking-[var(--p-letter-spacing-section)] px-3 mb-1"
+                style={{ color: 'var(--p-text-dim)' }}
               >
                 {section.title}
               </h3>
-              <div className="space-y-1">
+              <div className="space-y-0.5">
                 {section.items.map(function (item) {
                   return (
                     <NavItemRow
@@ -317,10 +317,10 @@ export function Sidebar(props: SidebarProps) {
         })}
       </nav>
 
-      <div className="p-4" style={{ borderTop: '1px solid var(--p-border)' }}>
+      <div className="px-3 py-2" style={{ borderTop: '1px solid var(--p-border)' }}>
         <div
-          className="flex items-center gap-3 px-3 py-2"
-          style={{ background: 'var(--p-surface2)', borderRadius: 'var(--p-radius-lg)' }}
+          className="flex items-center gap-2.5 px-3 py-2"
+          style={{ background: 'var(--p-surface2)', borderRadius: 'var(--p-radius)' }}
         >
           <div
             className="w-9 h-9 rounded-full flex items-center justify-center"

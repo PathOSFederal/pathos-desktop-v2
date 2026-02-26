@@ -132,7 +132,7 @@ export function SharedAppShell(props: AppShellProps) {
             className="hidden lg:block w-80 flex-shrink-0"
             style={{ borderRight: '1px solid var(--p-border)', background: 'var(--p-bg)' }}
           >
-            <div className="sticky top-8 h-[calc(100vh-5rem)] px-2">
+            <div className="sticky top-2 h-[calc(100vh-5rem)] px-3 pt-3 pb-3">
               {props.rightRail}
             </div>
           </aside>
@@ -149,7 +149,7 @@ export function SharedAppShell(props: AppShellProps) {
             className="hidden lg:block w-80 flex-shrink-0"
             style={{ borderLeft: '1px solid var(--p-border)', background: 'var(--p-surface)' }}
           >
-            <div className="sticky top-2 h-[calc(100vh-5rem)] px-4 pt-6 pb-4">
+            <div className="sticky top-2 h-[calc(100vh-5rem)] px-3 pt-3 pb-3">
               {props.rightRail}
             </div>
           </aside>
