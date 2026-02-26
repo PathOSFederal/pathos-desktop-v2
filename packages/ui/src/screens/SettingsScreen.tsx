@@ -12,7 +12,7 @@
 
 import type React from 'react';
 import { useState, useEffect, useCallback } from 'react';
-import { Download, Trash2, AlertTriangle, ShieldCheck } from 'lucide-react';
+import { Download, Trash2, AlertTriangle, ShieldCheck, Palette, Info } from 'lucide-react';
 import { useNav } from '@pathos/adapters';
 import {
   loadGuidedApplyStore,
@@ -27,11 +27,18 @@ import {
   loadTodayStore,
   exportTodayJSON,
   clearTodayData,
+  DEFAULT_THEME_VARIANT,
+  loadThemeVariantPreference,
+  saveThemeVariantPreference,
+  clearThemeVariantPreference,
+  resolveThemeVariant,
+  type ThemeVariant,
 } from '@pathos/core';
 
 export interface SettingsScreenProps {
   userName?: string;
   isEmployee?: boolean;
+  themeOverride?: ThemeVariant;
 }
 
 // ---------------------------------------------------------------------------
@@ -67,6 +74,45 @@ function SettingsSection(props: { title: string; children: React.ReactNode }) {
     >
       <h3 className="text-sm font-semibold mb-3" style={{ color: 'var(--p-text)' }}>{props.title}</h3>
       {props.children}
+    </div>
+  );
+}
+
+function InlineTooltip(props: {
+  id: string;
+  name: string;
+  description: string;
+  shortcut?: string;
+}) {
+  return (
+    <div className="relative group">
+      <button
+        type="button"
+        className="h-5 w-5 grid place-items-center rounded-[var(--p-radius)]"
+        style={{
+          color: 'var(--p-text-muted)',
+          border: '1px solid var(--p-border)',
+          background: 'var(--p-surface2)',
+        }}
+        aria-label={props.name}
+        aria-describedby={props.id}
+      >
+        <Info className="h-3 w-3" />
+      </button>
+      <div
+        id={props.id}
+        role="tooltip"
+        className="pointer-events-none absolute right-0 top-full z-20 mt-1 w-64 rounded-[var(--p-radius)] border p-2 text-left text-[11px] opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
+        style={{
+          background: 'var(--p-surface)',
+          borderColor: 'var(--p-border)',
+          color: 'var(--p-text-muted)',
+        }}
+      >
+        <p className="font-semibold" style={{ color: 'var(--p-text)' }}>{props.name}</p>
+        <p>{props.description}</p>
+        {props.shortcut ? <p className="mt-1">Shortcut: {props.shortcut}</p> : null}
+      </div>
     </div>
   );
 }
@@ -139,6 +185,7 @@ function DataRow(props: {
 
 export function SettingsScreen(props: SettingsScreenProps) {
   const nav = useNav();
+  const [savedThemeVariant, setSavedThemeVariant] = useState<ThemeVariant>(DEFAULT_THEME_VARIANT);
 
   // Counts
   const [gaCount, setGaCount] = useState(0);
@@ -158,6 +205,10 @@ export function SettingsScreen(props: SettingsScreenProps) {
   }, []);
 
   useEffect(function () { refreshCounts(); }, [refreshCounts]);
+  useEffect(function () {
+    const stored = loadThemeVariantPreference();
+    setSavedThemeVariant(stored ?? DEFAULT_THEME_VARIANT);
+  }, []);
 
   const showFeedback = useCallback(function (msg: string) {
     setFeedback(msg);
@@ -169,6 +220,40 @@ export function SettingsScreen(props: SettingsScreenProps) {
   const handleExportSaved = function () { downloadJSON(exportSavedJobsJSON(loadSavedJobsStore()), 'pathos-saved-jobs'); showFeedback('Saved Jobs data exported.'); };
   const handleExportResume = function () { downloadJSON(exportResumeJSON(loadResumeStore()), 'pathos-resume'); showFeedback('Resume data exported.'); };
   const handleExportToday = function () { downloadJSON(exportTodayJSON(loadTodayStore()), 'pathos-today'); showFeedback('Today checklist exported.'); };
+
+  function handleThemeChange(nextTheme: ThemeVariant) {
+    setSavedThemeVariant(nextTheme);
+    saveThemeVariantPreference(nextTheme);
+    showFeedback('Theme preference saved.');
+  }
+
+  const resolvedThemeVariant = resolveThemeVariant({
+    queryTheme: props.themeOverride,
+    persistedTheme: savedThemeVariant,
+    defaultTheme: DEFAULT_THEME_VARIANT,
+  });
+
+  const themeOptions: Array<{
+    id: ThemeVariant;
+    label: string;
+    description: string;
+  }> = [
+    {
+      id: 'legacy',
+      label: 'Classic Blue',
+      description: 'Default trust-first theme with classic blue accents and high readability.',
+    },
+    {
+      id: 'shared',
+      label: 'Analyst Blue',
+      description: 'Cool analytical palette with blue accents for focused planning.',
+    },
+    {
+      id: 'mix',
+      label: 'Signal Amber',
+      description: 'Blue surfaces with amber accents for stronger action contrast.',
+    },
+  ];
 
   // Delete handlers
   const handleDeleteConfirmed = useCallback(function () {
@@ -182,6 +267,8 @@ export function SettingsScreen(props: SettingsScreenProps) {
         clearSavedJobs();
         clearResumeData();
         clearTodayData();
+        clearThemeVariantPreference();
+        setSavedThemeVariant(DEFAULT_THEME_VARIANT);
         break;
     }
     setConfirmTarget(null);
@@ -206,6 +293,68 @@ export function SettingsScreen(props: SettingsScreenProps) {
           <p className="text-sm" style={{ color: 'var(--p-text-muted)' }}>
             Type: {props.isEmployee ? 'Federal Employee' : 'Job Seeker'}
           </p>
+        </SettingsSection>
+
+        <SettingsSection title="Appearance">
+          <div className="flex items-center gap-2 mb-3">
+            <Palette className="w-4 h-4" style={{ color: 'var(--p-accent)' }} />
+            <p className="text-sm font-medium" style={{ color: 'var(--p-text)' }}>
+              Theme
+            </p>
+            <InlineTooltip
+              id="settings-theme-tooltip"
+              name="Theme selector"
+              description="Choose a visual token set for shared PathOS screens. This changes style tokens only and does not change routes or screen content."
+            />
+          </div>
+
+          <div role="radiogroup" aria-label="Theme">
+            {themeOptions.map(function (option) {
+              const isChecked = savedThemeVariant === option.id;
+              return (
+                <label
+                  key={option.id}
+                  className="flex items-start justify-between gap-3 p-3 mb-2 cursor-pointer"
+                  style={{
+                    background: 'var(--p-surface2)',
+                    border: '1px solid var(--p-border)',
+                    borderRadius: 'var(--p-radius)',
+                  }}
+                >
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="radio"
+                        name="theme-variant"
+                        value={option.id}
+                        checked={isChecked}
+                        onChange={function () { handleThemeChange(option.id); }}
+                        className="mt-0.5"
+                      />
+                      <p className="text-sm font-medium" style={{ color: 'var(--p-text)' }}>
+                        {option.label}
+                        {option.id === DEFAULT_THEME_VARIANT ? ' (default)' : ''}
+                      </p>
+                    </div>
+                    <p className="text-xs mt-1 ml-6" style={{ color: 'var(--p-text-dim)' }}>
+                      {option.description}
+                    </p>
+                  </div>
+                  <InlineTooltip
+                    id={'theme-option-tooltip-' + option.id}
+                    name={option.label}
+                    description={option.description}
+                  />
+                </label>
+              );
+            })}
+          </div>
+
+          {props.themeOverride ? (
+            <p className="text-xs mt-2" style={{ color: 'var(--p-text-muted)' }}>
+              Theme override active from query parameter. Saved preference is {savedThemeVariant}. Active theme is {resolvedThemeVariant}.
+            </p>
+          ) : null}
         </SettingsSection>
 
         <SettingsSection title="Data Controls">
