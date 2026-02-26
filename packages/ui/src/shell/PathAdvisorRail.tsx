@@ -25,6 +25,14 @@ export interface PathAdvisorRailProps {
   viewingLabel?: string;
   /** Optional: privacy chip value (default "Local only") */
   privacyLabel?: string;
+  /**
+   * Optional controlled mode: when both messages and onSend are provided,
+   * the rail does not own message state; the app handles send (e.g. append user
+   * and schedule a simulated assistant reply).
+   */
+  messages?: PathAdvisorMessage[];
+  /** When provided with messages, app handles send (e.g. append user + simulated reply). */
+  onSend?: (text: string) => void;
 }
 
 /** Suggested prompts: dashboard/decision workspace tone; rendered as chips in the card. */
@@ -36,16 +44,21 @@ const SUGGESTED_PROMPTS = [
 ];
 
 /**
- * Rail wrapper that renders only PathAdvisorCard. Message state is held here
- * so the card remains presentational; in a full implementation send would
- * call an API and append assistant replies.
+ * Rail wrapper that renders only PathAdvisorCard. When messages and onSend
+ * are both provided (controlled mode), the app owns message state and send
+ * behavior. Otherwise the rail holds message state locally and only appends
+ * the user message (no assistant reply).
  */
 export function PathAdvisorRail(props: PathAdvisorRailProps) {
-  const [messages, setMessages] = useState<PathAdvisorMessage[]>([]);
+  const [internalMessages, setInternalMessages] = useState<PathAdvisorMessage[]>([]);
 
-  const handleSend = useCallback(function (text: string) {
+  const hasMessages = props.messages !== undefined && props.messages !== null;
+  const hasOnSend = props.onSend !== undefined && props.onSend !== null;
+  const isControlled = hasMessages && hasOnSend;
+
+  const handleSendInternal = useCallback(function (text: string) {
     const userMessage: PathAdvisorMessage = { role: 'user', content: text };
-    setMessages(function (prev) {
+    setInternalMessages(function (prev) {
       const next = [];
       for (let i = 0; i < prev.length; i++) {
         next.push(prev[i]);
@@ -53,15 +66,19 @@ export function PathAdvisorRail(props: PathAdvisorRailProps) {
       next.push(userMessage);
       return next;
     });
-    // In a full implementation we would call the advisor API and append assistant reply.
   }, []);
+
+  const messages: PathAdvisorMessage[] =
+    isControlled && props.messages !== undefined ? props.messages : internalMessages;
+  const onSend: (text: string) => void =
+    isControlled && props.onSend !== undefined ? props.onSend : handleSendInternal;
 
   return (
     <div className="h-full flex flex-col min-h-0">
       <PathAdvisorCard
         messages={messages}
         suggestedPrompts={SUGGESTED_PROMPTS}
-        onSend={handleSend}
+        onSend={onSend}
         viewingLabel={props.viewingLabel}
         privacyLabel={props.privacyLabel}
       />

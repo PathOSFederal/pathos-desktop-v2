@@ -9,10 +9,14 @@
  *
  * Navigation is in-memory: clicking sidebar items updates the visible
  * screen without triggering Next.js route changes.
+ *
+ * PathAdvisor rail uses local-only reaction loop: onSend appends user message,
+ * then schedules a simulated assistant reply so the rail reacts to input.
  */
 
 'use client';
 
+import { useState, useCallback } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { PreviewNavigationProvider, usePreviewPathname } from '@/lib/adapters/preview-nav-adapter';
 import {
@@ -25,6 +29,7 @@ import {
   SavedJobsScreen,
   ResumeBuilderScreen,
   PathAdvisorRail,
+  type PathAdvisorMessage,
 } from '@pathos/ui';
 
 /** Map ?screen= param to an in-memory pathname */
@@ -66,11 +71,43 @@ function PreviewScreenRouter() {
   return <DashboardScreen isEmployee={false} userName="Jordan Rivera" />;
 }
 
+/** Simulated assistant reply for local-only reaction loop (no backend). */
+const SIMULATED_REPLY =
+  'Thanks for your question. This is a local-only preview—PathAdvisor will use your context when connected.';
+
 // ---------------------------------------------------------------------------
 // Preview shell -- wraps shared AppShell with sidebar/topbar config
 // ---------------------------------------------------------------------------
 
 function PreviewShell() {
+  const [advisorMessages, setAdvisorMessages] = useState<PathAdvisorMessage[]>([]);
+
+  const handleAdvisorSend = useCallback(function (text: string) {
+    const userMessage: PathAdvisorMessage = { role: 'user', content: text };
+    setAdvisorMessages(function (prev) {
+      const next = [];
+      for (let i = 0; i < prev.length; i++) {
+        next.push(prev[i]);
+      }
+      next.push(userMessage);
+      return next;
+    });
+    setTimeout(function () {
+      const assistantMessage: PathAdvisorMessage = {
+        role: 'assistant',
+        content: SIMULATED_REPLY,
+      };
+      setAdvisorMessages(function (prev) {
+        const next = [];
+        for (let i = 0; i < prev.length; i++) {
+          next.push(prev[i]);
+        }
+        next.push(assistantMessage);
+        return next;
+      });
+    }, 600);
+  }, []);
+
   return (
     <SharedAppShell
       platform="desktop-preview"
@@ -84,7 +121,13 @@ function PreviewShell() {
         personaLabel: 'Job Seeker',
         isSensitiveHidden: false,
       }}
-      rightRail={<PathAdvisorRail dock="right" />}
+      rightRail={
+        <PathAdvisorRail
+          dock="right"
+          messages={advisorMessages}
+          onSend={handleAdvisorSend}
+        />
+      }
       advisorDock="right"
     >
       <PreviewScreenRouter />
