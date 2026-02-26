@@ -1,0 +1,341 @@
+/**
+ * ============================================================================
+ * SHARED SIDEBAR — Platform-agnostic sidebar navigation
+ * ============================================================================
+ *
+ * BOUNDARY RULE: This file MUST NOT import from next/* or electron/*.
+ * Navigation is handled via @pathos/adapters (useNav / useNavLink).
+ *
+ * This is the shared version of the PathOS sidebar. It mirrors the structure
+ * of components/path-os-sidebar.tsx but uses the NavigationAdapter pattern
+ * so it can render in Next.js, Electron, or any other React host.
+ */
+
+'use client';
+
+import type React from 'react';
+import { useState, useEffect } from 'react';
+import {
+  Home,
+  DollarSign,
+  TrendingUp,
+  Shield,
+  FileText,
+  Settings,
+  ChevronRight,
+  Briefcase,
+  Search,
+  Bookmark,
+  BookOpen,
+  Bell,
+  Inbox,
+  ClipboardList,
+} from 'lucide-react';
+import { cn } from '@pathos/core';
+import { useNav, useNavLink } from '@pathos/adapters';
+
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
+
+interface NavSection {
+  title: string;
+  items: NavItem[];
+  employeeOnly?: boolean;
+  jobSeekerOnly?: boolean;
+}
+
+interface NavItem {
+  label: string;
+  href: string;
+  icon: React.ReactNode;
+  children?: NavItem[];
+  badgeCount?: number;
+}
+
+export interface SidebarProps {
+  /** Callback when a navigation item is clicked (e.g., close mobile sheet) */
+  onNavigate?: () => void;
+  /** Whether the current user is a federal employee */
+  isEmployee?: boolean;
+  /** Display name of the user */
+  userName?: string;
+  /** Grade+step and agency text for employees */
+  userSubtitle?: string;
+  /** Total count of new alert matches (badge on Alerts item) */
+  alertBadgeCount?: number;
+}
+
+// ---------------------------------------------------------------------------
+// Static nav definition
+// ---------------------------------------------------------------------------
+
+const navSections: NavSection[] = [
+  {
+    title: 'OVERVIEW',
+    items: [{ label: 'Dashboard', href: '/dashboard', icon: <Home className="w-4 h-4" /> }],
+  },
+  {
+    title: 'MONEY & PAY',
+    items: [
+      { label: 'Compensation', href: '/dashboard/compensation', icon: <DollarSign className="w-4 h-4" /> },
+    ],
+    employeeOnly: true,
+  },
+  {
+    title: 'BENEFITS',
+    items: [
+      { label: 'Benefits', href: '/dashboard/benefits', icon: <Shield className="w-4 h-4" /> },
+    ],
+    employeeOnly: true,
+  },
+  {
+    title: 'RETIREMENT',
+    items: [
+      { label: 'Retirement', href: '/dashboard/retirement', icon: <TrendingUp className="w-4 h-4" /> },
+    ],
+    employeeOnly: true,
+  },
+  {
+    title: 'CAREER & JOBS',
+    items: [
+      { label: 'Career & Resume', href: '/dashboard/career', icon: <Briefcase className="w-4 h-4" /> },
+      { label: 'Resume Builder', href: '/dashboard/resume-builder', icon: <FileText className="w-4 h-4" /> },
+      { label: 'Job Search', href: '/dashboard/job-search', icon: <Search className="w-4 h-4" /> },
+      { label: 'Saved Jobs', href: '/dashboard/saved-jobs', icon: <Bookmark className="w-4 h-4" /> },
+      { label: 'Guided Apply', href: '/guided-apply', icon: <ClipboardList className="w-4 h-4" /> },
+    ],
+  },
+  {
+    title: 'EXPLORE',
+    items: [
+      { label: 'Explore Federal Benefits', href: '/explore/benefits', icon: <BookOpen className="w-4 h-4" /> },
+    ],
+    jobSeekerOnly: true,
+  },
+  {
+    title: 'ALERTS',
+    items: [
+      { label: 'Alerts Center', href: '/alerts', icon: <Bell className="w-4 h-4" /> },
+    ],
+  },
+  {
+    title: 'IMPORT',
+    items: [
+      { label: 'Import Center', href: '/import', icon: <Inbox className="w-4 h-4" /> },
+    ],
+  },
+  {
+    title: 'SETTINGS',
+    items: [
+      { label: 'Settings', href: '/settings', icon: <Settings className="w-4 h-4" /> },
+    ],
+  },
+];
+
+// ---------------------------------------------------------------------------
+// NavItemRow sub-component
+// ---------------------------------------------------------------------------
+
+function NavItemRow(props: {
+  item: NavItem;
+  isActive: boolean;
+  onNavigate?: () => void;
+  dataTourId?: string;
+}) {
+  const NavLink = useNavLink();
+  const [isExpanded, setIsExpanded] = useState(false);
+  const hasChildren = props.item.children && props.item.children.length > 0;
+  const hasBadge = props.item.badgeCount !== undefined && props.item.badgeCount > 0;
+
+  const handleClick = function (e: React.MouseEvent) {
+    if (hasChildren) {
+      e.preventDefault();
+      setIsExpanded(!isExpanded);
+    } else if (props.onNavigate) {
+      props.onNavigate();
+    }
+  };
+
+  return (
+    <div>
+      <NavLink
+        href={props.item.href}
+        onClick={handleClick}
+        data-tour={props.dataTourId}
+        className={cn(
+          'flex items-center gap-3 px-3 py-2.5 text-sm transition-colors relative group',
+          props.isActive ? 'font-medium' : '',
+        )}
+      >
+        {/* Active indicator bar */}
+        {props.isActive && (
+          <div
+            className="absolute left-0 top-1 bottom-1 w-[3px] rounded-r"
+            style={{ background: 'var(--p-accent)' }}
+          />
+        )}
+        {/* Row background */}
+        <div
+          className="absolute inset-0 rounded-lg transition-colors"
+          style={{
+            background: props.isActive ? 'var(--p-surface2)' : 'transparent',
+          }}
+        />
+        <span className="flex-shrink-0 relative z-10" style={{ color: props.isActive ? 'var(--p-accent-text)' : 'var(--p-text-dim)' }}>{props.item.icon}</span>
+        <span className="flex-1 relative z-10" style={{ color: props.isActive ? 'var(--p-text)' : 'var(--p-text-muted)' }}>{props.item.label}</span>
+        {hasBadge && (
+          <span
+            className="flex-shrink-0 text-xs font-medium px-1.5 py-0.5 rounded-full min-w-[20px] text-center relative z-10"
+            style={{ background: 'var(--p-danger)', color: '#fff' }}
+          >
+            {props.item.badgeCount}
+          </span>
+        )}
+        {hasChildren && (
+          <ChevronRight className={cn('w-4 h-4 transition-transform relative z-10', isExpanded && 'rotate-90')} style={{ color: 'var(--p-text-dim)' }} />
+        )}
+      </NavLink>
+      {hasChildren && isExpanded && props.item.children && (
+        <div className="ml-6 mt-1 space-y-1">
+          {props.item.children.map(function (child) {
+            return (
+              <NavLink
+                key={child.href}
+                href={child.href}
+                onClick={props.onNavigate}
+                className="flex items-center gap-3 px-3 py-2 text-sm rounded-lg transition-colors"
+              >
+                <span className="flex-shrink-0" style={{ color: 'var(--p-text-dim)' }}>{child.icon}</span>
+                <span className="flex-1" style={{ color: 'var(--p-text-muted)' }}>{child.label}</span>
+              </NavLink>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Main Sidebar
+// ---------------------------------------------------------------------------
+
+export function Sidebar(props: SidebarProps) {
+  const nav = useNav();
+  const pathname = nav.pathname;
+  const isEmployee = props.isEmployee ?? false;
+  const userName = props.userName ?? 'User';
+  const alertBadgeCount = props.alertBadgeCount ?? 0;
+
+  // Build visible sections with optional badge injection
+  const visibleSections: NavSection[] = [];
+  for (let i = 0; i < navSections.length; i++) {
+    const section = navSections[i];
+    if (section.employeeOnly && !isEmployee) continue;
+    if (section.jobSeekerOnly && isEmployee) continue;
+
+    if (section.title === 'ALERTS' && alertBadgeCount > 0) {
+      const itemsWithBadge: NavItem[] = [];
+      for (let j = 0; j < section.items.length; j++) {
+        const item = section.items[j];
+        if (item.href === '/alerts') {
+          itemsWithBadge.push(Object.assign({}, item, { badgeCount: alertBadgeCount }));
+        } else {
+          itemsWithBadge.push(item);
+        }
+      }
+      visibleSections.push(Object.assign({}, section, { items: itemsWithBadge }));
+    } else {
+      visibleSections.push(section);
+    }
+  }
+
+  const isItemActive = function (itemHref: string): boolean {
+    if (itemHref === '/dashboard') {
+      return pathname === '/dashboard';
+    }
+    return pathname === itemHref || pathname.indexOf(itemHref + '/') === 0;
+  };
+
+  // Tour data attributes
+  const tourMap: Record<string, string> = {
+    '/dashboard/career': 'nav-career-resume',
+    '/dashboard/resume-builder': 'nav-resume-builder',
+    '/dashboard/job-search': 'nav-job-search',
+    '/explore/benefits': 'nav-benefits',
+    '/alerts': 'nav-alerts',
+    '/import': 'nav-import',
+  };
+
+  // User initials
+  const initials = userName
+    .split(' ')
+    .map(function (n) { return n[0]; })
+    .join('');
+
+  return (
+    <aside
+      className="w-64 flex flex-col overflow-auto h-full"
+      role="navigation"
+      aria-label="Main sidebar navigation"
+      style={{ background: 'var(--p-surface)', borderRight: '1px solid var(--p-border)' }}
+    >
+      <div className="p-4" style={{ borderBottom: '1px solid var(--p-border)' }}>
+        <h2 className="text-lg font-bold" style={{ color: 'var(--p-text)' }}>PathOS</h2>
+        <p className="text-xs font-medium mt-0.5" style={{ color: 'var(--p-accent)' }}>Career Intelligence Dashboard</p>
+        <p className="text-xs mt-1" style={{ color: 'var(--p-text-dim)' }}>
+          {isEmployee ? 'For federal employees' : 'For federal job seekers'}
+        </p>
+      </div>
+
+      <nav className="flex-1 px-3 py-4 space-y-6 overflow-y-auto">
+        {visibleSections.map(function (section) {
+          return (
+            <div key={section.title}>
+              <h3
+                className="text-xs font-semibold uppercase tracking-wider px-3 mb-2"
+                style={{ color: 'var(--p-accent-muted)' }}
+              >
+                {section.title}
+              </h3>
+              <div className="space-y-1">
+                {section.items.map(function (item) {
+                  return (
+                    <NavItemRow
+                      key={item.href}
+                      item={item}
+                      isActive={isItemActive(item.href)}
+                      onNavigate={props.onNavigate}
+                      dataTourId={tourMap[item.href]}
+                    />
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })}
+      </nav>
+
+      <div className="p-4" style={{ borderTop: '1px solid var(--p-border)' }}>
+        <div
+          className="flex items-center gap-3 px-3 py-2"
+          style={{ background: 'var(--p-surface2)', borderRadius: 'var(--p-radius-lg)' }}
+        >
+          <div
+            className="w-9 h-9 rounded-full flex items-center justify-center"
+            style={{ background: 'var(--p-accent-bg)' }}
+          >
+            <span className="text-sm font-semibold" style={{ color: 'var(--p-accent)' }}>{initials}</span>
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium truncate" style={{ color: 'var(--p-text)' }}>{userName}</p>
+            <p className="text-xs truncate" style={{ color: 'var(--p-text-dim)' }}>
+              {isEmployee ? (props.userSubtitle ?? 'Federal Employee') : 'Federal Applicant'}
+            </p>
+          </div>
+        </div>
+      </div>
+    </aside>
+  );
+}

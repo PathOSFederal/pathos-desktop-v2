@@ -1,0 +1,125 @@
+﻿diff --git a/docs/owner-map.generated.md b/docs/owner-map.generated.md
+index 016e2fe..f5a75d4 100644
+--- a/docs/owner-map.generated.md
++++ b/docs/owner-map.generated.md
+@@ -5,7 +5,7 @@
+ >
+ > For human-maintained notes, see `docs/owner-map.md`.
+ 
+-Generated: 2025-12-15
++Generated: 2025-12-17
+ 
+ ---
+ 
+@@ -35,6 +35,8 @@ Generated: 2025-12-15
+ | `/fedpath/recommendations` | `app/fedpath/recommendations/page.tsx` |
+ | `/fedpath/retirement-tsp` | `app/fedpath/retirement-tsp/page.tsx` |
+ | `/fedpath/scenarios` | `app/fedpath/scenarios/page.tsx` |
++| `/import` | `app/import/page.tsx` |
++| `/ingest/email` | `app/ingest/email/page.tsx` |
+ | `/settings` | `app/settings/page.tsx` |
+ | `/tax-compliance` | `app/tax-compliance/page.tsx` |
+ 
+@@ -46,6 +48,8 @@ Generated: 2025-12-15
+ |------------|
+ | `store/benefitsAssumptionsStore.ts` |
+ | `store/dashboardStore.ts` |
++| `store/documentImportStore.ts` |
++| `store/emailIngestionStore.ts` |
+ | `store/index.ts` |
+ | `store/jobAlertsStore.ts` |
+ | `store/jobSearchStore.ts` |
+@@ -69,6 +73,8 @@ Generated: 2025-12-15
+ | `EMAIL_DIGEST` | `pathos-email-digest-settings` |
+ | `ALERT_EVENTS` | `pathos-alert-events` |
+ | `ALERT_SEEN_JOBS` | `pathos-alert-seen-jobs` |
++| `EMAIL_INGESTION` | `pathos.emailIngestion.v1` |
++| `DOCUMENT_IMPORT` | `pathos.documentImport.v1` |
+ 
+ ---
+ 
+diff --git a/merge-notes.md b/merge-notes.md
+index eca4a07..d386ccb 100644
+--- a/merge-notes.md
++++ b/merge-notes.md
+@@ -89,7 +89,7 @@ Day 22 implements **Universal Document Import v1** that removes the ".eml only"
+ | `docs/change-briefs/day-22.md` | Non-technical change brief |
+ | `docs/merge-notes/merge-notes-day-21.md` | Archived Day 21 merge notes |
+ 
+-### Modified Files (8)
++### Modified Files (9)
+ | File | Changes |
+ |------|---------|
+ | `lib/storage-keys.ts` | Added DOCUMENT_IMPORT_STORAGE_KEY |
+@@ -99,6 +99,7 @@ Day 22 implements **Universal Document Import v1** that removes the ".eml only"
+ | `scripts/validate-change-brief.mjs` | CURRENT_DAY = 22 |
+ | `scripts/validate-day-artifacts.mjs` | CURRENT_DAY = 22 |
+ | `scripts/validate-day-labels.mjs` | CURRENT_DAY = 22 |
++| `docs/owner-map.generated.md` | Regenerated (includes /import, documentImportStore, DOCUMENT_IMPORT key) |
+ | `merge-notes.md` | This file |
+ 
+ ---
+@@ -185,7 +186,8 @@ A file named `resume.pdf.exe` should NOT be recognized as a PDF. Windows hides k
+ 2. Verified security tests exist (3 double-extension tests confirmed in documentImportStore.test.ts)
+ 3. Verified "Delete All Local Data" code path clears both localStorage and IndexedDB
+ 4. Ran all gates (lint, typecheck, test) - all pass
+-5. Regenerated patch artifacts with current state
++5. Regenerated `docs/owner-map.generated.md` via `pnpm docs:owner-map` (now includes /import route, documentImportStore, DOCUMENT_IMPORT key)
++6. Regenerated patch artifacts with current state
+ 
+ **Commands run:**
+ ```
+@@ -224,12 +226,13 @@ pnpm test       Γ£à Pass (333 tests, 12 test files, 2.60s)
+ 
+ **Branch:** `feature/day-22-universal-document-import-v1`
+ 
+-**git diff --name-status** (excluding artifacts/):
++**git diff --name-status develop** (excluding artifacts/):
+ ```
+ A  app/import/page.tsx
+ M  components/path-os-sidebar.tsx
+ A  docs/change-briefs/day-22.md
+ A  docs/merge-notes/merge-notes-day-21.md
++M  docs/owner-map.generated.md
+ M  hooks/use-delete-all-local-data.ts
+ A  lib/documents/classifyDocument.test.ts
+ A  lib/documents/classifyDocument.ts
+@@ -246,7 +249,7 @@ A  store/documentImportStore.ts
+ M  store/index.ts
+ ```
+ 
+-**Files:** 18 files changed (10 new, 8 modified)
++**Files:** 19 files changed (10 new, 9 modified)
+ 
+ ---
+ 
+@@ -262,15 +265,18 @@ Get-Item artifacts/day-22*.patch | Format-List Name,Length,LastWriteTime
+ **Output:**
+ ```
+ Name          : day-22-this-run.patch
+-Length        : 192683
+-LastWriteTime : 12/16/2025 8:29:40 PM
++Length        : 4911
++LastWriteTime : 12/16/2025 8:45:07 PM
+ 
+ Name          : day-22.patch
+-Length        : 192683
+-LastWriteTime : 12/16/2025 8:29:40 PM
++Length        : 194427
++LastWriteTime : 12/16/2025 8:45:07 PM
+ ```
+ 
+-**Note:** Both patches are ~193 KB. All Day 22 changes are uncommitted, so cumulative and this-run patches are identical. Artifacts folder is excluded from diffs to prevent recursion.
++**Note:** 
++- `day-22.patch` (~194 KB): Cumulative diff from develop (all Day 22 changes)
++- `day-22-this-run.patch` (~5 KB): This session only (merge-notes normalization + owner-map regen)
++- Artifacts folder excluded from diffs to prevent recursion
+ 
+ ---
+ 
+@@ -345,4 +351,4 @@ feat: Day 22 ΓÇô Universal Document Import v1 (PDF/DOCX/TXT + paste text)
+ 
+ ---
+ 
+-*Last updated: December 16, 2025 20:27 EST (Run 4 - merge-ready normalization)*
++*Last updated: December 16, 2025 20:44 EST (Run 4 - merge-ready normalization + owner-map regen)*

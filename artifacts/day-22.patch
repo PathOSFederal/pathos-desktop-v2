@@ -1,0 +1,5367 @@
+﻿diff --git a/app/import/page.tsx b/app/import/page.tsx
+new file mode 100644
+index 0000000..9c29af7
+--- /dev/null
++++ b/app/import/page.tsx
+@@ -0,0 +1,1437 @@
++'use client';
++
++/**
++ * ============================================================================
++ * IMPORT CENTER PAGE (Day 22 - Universal Document Import v1)
++ * ============================================================================
++ *
++ * FILE PURPOSE:
++ * Unified Import Center with tabs for:
++ * 1. Email Import Inbox (existing Day 21 functionality, embedded)
++ * 2. Files & Text Import (new Day 22 functionality)
++ *
++ * KEY FEATURES:
++ * - Tab-based navigation between import types
++ * - Email Import: paste email content, upload .eml, or upload attachments
++ * - Files & Text: drag/drop PDF/DOCX/TXT, paste text with optional title
++ * - Imported items appear in a list with:
++ *   - Type badge (PDF/DOCX/Text/Email)
++ *   - Category guess (Job Posting, Resume, etc.)
++ *   - Sensitivity label (Public/Personal/Sensitive/Unknown)
++ *   - Per-card privacy toggle
++ *   - Actions: View, Rename, Tag, Reset, Delete
++ *
++ * WHERE IT FITS IN ARCHITECTURE:
++ * Route: /import
++ * Stores: emailIngestionStore, documentImportStore
++ * IndexedDB: pathos-documents-db (for file blobs)
++ *
++ * HOUSE RULES COMPLIANCE (Day 22):
++ * - No `var` - uses `const` and `let` only
++ * - No `?.` or `??` - uses explicit null/undefined checks
++ * - No `...` spread - uses Object.assign and explicit loops
++ * - Over-commented for teaching-level clarity
++ * - UI copy uses "Import" (never "ingest/ingestion")
++ *
++ * @version Day 22 - Universal Document Import v1
++ * ============================================================================
++ */
++
++import { useState, useEffect, useRef, useCallback } from 'react';
++import {
++  Mail,
++  Upload,
++  Trash2,
++  Eye,
++  EyeOff,
++  ChevronDown,
++  ChevronUp,
++  FileText,
++  ClipboardPaste,
++  X,
++  AlertCircle,
++  File,
++  FileType,
++  Edit2,
++  Tag,
++  RotateCcw,
++  AlertTriangle,
++  Inbox,
++} from 'lucide-react';
++import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
++import { Badge } from '@/components/ui/badge';
++import { Button } from '@/components/ui/button';
++import { Textarea } from '@/components/ui/textarea';
++import { Input } from '@/components/ui/input';
++import { Label } from '@/components/ui/label';
++import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
++import {
++  Select,
++  SelectContent,
++  SelectItem,
++  SelectTrigger,
++  SelectValue,
++} from '@/components/ui/select';
++
++// Email ingestion store (Day 21)
++import {
++  useEmailIngestionStore,
++  selectEmails,
++  selectIsLoaded as selectEmailIsLoaded,
++} from '@/store/emailIngestionStore';
++import type { EmailIngestedItem, EmailSourceType } from '@/store/emailIngestionStore';
++import type { EmailClassification } from '@/lib/email';
++
++// Document import store (Day 22)
++import {
++  useDocumentImportStore,
++  selectDocuments,
++  selectDocumentImportIsLoaded,
++  SUPPORTED_FILE_EXTENSIONS,
++  SUPPORTED_FILE_MIME_TYPES,
++} from '@/store/documentImportStore';
++import type { ImportedDocument, DocumentType } from '@/store/documentImportStore';
++
++// Classification types and helpers (Day 22)
++import {
++  CATEGORY_LABELS,
++  CATEGORY_COLORS,
++  SENSITIVITY_LABELS,
++  SENSITIVITY_COLORS,
++  ALL_CATEGORIES,
++  ALL_SENSITIVITY_LABELS,
++} from '@/lib/documents';
++import type { DocumentCategory, SensitivityLabel } from '@/lib/documents';
++
++// IndexedDB helpers for viewing (Day 22)
++import { createDocumentBlobUrl } from '@/lib/storage/indexeddb';
++
++// ============================================================================
++// EMAIL CLASSIFICATION DISPLAY HELPERS (from Day 21)
++// ============================================================================
++
++/**
++ * Maps email classification categories to display colors.
++ */
++const EMAIL_CLASSIFICATION_COLORS: Record<EmailClassification, string> = {
++  PayStub: 'bg-green-500/20 text-green-400 border-green-500/30',
++  RelocationOrders: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
++  FEHB: 'bg-purple-500/20 text-purple-400 border-purple-500/30',
++  JobPosting: 'bg-amber-500/20 text-amber-400 border-amber-500/30',
++  Other: 'bg-slate-500/20 text-slate-400 border-slate-500/30',
++};
++
++/**
++ * Maps email classification categories to human-readable labels.
++ */
++const EMAIL_CLASSIFICATION_LABELS: Record<EmailClassification, string> = {
++  PayStub: 'Pay Stub',
++  RelocationOrders: 'Relocation Orders',
++  FEHB: 'FEHB',
++  JobPosting: 'Job Posting',
++  Other: 'Other',
++};
++
++/**
++ * Maps email source types to display labels.
++ */
++const EMAIL_SOURCE_LABELS: Record<EmailSourceType, string> = {
++  pasted: 'Pasted Email',
++  attachments: 'Attachments',
++  eml: 'Saved Email (.eml)',
++};
++
++/**
++ * Maps email source types to badge colors.
++ */
++const EMAIL_SOURCE_COLORS: Record<EmailSourceType, string> = {
++  pasted: 'bg-cyan-500/20 text-cyan-400 border-cyan-500/30',
++  attachments: 'bg-orange-500/20 text-orange-400 border-orange-500/30',
++  eml: 'bg-slate-500/20 text-slate-400 border-slate-500/30',
++};
++
++// ============================================================================
++// DOCUMENT TYPE DISPLAY HELPERS
++// ============================================================================
++
++/**
++ * Maps document types to display labels.
++ */
++const DOC_TYPE_LABELS: Record<DocumentType, string> = {
++  pdf: 'PDF',
++  docx: 'DOCX',
++  txt: 'TXT',
++  text: 'Text',
++};
++
++/**
++ * Maps document types to badge colors.
++ */
++const DOC_TYPE_COLORS: Record<DocumentType, string> = {
++  pdf: 'bg-red-500/20 text-red-400 border-red-500/30',
++  docx: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
++  txt: 'bg-green-500/20 text-green-400 border-green-500/30',
++  text: 'bg-cyan-500/20 text-cyan-400 border-cyan-500/30',
++};
++
++// ============================================================================
++// DOCUMENT ITEM COMPONENT
++// ============================================================================
++
++interface DocumentItemProps {
++  doc: ImportedDocument;
++  onDelete: (id: string) => void;
++  onToggleHidden: (id: string) => void;
++  onUpdateTitle: (id: string, title: string) => void;
++  onUpdateCategory: (id: string, category: DocumentCategory) => void;
++  onUpdateSensitivity: (id: string, sensitivity: SensitivityLabel) => void;
++  onAddTag: (id: string, tag: string) => void;
++  onRemoveTag: (id: string, tag: string) => void;
++  onResetFields: (id: string) => void;
++  onView: (id: string) => void;
++}
++
++/**
++ * Renders a single document item in the import list.
++ */
++function DocumentItem(props: DocumentItemProps) {
++  const doc = props.doc;
++  const onDelete = props.onDelete;
++  const onToggleHidden = props.onToggleHidden;
++  const onUpdateTitle = props.onUpdateTitle;
++  const onUpdateCategory = props.onUpdateCategory;
++  const onUpdateSensitivity = props.onUpdateSensitivity;
++  const onAddTag = props.onAddTag;
++  const onRemoveTag = props.onRemoveTag;
++  const onResetFields = props.onResetFields;
++  const onView = props.onView;
++
++  const [isExpanded, setIsExpanded] = useState(false);
++  const [isEditing, setIsEditing] = useState(false);
++  const [editTitle, setEditTitle] = useState(doc.title);
++  const [newTag, setNewTag] = useState('');
++
++  /**
++   * Handle title edit save.
++   */
++  const handleSaveTitle = useCallback(function () {
++    if (editTitle.trim() !== '') {
++      onUpdateTitle(doc.id, editTitle.trim());
++    }
++    setIsEditing(false);
++  }, [doc.id, editTitle, onUpdateTitle]);
++
++  /**
++   * Handle add tag.
++   */
++  const handleAddTag = useCallback(function () {
++    if (newTag.trim() !== '') {
++      onAddTag(doc.id, newTag.trim());
++      setNewTag('');
++    }
++  }, [doc.id, newTag, onAddTag]);
++
++  // Format date for display
++  const displayDate = new Date(doc.createdAt).toLocaleDateString('en-US', {
++    year: 'numeric',
++    month: 'short',
++    day: 'numeric',
++    hour: '2-digit',
++    minute: '2-digit',
++  });
++
++  // Format file size
++  const formatSize = function (bytes: number): string {
++    if (bytes < 1024) return bytes + ' B';
++    if (bytes < 1024 * 1024) return Math.round(bytes / 1024) + ' KB';
++    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
++  };
++
++  return (
++    <div
++      className={
++        'rounded-lg border border-border bg-card/50 transition-colors ' +
++        (doc.isHidden ? 'opacity-50' : '')
++      }
++    >
++      {/* Header row */}
++      <div className="flex items-start justify-between p-4">
++        <div className="flex items-start gap-3 flex-1 min-w-0">
++          <FileText className="w-5 h-5 text-amber-600 mt-0.5 flex-shrink-0" />
++          <div className="flex-1 min-w-0">
++            {/* Title - editable */}
++            {isEditing ? (
++              <div className="flex items-center gap-2">
++                <Input
++                  value={editTitle}
++                  onChange={function (e) { setEditTitle(e.target.value); }}
++                  className="h-8 text-sm"
++                  onKeyDown={function (e) {
++                    if (e.key === 'Enter') handleSaveTitle();
++                    if (e.key === 'Escape') {
++                      setEditTitle(doc.title);
++                      setIsEditing(false);
++                    }
++                  }}
++                  autoFocus
++                />
++                <Button type="button" size="sm" onClick={handleSaveTitle}>Save</Button>
++                <Button
++                  type="button"
++                  size="sm"
++                  variant="ghost"
++                  onClick={function () {
++                    setEditTitle(doc.title);
++                    setIsEditing(false);
++                  }}
++                >
++                  Cancel
++                </Button>
++              </div>
++            ) : (
++              <p className="text-sm font-medium text-foreground truncate">{doc.title}</p>
++            )}
++
++            {/* Meta info */}
++            <div className="flex items-center gap-2 mt-1 flex-wrap">
++              <span className="text-xs text-muted-foreground">{displayDate}</span>
++              <span className="text-xs text-muted-foreground">&bull;</span>
++              <span className="text-xs text-muted-foreground">{formatSize(doc.sizeBytes)}</span>
++            </div>
++
++            {/* Tags */}
++            {doc.tags.length > 0 && (
++              <div className="flex items-center gap-1 mt-2 flex-wrap">
++                {doc.tags.map(function (tag, idx) {
++                  return (
++                    <span
++                      key={idx}
++                      className="text-xs bg-secondary/30 text-secondary-foreground px-2 py-0.5 rounded flex items-center gap-1"
++                    >
++                      {tag}
++                      <button
++                        type="button"
++                        onClick={function () { onRemoveTag(doc.id, tag); }}
++                        className="text-muted-foreground hover:text-red-400"
++                      >
++                        <X className="w-3 h-3" />
++                      </button>
++                    </span>
++                  );
++                })}
++              </div>
++            )}
++          </div>
++        </div>
++
++        {/* Badges */}
++        <div className="flex flex-col gap-1 ml-2">
++          <Badge className={DOC_TYPE_COLORS[doc.type]}>{DOC_TYPE_LABELS[doc.type]}</Badge>
++          <Badge className={CATEGORY_COLORS[doc.category]}>{CATEGORY_LABELS[doc.category]}</Badge>
++          <Badge className={SENSITIVITY_COLORS[doc.sensitivity]}>{SENSITIVITY_LABELS[doc.sensitivity]}</Badge>
++        </div>
++      </div>
++
++      {/* Actions row */}
++      <div className="flex items-center gap-2 px-4 pb-4 border-t border-border/50 pt-3 flex-wrap">
++        <Button
++          type="button"
++          variant="ghost"
++          size="sm"
++          onClick={function () { setIsExpanded(!isExpanded); }}
++          className="text-xs"
++        >
++          {isExpanded ? (
++            <><ChevronUp className="w-4 h-4 mr-1" />Hide</>
++          ) : (
++            <><ChevronDown className="w-4 h-4 mr-1" />Details</>
++          )}
++        </Button>
++
++        <Button
++          type="button"
++          variant="ghost"
++          size="sm"
++          onClick={function () { onView(doc.id); }}
++          className="text-xs"
++        >
++          <Eye className="w-4 h-4 mr-1" />View
++        </Button>
++
++        <Button
++          type="button"
++          variant="ghost"
++          size="sm"
++          onClick={function () { setIsEditing(true); }}
++          className="text-xs"
++        >
++          <Edit2 className="w-4 h-4 mr-1" />Rename
++        </Button>
++
++        <Button
++          type="button"
++          variant="ghost"
++          size="sm"
++          onClick={function () { onToggleHidden(doc.id); }}
++          className="text-xs"
++        >
++          {doc.isHidden ? (
++            <><Eye className="w-4 h-4 mr-1" />Show</>
++          ) : (
++            <><EyeOff className="w-4 h-4 mr-1" />Hide</>
++          )}
++        </Button>
++
++        <Button
++          type="button"
++          variant="ghost"
++          size="sm"
++          onClick={function () { onResetFields(doc.id); }}
++          className="text-xs"
++        >
++          <RotateCcw className="w-4 h-4 mr-1" />Reset
++        </Button>
++
++        <Button
++          type="button"
++          variant="ghost"
++          size="sm"
++          onClick={function () { onDelete(doc.id); }}
++          className="text-xs text-red-400 hover:text-red-300 hover:bg-red-500/10"
++        >
++          <Trash2 className="w-4 h-4 mr-1" />Delete
++        </Button>
++      </div>
++
++      {/* Expanded content */}
++      {isExpanded && (
++        <div className="border-t border-border/50 p-4 bg-secondary/10 space-y-4">
++          {/* Edit controls */}
++          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
++            {/* Category select */}
++            <div>
++              <Label className="text-xs font-medium text-muted-foreground mb-1 block">Category</Label>
++              <Select
++                value={doc.category}
++                onValueChange={function (val) { onUpdateCategory(doc.id, val as DocumentCategory); }}
++              >
++                <SelectTrigger className="h-8 text-xs">
++                  <SelectValue />
++                </SelectTrigger>
++                <SelectContent>
++                  {ALL_CATEGORIES.map(function (cat) {
++                    return (
++                      <SelectItem key={cat} value={cat}>{CATEGORY_LABELS[cat]}</SelectItem>
++                    );
++                  })}
++                </SelectContent>
++              </Select>
++            </div>
++
++            {/* Sensitivity select */}
++            <div>
++              <Label className="text-xs font-medium text-muted-foreground mb-1 block">Sensitivity</Label>
++              <Select
++                value={doc.sensitivity}
++                onValueChange={function (val) { onUpdateSensitivity(doc.id, val as SensitivityLabel); }}
++              >
++                <SelectTrigger className="h-8 text-xs">
++                  <SelectValue />
++                </SelectTrigger>
++                <SelectContent>
++                  {ALL_SENSITIVITY_LABELS.map(function (sens) {
++                    return (
++                      <SelectItem key={sens} value={sens}>{SENSITIVITY_LABELS[sens]}</SelectItem>
++                    );
++                  })}
++                </SelectContent>
++              </Select>
++            </div>
++
++            {/* Add tag */}
++            <div>
++              <Label className="text-xs font-medium text-muted-foreground mb-1 block">Add Tag</Label>
++              <div className="flex gap-1">
++                <Input
++                  value={newTag}
++                  onChange={function (e) { setNewTag(e.target.value); }}
++                  placeholder="New tag..."
++                  className="h-8 text-xs"
++                  onKeyDown={function (e) {
++                    if (e.key === 'Enter') handleAddTag();
++                  }}
++                />
++                <Button type="button" size="sm" onClick={handleAddTag} className="h-8">
++                  <Tag className="w-3 h-3" />
++                </Button>
++              </div>
++            </div>
++          </div>
++
++          {/* Classification info */}
++          <div className="text-xs text-muted-foreground">
++            <span className="font-medium">Classification confidence:</span>{' '}
++            {Math.round(doc.classificationConfidence * 100)}%
++            {doc.classificationKeywords.length > 0 && (
++              <span> ΓÇó Keywords: {doc.classificationKeywords.join(', ')}</span>
++            )}
++          </div>
++
++          {/* Preview for text content */}
++          {doc.textContent !== null && doc.type === 'text' && (
++            <div>
++              <Label className="text-xs font-medium text-muted-foreground mb-2 block">Content Preview</Label>
++              <pre className="text-xs bg-secondary/20 p-3 rounded overflow-auto max-h-48 whitespace-pre-wrap font-mono">
++                {doc.textContent.length > 2000
++                  ? doc.textContent.substring(0, 2000) + '...'
++                  : doc.textContent}
++              </pre>
++            </div>
++          )}
++        </div>
++      )}
++    </div>
++  );
++}
++
++// ============================================================================
++// EMAIL ITEM COMPONENT (from Day 21, simplified)
++// ============================================================================
++
++interface EmailItemSimpleProps {
++  email: EmailIngestedItem;
++  onDelete: (id: string) => void;
++  onToggleHidden: (id: string) => void;
++}
++
++/**
++ * Renders a single email item in the import list (simplified from Day 21).
++ */
++function EmailItemSimple(props: EmailItemSimpleProps) {
++  const email = props.email;
++  const onDelete = props.onDelete;
++  const onToggleHidden = props.onToggleHidden;
++
++  const [isExpanded, setIsExpanded] = useState(false);
++
++  // Format the email date for display
++  const displayDate = email.date !== '' ? email.date : email.createdAt.substring(0, 10);
++
++  // Get classification styling
++  const classColor = EMAIL_CLASSIFICATION_COLORS[email.classification];
++  const classLabel = EMAIL_CLASSIFICATION_LABELS[email.classification];
++
++  // Get source type styling
++  const sourceType: EmailSourceType = email.sourceType !== undefined && email.sourceType !== null
++    ? email.sourceType
++    : 'pasted';
++  const sourceLabel = EMAIL_SOURCE_LABELS[sourceType];
++  const sourceColor = EMAIL_SOURCE_COLORS[sourceType];
++
++  return (
++    <div
++      className={
++        'rounded-lg border border-border bg-card/50 transition-colors ' +
++        (email.isHidden ? 'opacity-50' : '')
++      }
++    >
++      {/* Header row */}
++      <div className="flex items-start justify-between p-4">
++        <div className="flex items-start gap-3 flex-1 min-w-0">
++          <Mail className="w-5 h-5 text-amber-600 mt-0.5 flex-shrink-0" />
++          <div className="flex-1 min-w-0">
++            <p className="text-sm font-medium text-foreground truncate">
++              {email.subject !== '' ? email.subject : '(No Subject)'}
++            </p>
++            <div className="flex items-center gap-2 mt-1 flex-wrap">
++              <span className="text-xs text-muted-foreground">
++                From: {email.from !== '' ? email.from : '(Unknown)'}
++              </span>
++              <span className="text-xs text-muted-foreground">&bull;</span>
++              <span className="text-xs text-muted-foreground">{displayDate}</span>
++            </div>
++          </div>
++        </div>
++
++        {/* Badges */}
++        <div className="flex flex-col gap-1 ml-2">
++          <Badge className={classColor}>{classLabel}</Badge>
++          <Badge className={sourceColor}>{sourceLabel}</Badge>
++        </div>
++      </div>
++
++      {/* Actions row */}
++      <div className="flex items-center gap-2 px-4 pb-4 border-t border-border/50 pt-3">
++        <Button
++          type="button"
++          variant="ghost"
++          size="sm"
++          onClick={function () { setIsExpanded(!isExpanded); }}
++          className="text-xs"
++        >
++          {isExpanded ? (
++            <><ChevronUp className="w-4 h-4 mr-1" />Hide</>
++          ) : (
++            <><ChevronDown className="w-4 h-4 mr-1" />Details</>
++          )}
++        </Button>
++
++        <Button
++          type="button"
++          variant="ghost"
++          size="sm"
++          onClick={function () { onToggleHidden(email.id); }}
++          className="text-xs"
++        >
++          {email.isHidden ? (
++            <><Eye className="w-4 h-4 mr-1" />Show</>
++          ) : (
++            <><EyeOff className="w-4 h-4 mr-1" />Hide</>
++          )}
++        </Button>
++
++        <Button
++          type="button"
++          variant="ghost"
++          size="sm"
++          onClick={function () { onDelete(email.id); }}
++          className="text-xs text-red-400 hover:text-red-300 hover:bg-red-500/10"
++        >
++          <Trash2 className="w-4 h-4 mr-1" />Delete
++        </Button>
++      </div>
++
++      {/* Expanded content */}
++      {isExpanded && (
++        <div className="border-t border-border/50 p-4 bg-secondary/10">
++          <pre className="text-xs bg-secondary/20 p-3 rounded overflow-auto max-h-48 whitespace-pre-wrap font-mono">
++            {email.raw}
++          </pre>
++        </div>
++      )}
++    </div>
++  );
++}
++
++// ============================================================================
++// MAIN PAGE COMPONENT
++// ============================================================================
++
++export default function ImportCenterPage() {
++  // =========================================================================
++  // STATE
++  // =========================================================================
++
++  const [activeTab, setActiveTab] = useState('files');
++
++  // Files & Text Import state
++  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
++  const [pasteText, setPasteText] = useState('');
++  const [pasteTitle, setPasteTitle] = useState('');
++  const fileInputRef = useRef<HTMLInputElement>(null);
++
++  // Drag & drop state (Day 22 Run 2 - Fix 1)
++  const [isDragOver, setIsDragOver] = useState(false);
++
++  // Email Import state
++  const [emailPasteText, setEmailPasteText] = useState('');
++  const emailFileInputRef = useRef<HTMLInputElement>(null);
++  const [selectedEmlFile, setSelectedEmlFile] = useState<File | null>(null);
++
++  // General UI state
++  const [isProcessing, setIsProcessing] = useState(false);
++  const [errorMessage, setErrorMessage] = useState('');
++  const [successMessage, setSuccessMessage] = useState('');
++
++  // Viewing state
++  const [viewingDocId, setViewingDocId] = useState<string | null>(null);
++  const [viewingBlobUrl, setViewingBlobUrl] = useState<string | null>(null);
++  const [viewingContent, setViewingContent] = useState<string | null>(null);
++
++  // =========================================================================
++  // DOCUMENT IMPORT STORE
++  // =========================================================================
++
++  const documents = useDocumentImportStore(selectDocuments);
++  const docIsLoaded = useDocumentImportStore(selectDocumentImportIsLoaded);
++  const loadDocsFromStorage = useDocumentImportStore(function (state) { return state.loadFromStorage; });
++  const importFile = useDocumentImportStore(function (state) { return state.importFile; });
++  const importText = useDocumentImportStore(function (state) { return state.importText; });
++  const deleteDocument = useDocumentImportStore(function (state) { return state.deleteDocument; });
++  const toggleDocHidden = useDocumentImportStore(function (state) { return state.toggleHidden; });
++  const updateDocTitle = useDocumentImportStore(function (state) { return state.updateTitle; });
++  const updateDocCategory = useDocumentImportStore(function (state) { return state.updateCategory; });
++  const updateDocSensitivity = useDocumentImportStore(function (state) { return state.updateSensitivity; });
++  const addDocTag = useDocumentImportStore(function (state) { return state.addTag; });
++  const removeDocTag = useDocumentImportStore(function (state) { return state.removeTag; });
++  const resetDocFields = useDocumentImportStore(function (state) { return state.resetDocumentFields; });
++  const getDocument = useDocumentImportStore(function (state) { return state.getDocument; });
++
++  // =========================================================================
++  // EMAIL INGESTION STORE
++  // =========================================================================
++
++  const emails = useEmailIngestionStore(selectEmails);
++  const emailIsLoaded = useEmailIngestionStore(selectEmailIsLoaded);
++  const loadEmailsFromStorage = useEmailIngestionStore(function (state) { return state.loadFromStorage; });
++  const ingestEmailFromText = useEmailIngestionStore(function (state) { return state.ingestFromText; });
++  const ingestEmlFile = useEmailIngestionStore(function (state) { return state.ingestFromEmlFile; });
++  const deleteEmail = useEmailIngestionStore(function (state) { return state.deleteEmail; });
++  const toggleEmailHidden = useEmailIngestionStore(function (state) { return state.toggleHidden; });
++
++  // =========================================================================
++  // EFFECTS
++  // =========================================================================
++
++  // Load from storage on mount
++  useEffect(function () {
++    if (!docIsLoaded) {
++      loadDocsFromStorage();
++    }
++  }, [docIsLoaded, loadDocsFromStorage]);
++
++  useEffect(function () {
++    if (!emailIsLoaded) {
++      loadEmailsFromStorage();
++    }
++  }, [emailIsLoaded, loadEmailsFromStorage]);
++
++  // Clean up blob URL when viewing changes
++  useEffect(function () {
++    return function () {
++      if (viewingBlobUrl !== null) {
++        URL.revokeObjectURL(viewingBlobUrl);
++      }
++    };
++  }, [viewingBlobUrl]);
++
++  // =========================================================================
++  // FILES & TEXT IMPORT HANDLERS
++  // =========================================================================
++
++  const handleFilesChange = useCallback(function (e: React.ChangeEvent<HTMLInputElement>) {
++    const files = e.target.files;
++    if (files !== null && files.length > 0) {
++      const filesArray: File[] = [];
++      for (let i = 0; i < files.length; i++) {
++        filesArray.push(files[i]);
++      }
++      setSelectedFiles(filesArray);
++      setErrorMessage('');
++      setSuccessMessage('');
++    }
++  }, []);
++
++  const handleRemoveFile = useCallback(function (index: number) {
++    setSelectedFiles(function (prev) {
++      const newList: File[] = [];
++      for (let i = 0; i < prev.length; i++) {
++        if (i !== index) {
++          newList.push(prev[i]);
++        }
++      }
++      return newList;
++    });
++  }, []);
++
++  // =========================================================================
++  // DRAG & DROP HANDLERS (Day 22 Run 2 - Fix 1)
++  // These handlers implement actual drag/drop support for the file dropzone.
++  // Uses the same SUPPORTED_FILE_MIME_TYPES and SUPPORTED_FILE_EXTENSIONS
++  // constants from the store to ensure UI and store enforce the same list.
++  // =========================================================================
++
++  /**
++   * Checks if a file is a supported type by MIME type or extension.
++   * Uses the exported constants from documentImportStore for consistency.
++   * Returns true if supported, false otherwise.
++   */
++  const isFileSupported = useCallback(function (file: File): boolean {
++    // Check MIME type first (most reliable method)
++    for (let i = 0; i < SUPPORTED_FILE_MIME_TYPES.length; i++) {
++      if (file.type === SUPPORTED_FILE_MIME_TYPES[i]) {
++        return true;
++      }
++    }
++    // Fallback to extension check (some browsers may not provide MIME type)
++    const lowerName = file.name.toLowerCase();
++    for (let i = 0; i < SUPPORTED_FILE_EXTENSIONS.length; i++) {
++      const ext = SUPPORTED_FILE_EXTENSIONS[i];
++      // Check if filename ends with this extension
++      if (lowerName.length >= ext.length) {
++        const ending = lowerName.substring(lowerName.length - ext.length);
++        if (ending === ext) {
++          return true;
++        }
++      }
++    }
++    return false;
++  }, []);
++
++  /**
++   * Handles dragover event on the dropzone.
++   * Must call preventDefault to allow drop.
++   */
++  const handleDragOver = useCallback(function (e: React.DragEvent<HTMLDivElement>) {
++    e.preventDefault();
++    e.stopPropagation();
++  }, []);
++
++  /**
++   * Handles dragenter event - shows visual feedback.
++   */
++  const handleDragEnter = useCallback(function (e: React.DragEvent<HTMLDivElement>) {
++    e.preventDefault();
++    e.stopPropagation();
++    setIsDragOver(true);
++  }, []);
++
++  /**
++   * Handles dragleave event - hides visual feedback.
++   * Only hides when leaving the dropzone entirely (not child elements).
++   */
++  const handleDragLeave = useCallback(function (e: React.DragEvent<HTMLDivElement>) {
++    e.preventDefault();
++    e.stopPropagation();
++    // Check if we're leaving the dropzone entirely
++    const relatedTarget = e.relatedTarget as Node | null;
++    const currentTarget = e.currentTarget;
++    if (relatedTarget === null || !currentTarget.contains(relatedTarget)) {
++      setIsDragOver(false);
++    }
++  }, []);
++
++  /**
++   * Handles drop event - processes dropped files.
++   * Filters to supported types and shows error for unsupported files.
++   */
++  const handleDrop = useCallback(function (e: React.DragEvent<HTMLDivElement>) {
++    e.preventDefault();
++    e.stopPropagation();
++    setIsDragOver(false);
++    setErrorMessage('');
++    setSuccessMessage('');
++
++    const dataTransfer = e.dataTransfer;
++    if (dataTransfer === null || dataTransfer === undefined) {
++      return;
++    }
++
++    const droppedFiles = dataTransfer.files;
++    if (droppedFiles === null || droppedFiles.length === 0) {
++      return;
++    }
++
++    // Separate supported and unsupported files
++    const supported: File[] = [];
++    const unsupported: string[] = [];
++
++    for (let i = 0; i < droppedFiles.length; i++) {
++      const file = droppedFiles[i];
++      if (isFileSupported(file)) {
++        supported.push(file);
++      } else {
++        unsupported.push(file.name);
++      }
++    }
++
++    // Set supported files
++    if (supported.length > 0) {
++      setSelectedFiles(supported);
++    }
++
++    // Show error for unsupported files
++    if (unsupported.length > 0) {
++      const unsupportedList = unsupported.join(', ');
++      setErrorMessage(
++        'Unsupported file type(s): ' + unsupportedList +
++        '. Supported types: PDF, DOCX, TXT.'
++      );
++    }
++  }, [isFileSupported]);
++
++  const handleImportFiles = useCallback(async function () {
++    setErrorMessage('');
++    setSuccessMessage('');
++    setIsProcessing(true);
++
++    try {
++      if (selectedFiles.length === 0) {
++        setErrorMessage('Please select files to import.');
++        setIsProcessing(false);
++        return;
++      }
++
++      let imported = 0;
++      for (let i = 0; i < selectedFiles.length; i++) {
++        await importFile(selectedFiles[i]);
++        imported = imported + 1;
++      }
++
++      setSuccessMessage('Imported ' + imported + ' file(s) successfully.');
++      setSelectedFiles([]);
++      const input = fileInputRef.current;
++      if (input !== null) {
++        input.value = '';
++      }
++    } catch (err) {
++      const errorMsg = err instanceof Error ? err.message : 'Failed to import files';
++      setErrorMessage(errorMsg);
++    } finally {
++      setIsProcessing(false);
++    }
++  }, [selectedFiles, importFile]);
++
++  const handleImportPastedText = useCallback(function () {
++    setErrorMessage('');
++    setSuccessMessage('');
++    setIsProcessing(true);
++
++    try {
++      if (pasteText.trim() === '') {
++        setErrorMessage('Please paste text to import.');
++        setIsProcessing(false);
++        return;
++      }
++
++      const title = pasteTitle.trim() !== '' ? pasteTitle.trim() : null;
++      const result = importText(pasteText, title);
++      setSuccessMessage('Text imported: ' + result.title);
++      setPasteText('');
++      setPasteTitle('');
++    } catch (err) {
++      const errorMsg = err instanceof Error ? err.message : 'Failed to import text';
++      setErrorMessage(errorMsg);
++    } finally {
++      setIsProcessing(false);
++    }
++  }, [pasteText, pasteTitle, importText]);
++
++  // =========================================================================
++  // EMAIL IMPORT HANDLERS
++  // =========================================================================
++
++  const handleEmailPasteChange = useCallback(function (e: React.ChangeEvent<HTMLTextAreaElement>) {
++    setEmailPasteText(e.target.value);
++    setErrorMessage('');
++    setSuccessMessage('');
++  }, []);
++
++  const handleImportEmailPasted = useCallback(function () {
++    setErrorMessage('');
++    setSuccessMessage('');
++    setIsProcessing(true);
++
++    try {
++      if (emailPasteText.trim() === '') {
++        setErrorMessage('Please paste email content to import.');
++        setIsProcessing(false);
++        return;
++      }
++
++      const result = ingestEmailFromText(emailPasteText);
++      setSuccessMessage('Email imported: ' + (result.subject !== '' ? result.subject : '(No Subject)'));
++      setEmailPasteText('');
++    } catch (err) {
++      const errorMsg = err instanceof Error ? err.message : 'Failed to import email';
++      setErrorMessage(errorMsg);
++    } finally {
++      setIsProcessing(false);
++    }
++  }, [emailPasteText, ingestEmailFromText]);
++
++  const handleEmlFileChange = useCallback(function (e: React.ChangeEvent<HTMLInputElement>) {
++    const files = e.target.files;
++    if (files !== null && files.length > 0) {
++      setSelectedEmlFile(files[0]);
++      setErrorMessage('');
++      setSuccessMessage('');
++    }
++  }, []);
++
++  const handleImportEml = useCallback(async function () {
++    setErrorMessage('');
++    setSuccessMessage('');
++    setIsProcessing(true);
++
++    try {
++      if (selectedEmlFile === null) {
++        setErrorMessage('Please select a .eml file to import.');
++        setIsProcessing(false);
++        return;
++      }
++
++      const result = await ingestEmlFile(selectedEmlFile);
++      setSuccessMessage('Email imported: ' + (result.subject !== '' ? result.subject : '(No Subject)'));
++      setSelectedEmlFile(null);
++      const input = emailFileInputRef.current;
++      if (input !== null) {
++        input.value = '';
++      }
++    } catch (err) {
++      const errorMsg = err instanceof Error ? err.message : 'Failed to import email file';
++      setErrorMessage(errorMsg);
++    } finally {
++      setIsProcessing(false);
++    }
++  }, [selectedEmlFile, ingestEmlFile]);
++
++  // =========================================================================
++  // VIEW HANDLERS
++  // =========================================================================
++
++  const handleViewDocument = useCallback(async function (id: string) {
++    const doc = getDocument(id);
++    if (doc === null) {
++      setErrorMessage('Document not found.');
++      return;
++    }
++
++    setViewingDocId(id);
++
++    // For pasted text, just show content
++    if (doc.type === 'text' && doc.textContent !== null) {
++      setViewingContent(doc.textContent);
++      setViewingBlobUrl(null);
++      return;
++    }
++
++    // For files with blob storage
++    if (doc.hasBlobStorage) {
++      const url = await createDocumentBlobUrl(id);
++      if (url !== null) {
++        setViewingBlobUrl(url);
++        setViewingContent(null);
++
++        // For PDF, open in new tab
++        if (doc.type === 'pdf') {
++          window.open(url, '_blank');
++        }
++        // For TXT stored as blob, fetch and show content
++        if (doc.type === 'txt') {
++          try {
++            const response = await fetch(url);
++            const text = await response.text();
++            setViewingContent(text);
++          } catch (error) {
++            console.error('Failed to fetch text content:', error);
++          }
++        }
++        // For DOCX, offer download
++        if (doc.type === 'docx') {
++          // Create download link
++          const a = document.createElement('a');
++          a.href = url;
++          a.download = doc.title;
++          document.body.appendChild(a);
++          a.click();
++          document.body.removeChild(a);
++          setSuccessMessage('Downloaded: ' + doc.title);
++        }
++      } else {
++        setErrorMessage('Could not load document. File may be missing from storage.');
++      }
++    }
++  }, [getDocument]);
++
++  const handleCloseViewer = useCallback(function () {
++    if (viewingBlobUrl !== null) {
++      URL.revokeObjectURL(viewingBlobUrl);
++    }
++    setViewingDocId(null);
++    setViewingBlobUrl(null);
++    setViewingContent(null);
++  }, [viewingBlobUrl]);
++
++  // =========================================================================
++  // RENDER
++  // =========================================================================
++
++  return (
++    <div className="p-6 space-y-6 max-w-5xl mx-auto">
++      {/* Header */}
++      <div className="space-y-2">
++        <h1 className="text-3xl font-bold text-foreground">Import Center</h1>
++      </div>
++
++      {/* OPSEC Warning */}
++      <Card className="border-amber-500/30 bg-amber-900/10">
++        <CardContent className="py-4">
++          <div className="flex items-start gap-3">
++            <AlertTriangle className="w-5 h-5 text-amber-600 mt-0.5 flex-shrink-0" />
++            <div>
++              <p className="font-medium text-foreground">
++                Import emails you already have. Save job notices and attachments here so PathOS can use them in your workflow.
++              </p>
++              <p className="text-sm text-muted-foreground mt-1">
++                <strong>OPSEC:</strong> Don&apos;t import classified or CUI content.
++              </p>
++            </div>
++          </div>
++        </CardContent>
++      </Card>
++
++      {/* Error/Success Messages */}
++      {errorMessage !== '' && (
++        <div className="bg-red-500/10 border border-red-500/30 text-red-400 text-sm p-3 rounded-lg flex items-center gap-2">
++          <AlertCircle className="w-4 h-4 flex-shrink-0" />
++          {errorMessage}
++        </div>
++      )}
++
++      {successMessage !== '' && (
++        <div className="bg-green-500/10 border border-green-500/30 text-green-400 text-sm p-3 rounded-lg">
++          {successMessage}
++        </div>
++      )}
++
++      {/* Tabs for Import Types */}
++      <Tabs value={activeTab} onValueChange={setActiveTab}>
++        <TabsList className="grid w-full grid-cols-2">
++          <TabsTrigger value="files">
++            <FileText className="w-4 h-4 mr-2" />
++            Files & Text
++          </TabsTrigger>
++          <TabsTrigger value="email">
++            <Mail className="w-4 h-4 mr-2" />
++            Email Import
++          </TabsTrigger>
++        </TabsList>
++
++        {/* ================================================================ */}
++        {/* FILES & TEXT TAB */}
++        {/* ================================================================ */}
++        <TabsContent value="files" className="space-y-6 mt-6">
++          {/* File Upload Section */}
++          <Card className="border-accent/50">
++            <CardHeader>
++              <CardTitle className="text-lg flex items-center gap-2">
++                <Upload className="w-5 h-5 text-amber-600" />
++                Upload Files
++              </CardTitle>
++              <p className="text-sm text-muted-foreground mt-1">
++                Drag and drop or click to upload PDF, DOCX, or TXT files.
++              </p>
++            </CardHeader>
++            <CardContent className="space-y-4">
++              <input
++                ref={fileInputRef}
++                type="file"
++                accept=".pdf,.docx,.txt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain"
++                multiple
++                onChange={handleFilesChange}
++                className="hidden"
++              />
++
++              {/* 
++                Dropzone with drag & drop support (Day 22 Run 2 - Fix 1).
++                - Uses onDragOver, onDragEnter, onDragLeave, onDrop handlers
++                - Applies visual feedback when dragging over
++                - Filters dropped files to supported types (PDF/DOCX/TXT)
++              */}
++              <div
++                onClick={function () {
++                  const input = fileInputRef.current;
++                  if (input !== null) input.click();
++                }}
++                onDragOver={handleDragOver}
++                onDragEnter={handleDragEnter}
++                onDragLeave={handleDragLeave}
++                onDrop={handleDrop}
++                className={
++                  'border-2 border-dashed rounded-lg p-6 text-center transition-colors cursor-pointer ' +
++                  (isDragOver
++                    ? 'border-amber-500 bg-amber-500/10'
++                    : 'border-accent/50 hover:bg-accent/5')
++                }
++              >
++                <Upload className={'w-8 h-8 mx-auto mb-2 ' + (isDragOver ? 'text-amber-500' : 'text-accent')} />
++                <p className="text-sm font-medium text-foreground">
++                  {isDragOver ? 'Drop files to upload' : 'Drop files here or click to upload'}
++                </p>
++                <p className="text-xs text-muted-foreground mt-1">PDF, DOCX, TXT</p>
++              </div>
++
++              {selectedFiles.length > 0 && (
++                <div className="space-y-2">
++                  <Label className="text-xs font-medium text-muted-foreground">
++                    Selected ({selectedFiles.length})
++                  </Label>
++                  <div className="flex flex-wrap gap-2">
++                    {selectedFiles.map(function (file, idx) {
++                      return (
++                        <div key={idx} className="flex items-center gap-2 bg-secondary/30 px-3 py-1.5 rounded-lg text-sm">
++                          <File className="w-4 h-4" />
++                          <span className="truncate max-w-[200px]">{file.name}</span>
++                          <button
++                            type="button"
++                            onClick={function (e) { e.stopPropagation(); handleRemoveFile(idx); }}
++                            className="text-muted-foreground hover:text-red-400"
++                          >
++                            <X className="w-4 h-4" />
++                          </button>
++                        </div>
++                      );
++                    })}
++                  </div>
++                </div>
++              )}
++
++              <Button
++                onClick={handleImportFiles}
++                disabled={isProcessing || selectedFiles.length === 0}
++                className="w-full"
++              >
++                {isProcessing ? 'Importing...' : 'Import Files'}
++              </Button>
++            </CardContent>
++          </Card>
++
++          {/* Paste Text Section */}
++          <Card className="border-border">
++            <CardHeader>
++              <CardTitle className="text-lg flex items-center gap-2">
++                <ClipboardPaste className="w-5 h-5 text-amber-600" />
++                Paste Text
++              </CardTitle>
++              <p className="text-sm text-muted-foreground mt-1">
++                Paste any text content (job postings, notes, etc.) and save it to PathOS.
++              </p>
++            </CardHeader>
++            <CardContent className="space-y-4">
++              <div>
++                <Label htmlFor="paste-title" className="text-xs font-medium text-muted-foreground">
++                  Title (optional)
++                </Label>
++                <Input
++                  id="paste-title"
++                  placeholder="Give this text a title..."
++                  value={pasteTitle}
++                  onChange={function (e) { setPasteTitle(e.target.value); }}
++                  className="mt-1"
++                />
++              </div>
++              <div>
++                <Label htmlFor="paste-content" className="text-xs font-medium text-muted-foreground">
++                  Content
++                </Label>
++                <Textarea
++                  id="paste-content"
++                  placeholder="Paste text content here..."
++                  value={pasteText}
++                  onChange={function (e) { setPasteText(e.target.value); }}
++                  rows={6}
++                  className="mt-1"
++                />
++              </div>
++              <Button
++                onClick={handleImportPastedText}
++                disabled={isProcessing || pasteText.trim() === ''}
++                className="w-full"
++              >
++                {isProcessing ? 'Importing...' : 'Import Text'}
++              </Button>
++            </CardContent>
++          </Card>
++
++          {/* Imported Documents List */}
++          <Card className="border-border">
++            <CardHeader>
++              <div className="flex items-center justify-between">
++                <CardTitle className="text-lg flex items-center gap-2">
++                  <FileText className="w-5 h-5 text-amber-600" />
++                  Imported Documents
++                </CardTitle>
++                <Badge variant="secondary">{documents.length}</Badge>
++              </div>
++            </CardHeader>
++            <CardContent>
++              {!docIsLoaded ? (
++                <div className="text-center py-8 text-muted-foreground">Loading...</div>
++              ) : documents.length === 0 ? (
++                <div className="text-center py-8 text-muted-foreground">
++                  <File className="w-12 h-12 mx-auto mb-3 opacity-30" />
++                  <p>No documents imported yet.</p>
++                  <p className="text-sm mt-1">Upload files or paste text above.</p>
++                </div>
++              ) : (
++                <div className="space-y-3">
++                  {documents.map(function (doc) {
++                    return (
++                      <DocumentItem
++                        key={doc.id}
++                        doc={doc}
++                        onDelete={function (id) { deleteDocument(id); }}
++                        onToggleHidden={toggleDocHidden}
++                        onUpdateTitle={updateDocTitle}
++                        onUpdateCategory={updateDocCategory}
++                        onUpdateSensitivity={updateDocSensitivity}
++                        onAddTag={addDocTag}
++                        onRemoveTag={removeDocTag}
++                        onResetFields={resetDocFields}
++                        onView={handleViewDocument}
++                      />
++                    );
++                  })}
++                </div>
++              )}
++            </CardContent>
++          </Card>
++        </TabsContent>
++
++        {/* ================================================================ */}
++        {/* EMAIL IMPORT TAB */}
++        {/* ================================================================ */}
++        <TabsContent value="email" className="space-y-6 mt-6">
++          {/* Paste Email Section */}
++          <Card className="border-accent/50">
++            <CardHeader>
++              <CardTitle className="text-lg flex items-center gap-2">
++                <ClipboardPaste className="w-5 h-5 text-amber-600" />
++                Paste an email (recommended)
++              </CardTitle>
++              <p className="text-sm text-muted-foreground mt-1">
++                Copy the email content (subject/from/date/body) and paste it below.
++              </p>
++            </CardHeader>
++            <CardContent className="space-y-4">
++              <Textarea
++                placeholder={'Paste email headers and body here...\n\nFrom: sender@example.com\nTo: recipient@example.com\nSubject: Your Pay Statement\nDate: Mon, 15 Dec 2025 10:00:00 -0500\n\nBody text here...'}
++                value={emailPasteText}
++                onChange={handleEmailPasteChange}
++                rows={8}
++                className="font-mono text-xs"
++              />
++              <Button
++                onClick={handleImportEmailPasted}
++                disabled={isProcessing || emailPasteText.trim() === ''}
++                className="w-full"
++              >
++                {isProcessing ? 'Processing...' : 'Import Email Content'}
++              </Button>
++            </CardContent>
++          </Card>
++
++          {/* Upload .eml Section */}
++          <Card className="border-border">
++            <CardHeader>
++              <CardTitle className="text-lg flex items-center gap-2">
++                <FileType className="w-5 h-5 text-amber-600" />
++                Upload a saved email file (.eml)
++              </CardTitle>
++              <p className="text-sm text-muted-foreground mt-1">
++                If you have saved an email as a .eml file, upload it here.
++              </p>
++            </CardHeader>
++            <CardContent className="space-y-4">
++              <input
++                ref={emailFileInputRef}
++                type="file"
++                accept=".eml,.txt,message/rfc822"
++                onChange={handleEmlFileChange}
++                className="hidden"
++              />
++
++              <div
++                onClick={function () {
++                  const input = emailFileInputRef.current;
++                  if (input !== null) input.click();
++                }}
++                className="border-2 border-dashed border-border/50 rounded-lg p-4 text-center hover:bg-accent/5 transition-colors cursor-pointer"
++              >
++                <Upload className="w-6 h-6 text-muted-foreground mx-auto mb-2" />
++                {selectedEmlFile !== null ? (
++                  <p className="text-sm font-medium text-foreground">{selectedEmlFile.name}</p>
++                ) : (
++                  <p className="text-sm text-muted-foreground">Drop .eml file here or click to upload</p>
++                )}
++              </div>
++
++              <Button
++                onClick={handleImportEml}
++                disabled={isProcessing || selectedEmlFile === null}
++                className="w-full"
++              >
++                {isProcessing ? 'Processing...' : 'Import Saved Email'}
++              </Button>
++            </CardContent>
++          </Card>
++
++          {/* Imported Emails List */}
++          <Card className="border-border">
++            <CardHeader>
++              <div className="flex items-center justify-between">
++                <CardTitle className="text-lg flex items-center gap-2">
++                  <Inbox className="w-5 h-5 text-amber-600" />
++                  Imported Emails
++                </CardTitle>
++                <Badge variant="secondary">{emails.length}</Badge>
++              </div>
++            </CardHeader>
++            <CardContent>
++              {!emailIsLoaded ? (
++                <div className="text-center py-8 text-muted-foreground">Loading...</div>
++              ) : emails.length === 0 ? (
++                <div className="text-center py-8 text-muted-foreground">
++                  <Mail className="w-12 h-12 mx-auto mb-3 opacity-30" />
++                  <p>No emails imported yet.</p>
++                  <p className="text-sm mt-1">Paste email content or upload a .eml file above.</p>
++                </div>
++              ) : (
++                <div className="space-y-3">
++                  {emails.map(function (email) {
++                    return (
++                      <EmailItemSimple
++                        key={email.id}
++                        email={email}
++                        onDelete={function (id) { deleteEmail(id); }}
++                        onToggleHidden={toggleEmailHidden}
++                      />
++                    );
++                  })}
++                </div>
++              )}
++            </CardContent>
++          </Card>
++        </TabsContent>
++      </Tabs>
++
++      {/* Text Content Viewer Modal */}
++      {viewingDocId !== null && viewingContent !== null && (
++        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
++          <Card className="w-full max-w-3xl max-h-[80vh] overflow-hidden">
++            <CardHeader className="flex flex-row items-center justify-between">
++              <CardTitle className="text-lg">Document Viewer</CardTitle>
++              <Button type="button" variant="ghost" size="sm" onClick={handleCloseViewer}>
++                <X className="w-5 h-5" />
++              </Button>
++            </CardHeader>
++            <CardContent className="overflow-auto max-h-[60vh]">
++              <pre className="text-sm bg-secondary/20 p-4 rounded whitespace-pre-wrap font-mono">
++                {viewingContent}
++              </pre>
++            </CardContent>
++          </Card>
++        </div>
++      )}
++
++      {/* Info Card */}
++      <Card className="border-border/50 bg-card/50">
++        <CardContent className="py-4">
++          <div className="flex items-start gap-3">
++            <div className="w-8 h-8 rounded-full bg-amber-900/30 flex items-center justify-center flex-shrink-0">
++              <FileText className="w-4 h-4 text-amber-600" />
++            </div>
++            <div className="text-sm text-muted-foreground">
++              <p className="font-medium text-foreground mb-1">About Import Center</p>
++              <p>
++                All imported documents are stored locally in your browser. Files are saved in IndexedDB,
++                metadata in localStorage. Use &quot;Delete All Local Data&quot; in Settings to clear everything.
++              </p>
++            </div>
++          </div>
++        </CardContent>
++      </Card>
++    </div>
++  );
++}
+diff --git a/components/path-os-sidebar.tsx b/components/path-os-sidebar.tsx
+index 10a78ed..7385eee 100644
+--- a/components/path-os-sidebar.tsx
++++ b/components/path-os-sidebar.tsx
+@@ -124,15 +124,15 @@ const navSections: NavSection[] = [
+   },
+   {
+     /**
+-     * Day 21: Email Import Inbox section for importing emails.
+-     * Note: Route remains /ingest/email for backwards compatibility.
++     * Day 22: Import Center with unified document import.
++     * Replaces the Day 21 Email Import link with Import Center.
+      * UI copy uses "Import" - never "ingest/ingestion".
+      */
+     title: 'IMPORT',
+     items: [
+       {
+-        label: 'Email Import',
+-        href: '/ingest/email',
++        label: 'Import Center',
++        href: '/import',
+         icon: <Inbox className="w-4 h-4" />,
+       },
+     ],
+diff --git a/docs/change-briefs/day-22.md b/docs/change-briefs/day-22.md
+new file mode 100644
+index 0000000..00003f3
+--- /dev/null
++++ b/docs/change-briefs/day-22.md
+@@ -0,0 +1,75 @@
++# Day 22 ΓÇô Universal Document Import v1
++
++## What Changed
++
++PathOS now has an **Import Center** where you can bring in documents and files from your computer ΓÇô not just emails.
++
++### New Import Options
++
++1. **Email Import Inbox** (same as before)
++   - Paste email content or upload .eml files
++   - Automatically categorizes job notices, pay stubs, and more
++
++2. **Files & Text Import** (new!)
++   - **Upload files**: Drag and drop PDF, Word documents (.docx), or text files
++   - **Paste text**: Copy and paste any text (like a job posting from a website)
++   - **Automatic categories**: PathOS guesses what type of document it is
++   - **Privacy labels**: Mark documents as Public, Personal, or Sensitive
++
++### What You Can Do With Imported Documents
++
++- **View** ΓÇô Open and read PDFs and text files right in PathOS
++- **Rename** ΓÇô Give documents better names
++- **Tag** ΓÇô Add your own labels
++- **Change category** ΓÇô Fix the automatic guess if it's wrong
++- **Reset** ΓÇô Clear all tags and labels without deleting the file
++- **Delete** ΓÇô Remove documents you don't need
++
++### Privacy Features
++
++- Each document has its own visibility toggle (hide/show)
++- Global privacy mode still works across all documents
++- "Delete All Local Data" now clears all imported documents too
++
++---
++
++## Why It Matters
++
++Before Day 22, you could only import email files (.eml format). Most people don't save emails that way ΓÇô they have PDFs of job postings, Word documents with offer letters, or text they copied from websites.
++
++Now you can:
++- Save a job posting PDF from USAJOBS and import it
++- Copy text from any website and save it in PathOS
++- Keep all your job search documents in one place
++
++---
++
++## How to Use It
++
++1. Click **"Import Center"** in the sidebar (under IMPORT)
++2. Choose a tab:
++   - **Email Import** ΓÇô for email content
++   - **Files & Text** ΓÇô for PDFs, documents, and pasted text
++3. Drag files into the upload area, or click to browse
++4. Optionally paste text into the text area
++5. Click "Import" and your document appears in the list
++
++---
++
++## Important Notes
++
++- **OPSEC reminder**: Don't import classified or CUI content
++- **Local storage only**: Files stay on your computer ΓÇô they're not uploaded anywhere
++- **Word documents**: For now, you can only download them (preview coming later)
++
++---
++
++## What's Next
++
++- Preview for Word documents
++- Search within imported documents
++- Better integration with other PathOS features
++
++---
++
++*Day 22 ΓÇô December 16, 2025*
+diff --git a/docs/merge-notes/merge-notes-day-21.md b/docs/merge-notes/merge-notes-day-21.md
+new file mode 100644
+index 0000000..5527c73
+--- /dev/null
++++ b/docs/merge-notes/merge-notes-day-21.md
+@@ -0,0 +1,262 @@
++# Merge Notes (Day 21)
++
++**Branch:** `feature/day-21-email-ingestion-inbox-v1`  
++**Date:** December 15, 2025  
++**Status:** Complete
++
++---
++
++## Summary
++
++Day 21 implements **Email Import Inbox v1** with user-friendly import paths:
++
++### This Run Changes
++- Revised UI to prioritize "Paste an email" as the recommended default
++- Added "Upload attachments" section for PDF/DOCX/TXT files
++- Moved .eml support to collapsible "Advanced" section
++- Added `sourceType` field to track import method ('pasted' | 'attachments' | 'eml')
++- Added `importFromAttachments` store action
++- Changed sidebar section from "INGEST" to "IMPORT"
++- All UI copy uses "Import" (never "ingest/ingestion")
++- Source type badges show how each email was imported
++
++### Previous Run Features
++- Route at `/ingest/email` for email content import
++- Email parsing utility with header extraction and attachment detection
++- Deterministic classification into categories (PayStub, RelocationOrders, FEHB, JobPosting, Other)
++- Per-item visibility controls and delete actions
++- Local persistence via `pathos.emailIngestion.v1` localStorage key
++- Integration with "Delete All Local Data"
++
++---
++
++## Human Simulation Gate
++
++| Item | Value |
++|------|-------|
++| Required | Yes |
++| Triggers hit | Adds Create action (Import Email), Changes Zustand store logic, Changes persistence behavior |
++| Why | New email import feature with localStorage persistence and create buttons |
++
++---
++
++## Files Changed
++
++### New Files
++| File | Description |
++|------|-------------|
++| `app/ingest/email/page.tsx` | Email Import Inbox page with 3 import sections |
++| `lib/email/parseEml.ts` | Email parsing and classification utility |
++| `lib/email/index.ts` | Barrel export for email library |
++| `lib/email/parseEml.test.ts` | Unit tests for parsing/classification (37 tests) |
++| `store/emailIngestionStore.ts` | Zustand store for imported emails |
++| `docs/change-briefs/day-21.md` | Non-technical change brief |
++| `docs/merge-notes/merge-notes-day-20.md` | Archived Day 20 merge notes |
++| `artifacts/day-21-story.md` | Story-form narration of cumulative changes |
++| `artifacts/day-21-this-run-story.md` | Story-form narration of this run's changes |
++
++### Modified Files
++| File | Description |
++|------|-------------|
++| `lib/storage-keys.ts` | Added EMAIL_INGESTION_STORAGE_KEY |
++| `store/index.ts` | Export Day 21 store, types, and EmailSourceType |
++| `hooks/use-delete-all-local-data.ts` | Added resetEmailIngestion to wipe |
++| `components/path-os-sidebar.tsx` | INGEST -> IMPORT, Email Inbox -> Email Import |
++| `scripts/validate-*.mjs` | CURRENT_DAY = 21 |
++
++---
++
++## AI Acceptance Checklist
++
++| Item | Value |
++|------|-------|
++| Flow | Import button -> emailIngestionStore.ingestFromText() or importFromAttachments() -> pathos.emailIngestion.v1 -> Inbox list shows new email |
++| Store(s) | emailIngestionStore |
++| Storage key(s) | pathos.emailIngestion.v1 |
++| Failure mode | Email not saved, disappears on refresh |
++| How tested | Unit tests (37 passing) + manual verification |
++
++---
++
++## Create-Button Persistence Sanity Check
++
++| Check | Pass/Fail | Notes |
++|-------|-----------|-------|
++| Appears elsewhere | Γ£à PASS | Visible in Imported Emails list |
++| Survives refresh | Γ£à PASS | Persistence verified via store logic |
++| Storage key exists | Γ£à PASS | `pathos.emailIngestion.v1` in storage-keys.ts |
++
++**DevTools Helper:**
++```javascript
++Object.keys(localStorage).filter(function (k) { return k.includes('emailIngestion'); })
++// Expected: ["pathos.emailIngestion.v1"]
++```
++
++---
++
++## Testing Evidence
++
++| Item | Value |
++|------|-------|
++| Mode tested | dev |
++| Steps performed | Navigate to /ingest/email -> paste email -> import -> appears in list -> refresh -> still there |
++| Result | PASS |
++| localStorage key verified | pathos.emailIngestion.v1 |
++| Console clean | Yes (no errors) |
++
++---
++
++## Gates (All Pass)
++
++```
++pnpm lint       Γ£à Pass (no errors)
++pnpm typecheck  Γ£à Pass (no type errors)
++pnpm test       Γ£à Pass (251 tests, 10 test files, 1.68s)
++pnpm build      Γ£à Pass (27 routes compiled, including /ingest/email)
++```
++
++---
++
++## Git State and Diffs
++
++**git status**
++```
++On branch feature/day-21-email-ingestion-inbox-v1
++Changes not staged for commit:
++  new file:   app/ingest/email/page.tsx
++  modified:   components/path-os-sidebar.tsx
++  new file:   docs/change-briefs/day-21.md
++  new file:   docs/merge-notes/merge-notes-day-20.md
++  modified:   hooks/use-delete-all-local-data.ts
++  new file:   lib/email/index.ts
++  new file:   lib/email/parseEml.test.ts
++  new file:   lib/email/parseEml.ts
++  modified:   lib/storage-keys.ts
++  modified:   merge-notes.md
++  modified:   scripts/validate-change-brief.mjs
++  modified:   scripts/validate-day-artifacts.mjs
++  modified:   scripts/validate-day-labels.mjs
++  new file:   store/emailIngestionStore.ts
++  modified:   store/index.ts
++```
++
++**git branch --show-current**
++```
++feature/day-21-email-ingestion-inbox-v1
++```
++
++**git diff --name-status HEAD**
++```
++A  app/ingest/email/page.tsx
++A  artifacts/day-21-this-run.patch
++A  artifacts/day-21.patch
++A  artifacts/day-21-story.md
++A  artifacts/day-21-this-run-story.md
++M  components/path-os-sidebar.tsx
++A  docs/change-briefs/day-21.md
++A  docs/merge-notes/merge-notes-day-20.md
++M  hooks/use-delete-all-local-data.ts
++A  lib/email/index.ts
++A  lib/email/parseEml.test.ts
++A  lib/email/parseEml.ts
++M  lib/storage-keys.ts
++M  merge-notes.md
++M  scripts/validate-change-brief.mjs
++M  scripts/validate-day-artifacts.mjs
++M  scripts/validate-day-labels.mjs
++A  store/emailIngestionStore.ts
++M  store/index.ts
++```
++
++**git diff --stat HEAD**
++```
++ app/ingest/email/page.tsx              |  935 ++++++
++ components/path-os-sidebar.tsx         |   16 +
++ docs/change-briefs/day-21.md           |   98 +
++ docs/merge-notes/merge-notes-day-20.md | 1514 +++++++++
++ hooks/use-delete-all-local-data.ts     |   18 +
++ lib/email/index.ts                     |   24 +
++ lib/email/parseEml.test.ts             |  371 +++
++ lib/email/parseEml.ts                  |  427 +++
++ lib/storage-keys.ts                    |   12 +-
++ merge-notes.md                         | 1542 +--------
++ scripts/validate-change-brief.mjs      |    2 +-
++ scripts/validate-day-artifacts.mjs     |    4 +-
++ scripts/validate-day-labels.mjs        |    2 +-
++ store/emailIngestionStore.ts           |  775 +++++
++ store/index.ts                         |   14 +
++```
++
++---
++
++## Patch Artifacts
++
++**Command:**
++```powershell
++git diff HEAD -- . ':!artifacts/*.patch' | Out-File -FilePath artifacts/day-21.patch -Encoding utf8
++git diff -- . ':!artifacts/*.patch' | Out-File -FilePath artifacts/day-21-this-run.patch -Encoding utf8
++Get-Item artifacts/day-21*.patch,artifacts/day-21*-story.md | Format-List Name,Length,LastWriteTime
++```
++
++**Output:**
++```
++Name          : day-21-this-run.patch
++Length        : 232017
++LastWriteTime : 12/15/2025 8:58:46 PM
++
++Name          : day-21.patch
++Length        : 232017
++LastWriteTime : 12/15/2025 8:58:45 PM
++
++Name          : day-21-story.md
++Length        : 4197
++LastWriteTime : 12/15/2025 8:55:32 PM
++
++Name          : day-21-this-run-story.md
++Length        : 3529
++LastWriteTime : 12/15/2025 8:55:52 PM
++```
++
++---
++
++## Suggested Commit Message
++
++```
++feat(import): Day 21 ΓÇô Email Import Inbox v1 with user-friendly paths
++
++- Redesign UI: Paste email (recommended), Upload attachments, Advanced .eml
++- Add sourceType field to track import method ('pasted' | 'attachments' | 'eml')
++- Add importFromAttachments store action for PDF/DOCX/TXT upload
++- Change sidebar section from INGEST to IMPORT
++- All UI copy uses "Import" (never "ingest/ingestion")
++- Add source type badges to imported email list items
++- Local-only persistence via pathos.emailIngestion.v1
++- Classification works with attachment filenames when no email text
++- All CI gates pass (lint, typecheck, test, build)
++```
++
++---
++
++## Suggested PR Title
++
++```
++feat: Day 21 ΓÇô Email Import Inbox v1 (user-friendly import paths)
++```
++
++---
++
++## Follow-ups / Future Work
++
++1. Actual attachment content extraction (v1 only stores metadata)
++2. Email forwarding integration (SMTP when backend available)
++3. Search/filter within imported emails
++4. Bulk import/export
++5. Store tests for emailIngestionStore persistence behavior
++
++---
++
++**Do not commit or push without review.**
++
++---
++
++*Last updated: December 15, 2025 20:56 EST*
+diff --git a/docs/owner-map.generated.md b/docs/owner-map.generated.md
+index 016e2fe..f5a75d4 100644
+--- a/docs/owner-map.generated.md
++++ b/docs/owner-map.generated.md
+@@ -5,7 +5,7 @@
+ >
+ > For human-maintained notes, see `docs/owner-map.md`.
+ 
+-Generated: 2025-12-15
++Generated: 2025-12-17
+ 
+ ---
+ 
+@@ -35,6 +35,8 @@ Generated: 2025-12-15
+ | `/fedpath/recommendations` | `app/fedpath/recommendations/page.tsx` |
+ | `/fedpath/retirement-tsp` | `app/fedpath/retirement-tsp/page.tsx` |
+ | `/fedpath/scenarios` | `app/fedpath/scenarios/page.tsx` |
++| `/import` | `app/import/page.tsx` |
++| `/ingest/email` | `app/ingest/email/page.tsx` |
+ | `/settings` | `app/settings/page.tsx` |
+ | `/tax-compliance` | `app/tax-compliance/page.tsx` |
+ 
+@@ -46,6 +48,8 @@ Generated: 2025-12-15
+ |------------|
+ | `store/benefitsAssumptionsStore.ts` |
+ | `store/dashboardStore.ts` |
++| `store/documentImportStore.ts` |
++| `store/emailIngestionStore.ts` |
+ | `store/index.ts` |
+ | `store/jobAlertsStore.ts` |
+ | `store/jobSearchStore.ts` |
+@@ -69,6 +73,8 @@ Generated: 2025-12-15
+ | `EMAIL_DIGEST` | `pathos-email-digest-settings` |
+ | `ALERT_EVENTS` | `pathos-alert-events` |
+ | `ALERT_SEEN_JOBS` | `pathos-alert-seen-jobs` |
++| `EMAIL_INGESTION` | `pathos.emailIngestion.v1` |
++| `DOCUMENT_IMPORT` | `pathos.documentImport.v1` |
+ 
+ ---
+ 
+diff --git a/hooks/use-delete-all-local-data.ts b/hooks/use-delete-all-local-data.ts
+index 4cdc59a..43131a1 100644
+--- a/hooks/use-delete-all-local-data.ts
++++ b/hooks/use-delete-all-local-data.ts
+@@ -11,6 +11,7 @@ import { useSavedJobsStore } from '@/store/savedJobsStore';
+ import { useBenefitsAssumptionsStore } from '@/store/benefitsAssumptionsStore';
+ import { useJobAlertsStore } from '@/store/jobAlertsStore';
+ import { useEmailIngestionStore } from '@/store/emailIngestionStore';
++import { useDocumentImportStore } from '@/store/documentImportStore';
+ import {
+   PROFILE_STORAGE_KEY,
+   JOB_SEARCH_STORAGE_KEY,
+@@ -21,7 +22,9 @@ import {
+   ALERT_EVENTS_STORAGE_KEY,
+   ALERT_SEEN_JOBS_STORAGE_KEY,
+   EMAIL_INGESTION_STORAGE_KEY,
++  DOCUMENT_IMPORT_STORAGE_KEY,
+ } from '@/lib/storage-keys';
++import { deleteDocumentDatabase } from '@/lib/storage/indexeddb';
+ 
+ /**
+  * Known localStorage keys used by PathOS Tier 1.
+@@ -41,6 +44,10 @@ import {
+  *
+  * DAY 21 UPDATE:
+  * Added EMAIL_INGESTION_STORAGE_KEY for email ingestion inbox.
++ *
++ * DAY 22 UPDATE:
++ * Added DOCUMENT_IMPORT_STORAGE_KEY for document import metadata.
++ * Note: File blobs are stored in IndexedDB and also need to be cleared.
+  */
+ const STORAGE_KEYS = [
+   PROFILE_STORAGE_KEY,
+@@ -53,11 +60,12 @@ const STORAGE_KEYS = [
+   ALERT_EVENTS_STORAGE_KEY,
+   ALERT_SEEN_JOBS_STORAGE_KEY,
+   EMAIL_INGESTION_STORAGE_KEY,
++  DOCUMENT_IMPORT_STORAGE_KEY,
+ ];
+ 
+ /**
+  * Hook that provides a function to delete all local PathOS data.
+- * This clears localStorage keys and resets all Zustand stores to their initial state.
++ * This clears localStorage keys, IndexedDB databases, and resets all Zustand stores.
+  * 
+  * After deletion:
+  * - Profile is reset to default job seeker state
+@@ -71,6 +79,7 @@ const STORAGE_KEYS = [
+  * - Job alerts are cleared (Day 19)
+  * - Email digest settings, events, and seen jobs are cleared (Day 20)
+  * - Email ingestion inbox is cleared (Day 21)
++ * - Document import metadata and IndexedDB blobs are cleared (Day 22)
+  * 
+  * DAY 15 UPDATE:
+  * Added resetSavedJobs to clear the new Saved Jobs store.
+@@ -86,6 +95,10 @@ const STORAGE_KEYS = [
+  *
+  * DAY 21 UPDATE:
+  * Added resetEmailIngestion to clear email ingestion inbox.
++ *
++ * DAY 22 UPDATE:
++ * Added resetDocumentImport to clear document import store.
++ * Added deleteDocumentDatabase to clear IndexedDB blobs.
+  */
+ export function useDeleteAllLocalData() {
+   const resetProfile = useProfileStore(function (state) {
+@@ -120,7 +133,15 @@ export function useDeleteAllLocalData() {
+     return state.reset;
+   });
+ 
+-  const deleteAllLocalData = function () {
++  /**
++   * Day 22: Reset document import store.
++   * Note: This also clears IndexedDB blobs via the store's reset action.
++   */
++  const resetDocumentImport = useDocumentImportStore(function (state) {
++    return state.reset;
++  });
++
++  const deleteAllLocalData = async function () {
+     // Guard against SSR - localStorage is not available on the server
+     if (typeof window === 'undefined') {
+       return;
+@@ -147,6 +168,15 @@ export function useDeleteAllLocalData() {
+     resetBenefitsAssumptions();
+     resetAlerts(); // Day 19/20: Clears alerts, digest settings, events, seen jobs
+     resetEmailIngestion(); // Day 21: Clears email ingestion inbox
++    await resetDocumentImport(); // Day 22: Clears document import (async for IndexedDB)
++
++    // Day 22: Also delete the IndexedDB database directly for complete cleanup
++    // The store's reset() already clears blobs, but this ensures database is fully removed
++    try {
++      await deleteDocumentDatabase();
++    } catch (error) {
++      console.error('Failed to delete IndexedDB database:', error);
++    }
+   };
+ 
+   return { deleteAllLocalData };
+diff --git a/lib/documents/classifyDocument.test.ts b/lib/documents/classifyDocument.test.ts
+new file mode 100644
+index 0000000..4631c9b
+--- /dev/null
++++ b/lib/documents/classifyDocument.test.ts
+@@ -0,0 +1,386 @@
++/**
++ * ============================================================================
++ * DOCUMENT CLASSIFICATION TESTS (Day 22 - Universal Document Import v1)
++ * ============================================================================
++ *
++ * FILE PURPOSE:
++ * Unit tests for the document classification heuristics.
++ * Tests both filename-based and content-based classification.
++ *
++ * TEST COVERAGE:
++ * 1. Filename pattern matching
++ * 2. Content keyword matching
++ * 3. Sensitivity label assignment
++ * 4. Default behavior for unclassifiable documents
++ *
++ * @version Day 22 - Universal Document Import v1
++ * ============================================================================
++ */
++
++import { describe, it, expect } from 'vitest';
++import {
++  classifyDocument,
++  CATEGORY_LABELS,
++  SENSITIVITY_LABELS,
++  ALL_CATEGORIES,
++  ALL_SENSITIVITY_LABELS,
++} from './classifyDocument';
++
++// ============================================================================
++// FILENAME CLASSIFICATION TESTS
++// ============================================================================
++
++describe('classifyDocument - filename patterns', function () {
++  describe('Resume detection', function () {
++    it('should classify "resume.pdf" as Resume', function () {
++      const result = classifyDocument('resume.pdf', null);
++      expect(result.category).toBe('Resume');
++      expect(result.confidence).toBeGreaterThan(0);
++    });
++
++    it('should classify "John_Resume_2025.docx" as Resume', function () {
++      const result = classifyDocument('John_Resume_2025.docx', null);
++      expect(result.category).toBe('Resume');
++    });
++
++    it('should classify "curriculum-vitae.pdf" as Resume', function () {
++      const result = classifyDocument('curriculum-vitae.pdf', null);
++      expect(result.category).toBe('Resume');
++    });
++
++    it('should classify "CV 2025.docx" as Resume', function () {
++      const result = classifyDocument('CV 2025.docx', null);
++      expect(result.category).toBe('Resume');
++    });
++  });
++
++  describe('Job Posting detection', function () {
++    it('should classify "job-posting-GS13.pdf" as JobPosting', function () {
++      const result = classifyDocument('job-posting-GS13.pdf', null);
++      expect(result.category).toBe('JobPosting');
++    });
++
++    it('should classify "vacancy_announcement.pdf" as JobPosting', function () {
++      const result = classifyDocument('vacancy_announcement.pdf', null);
++      expect(result.category).toBe('JobPosting');
++    });
++
++    it('should classify "USAJOBS-IT-Specialist.pdf" as JobPosting', function () {
++      const result = classifyDocument('USAJOBS-IT-Specialist.pdf', null);
++      expect(result.category).toBe('JobPosting');
++    });
++  });
++
++  describe('Offer Letter detection', function () {
++    it('should classify "offer_letter.pdf" as OfferLetter', function () {
++      const result = classifyDocument('offer_letter.pdf', null);
++      expect(result.category).toBe('OfferLetter');
++    });
++
++    it('should classify "tentative-offer-agency.pdf" as OfferLetter', function () {
++      const result = classifyDocument('tentative-offer-agency.pdf', null);
++      expect(result.category).toBe('OfferLetter');
++    });
++
++    it('should classify "Final Offer DOD.pdf" as OfferLetter', function () {
++      const result = classifyDocument('Final Offer DOD.pdf', null);
++      expect(result.category).toBe('OfferLetter');
++    });
++  });
++
++  describe('Pay Stub detection', function () {
++    it('should classify "pay_stub_dec2025.pdf" as PayStub', function () {
++      const result = classifyDocument('pay_stub_dec2025.pdf', null);
++      expect(result.category).toBe('PayStub');
++    });
++
++    it('should classify "LES 2025-12.pdf" as PayStub', function () {
++      const result = classifyDocument('LES 2025-12.pdf', null);
++      expect(result.category).toBe('PayStub');
++    });
++
++    it('should classify "earnings-statement.pdf" as PayStub', function () {
++      const result = classifyDocument('earnings-statement.pdf', null);
++      expect(result.category).toBe('PayStub');
++    });
++  });
++
++  describe('Tax Doc detection', function () {
++    it('should classify "W-2-2024.pdf" as TaxDoc', function () {
++      const result = classifyDocument('W-2-2024.pdf', null);
++      expect(result.category).toBe('TaxDoc');
++    });
++
++    it('should classify "1099-2024.pdf" as TaxDoc', function () {
++      const result = classifyDocument('1099-2024.pdf', null);
++      expect(result.category).toBe('TaxDoc');
++    });
++
++    it('should classify "tax_form_2024.pdf" as TaxDoc', function () {
++      const result = classifyDocument('tax_form_2024.pdf', null);
++      expect(result.category).toBe('TaxDoc');
++    });
++  });
++
++  describe('Benefits Doc detection', function () {
++    it('should classify "FEHB_Benefits_Guide.pdf" as BenefitsDoc', function () {
++      const result = classifyDocument('FEHB_Benefits_Guide.pdf', null);
++      expect(result.category).toBe('BenefitsDoc');
++    });
++
++    it('should classify "benefits-guide-2025.pdf" as BenefitsDoc', function () {
++      const result = classifyDocument('benefits-guide-2025.pdf', null);
++      expect(result.category).toBe('BenefitsDoc');
++    });
++  });
++
++  describe('Other (unclassifiable)', function () {
++    it('should classify "random_document.pdf" as Other', function () {
++      const result = classifyDocument('random_document.pdf', null);
++      expect(result.category).toBe('Other');
++      expect(result.confidence).toBe(0);
++    });
++
++    it('should classify empty filename as Other', function () {
++      const result = classifyDocument('', null);
++      expect(result.category).toBe('Other');
++    });
++  });
++});
++
++// ============================================================================
++// CONTENT CLASSIFICATION TESTS
++// ============================================================================
++
++describe('classifyDocument - content keywords', function () {
++  describe('Job Posting content', function () {
++    it('should classify content with job posting keywords', function () {
++      const content = `
++        Job Announcement: IT Specialist GS-13
++        
++        Duties include managing network infrastructure.
++        Qualifications required: Bachelor's degree, 5 years experience.
++        How to apply: Submit resume through USAJOBS.
++        Closing date: January 15, 2025.
++      `;
++      const result = classifyDocument('document.txt', content);
++      expect(result.category).toBe('JobPosting');
++      expect(result.matchedKeywords.length).toBeGreaterThan(0);
++    });
++
++    it('should detect USAJOBS references', function () {
++      const content = 'Apply through USAJOBS for this position. Pay range: $80,000 - $100,000.';
++      const result = classifyDocument('job.txt', content);
++      expect(result.category).toBe('JobPosting');
++    });
++  });
++
++  describe('Resume content', function () {
++    it('should classify content with resume keywords', function () {
++      const content = `
++        JOHN DOE
++        Professional Experience
++        
++        Work Experience:
++        - Senior Developer at Tech Corp (2020-2024)
++        - Developer at StartUp Inc (2018-2020)
++        
++        Education Background:
++        - BS Computer Science, State University
++        
++        Skills and Abilities:
++        - Python, JavaScript, AWS
++      `;
++      const result = classifyDocument('document.txt', content);
++      expect(result.category).toBe('Resume');
++    });
++
++    it('should detect employment history', function () {
++      const content = 'Employment History: 10 years in federal service. Career objective: GS-15 management.';
++      const result = classifyDocument('doc.txt', content);
++      expect(result.category).toBe('Resume');
++    });
++  });
++
++  describe('Offer Letter content', function () {
++    it('should classify content with offer letter keywords', function () {
++      const content = `
++        Official Job Offer
++        
++        We are pleased to offer you the position of IT Specialist, GS-13.
++        Your start date is February 1, 2025.
++        This offer is contingent upon successful background check.
++        Please report to duty at the address below.
++      `;
++      const result = classifyDocument('letter.txt', content);
++      expect(result.category).toBe('OfferLetter');
++    });
++
++    it('should detect entrance on duty references', function () {
++      const content = 'Your EOD date is March 1, 2025. Please complete the following forms.';
++      const result = classifyDocument('offer.txt', content);
++      expect(result.category).toBe('OfferLetter');
++    });
++  });
++
++  describe('Pay Stub content', function () {
++    it('should classify content with pay stub keywords', function () {
++      const content = `
++        Leave and Earnings Statement
++        Pay Period: 2025-24
++        
++        Gross Pay: $5,432.10
++        Net Pay: $3,876.54
++        
++        Deductions:
++        - Federal Tax: $800
++        - State Tax: $300
++        - TSP: $456
++      `;
++      const result = classifyDocument('statement.txt', content);
++      expect(result.category).toBe('PayStub');
++    });
++  });
++
++  describe('Tax Document content', function () {
++    it('should classify content with W-2 keywords', function () {
++      const content = `
++        Form W-2 Wage and Tax Statement
++        Tax Year: 2024
++        
++        Employer Identification Number (EIN): 12-3456789
++        Employee wages: $95,000
++      `;
++      const result = classifyDocument('tax.txt', content);
++      expect(result.category).toBe('TaxDoc');
++    });
++  });
++
++  describe('Benefits Document content', function () {
++    it('should classify content with benefits keywords', function () {
++      const content = `
++        Federal Employees Health Benefits (FEHB) Guide
++        
++        Health Benefits Options:
++        - Blue Cross Blue Shield
++        - Aetna
++        
++        Life Insurance (FEGLI):
++        - Basic coverage included
++        
++        Thrift Savings Plan (TSP):
++        - Agency matching up to 5%
++      `;
++      const result = classifyDocument('benefits.txt', content);
++      expect(result.category).toBe('BenefitsDoc');
++    });
++
++    it('should detect retirement plan references', function () {
++      const content = 'FERS retirement benefits include TSP matching and annuity calculation.';
++      const result = classifyDocument('retirement.txt', content);
++      expect(result.category).toBe('BenefitsDoc');
++    });
++  });
++});
++
++// ============================================================================
++// SENSITIVITY LABEL TESTS
++// ============================================================================
++
++describe('classifyDocument - sensitivity labels', function () {
++  it('should assign Public sensitivity to JobPosting', function () {
++    const result = classifyDocument('job_posting.pdf', null);
++    expect(result.sensitivity).toBe('Public');
++  });
++
++  it('should assign Personal sensitivity to Resume', function () {
++    const result = classifyDocument('resume.pdf', null);
++    expect(result.sensitivity).toBe('Personal');
++  });
++
++  it('should assign Personal sensitivity to OfferLetter', function () {
++    const result = classifyDocument('offer_letter.pdf', null);
++    expect(result.sensitivity).toBe('Personal');
++  });
++
++  it('should assign Sensitive sensitivity to PayStub', function () {
++    const result = classifyDocument('pay_stub.pdf', null);
++    expect(result.sensitivity).toBe('Sensitive');
++  });
++
++  it('should assign Sensitive sensitivity to TaxDoc', function () {
++    const result = classifyDocument('W-2.pdf', null);
++    expect(result.sensitivity).toBe('Sensitive');
++  });
++
++  it('should assign Unknown sensitivity to Other', function () {
++    const result = classifyDocument('random.pdf', null);
++    expect(result.sensitivity).toBe('Unknown');
++  });
++});
++
++// ============================================================================
++// COMBINED FILENAME + CONTENT TESTS
++// ============================================================================
++
++describe('classifyDocument - combined signals', function () {
++  it('should boost confidence when filename and content match', function () {
++    const content = 'This is my resume. Professional experience includes 5 years at agency.';
++    const result = classifyDocument('resume.pdf', content);
++    
++    expect(result.category).toBe('Resume');
++    expect(result.confidence).toBeGreaterThan(0.7);
++  });
++
++  it('should prefer content when filename is generic', function () {
++    const content = `
++      Job Announcement
++      This position is open to all US citizens.
++      Duties include: Software development
++      How to apply: USAJOBS
++    `;
++    const result = classifyDocument('document.pdf', content);
++    
++    expect(result.category).toBe('JobPosting');
++    expect(result.matchedKeywords.length).toBeGreaterThan(0);
++  });
++});
++
++// ============================================================================
++// HELPER EXPORTS TESTS
++// ============================================================================
++
++describe('classification helpers', function () {
++  it('CATEGORY_LABELS should have entries for all categories', function () {
++    for (let i = 0; i < ALL_CATEGORIES.length; i++) {
++      const cat = ALL_CATEGORIES[i];
++      expect(CATEGORY_LABELS[cat]).toBeDefined();
++      expect(typeof CATEGORY_LABELS[cat]).toBe('string');
++    }
++  });
++
++  it('SENSITIVITY_LABELS should have entries for all sensitivity levels', function () {
++    for (let i = 0; i < ALL_SENSITIVITY_LABELS.length; i++) {
++      const sens = ALL_SENSITIVITY_LABELS[i];
++      expect(SENSITIVITY_LABELS[sens]).toBeDefined();
++      expect(typeof SENSITIVITY_LABELS[sens]).toBe('string');
++    }
++  });
++
++  it('ALL_CATEGORIES should contain expected categories', function () {
++    expect(ALL_CATEGORIES).toContain('JobPosting');
++    expect(ALL_CATEGORIES).toContain('Resume');
++    expect(ALL_CATEGORIES).toContain('OfferLetter');
++    expect(ALL_CATEGORIES).toContain('BenefitsDoc');
++    expect(ALL_CATEGORIES).toContain('PayStub');
++    expect(ALL_CATEGORIES).toContain('TaxDoc');
++    expect(ALL_CATEGORIES).toContain('Other');
++  });
++
++  it('ALL_SENSITIVITY_LABELS should contain expected labels', function () {
++    expect(ALL_SENSITIVITY_LABELS).toContain('Public');
++    expect(ALL_SENSITIVITY_LABELS).toContain('Personal');
++    expect(ALL_SENSITIVITY_LABELS).toContain('Sensitive');
++    expect(ALL_SENSITIVITY_LABELS).toContain('Unknown');
++  });
++});
+diff --git a/lib/documents/classifyDocument.ts b/lib/documents/classifyDocument.ts
+new file mode 100644
+index 0000000..d5be2a2
+--- /dev/null
++++ b/lib/documents/classifyDocument.ts
+@@ -0,0 +1,458 @@
++/**
++ * ============================================================================
++ * DOCUMENT CLASSIFICATION HEURISTICS (Day 22 - Universal Document Import v1)
++ * ============================================================================
++ *
++ * FILE PURPOSE:
++ * Provides rules-based classification for imported documents.
++ * Uses lightweight string matching (no heavy parsing) to guess document category.
++ *
++ * HOW IT WORKS:
++ * 1. Check filename for known patterns (e.g., "resume", "offer_letter")
++ * 2. Check text content (if available) for keywords
++ * 3. Return best-guess category with confidence
++ *
++ * CATEGORIES:
++ * - JobPosting: Job announcements, vacancy notices
++ * - Resume: Resumes, CVs
++ * - OfferLetter: Job offer letters, tentative/final offers
++ * - BenefitsDoc: Benefits guides, FEHB info
++ * - PayStub: Pay statements, earnings statements
++ * - TaxDoc: W-2, tax forms
++ * - Other: Everything else (default)
++ *
++ * SENSITIVITY LABELS:
++ * - Public: Non-sensitive public information
++ * - Personal: PII or personal career data
++ * - Sensitive: Financial, tax, or highly private
++ * - Unknown: Default when uncertain
++ *
++ * HOUSE RULES COMPLIANCE (Day 22):
++ * - No `var` - uses `const` and `let` only
++ * - No `?.` or `??` - uses explicit null/undefined checks
++ * - No `...` spread - uses explicit assignments
++ * - Over-commented for teaching-level clarity
++ *
++ * @version Day 22 - Universal Document Import v1
++ * ============================================================================
++ */
++
++// ============================================================================
++// TYPE DEFINITIONS
++// ============================================================================
++
++/**
++ * Document category classifications.
++ *
++ * DESIGN RATIONALE:
++ * These categories cover the most common document types a federal job seeker
++ * would need to import. "Other" is the catch-all for anything that doesn't match.
++ */
++export type DocumentCategory =
++  | 'JobPosting'
++  | 'Resume'
++  | 'OfferLetter'
++  | 'BenefitsDoc'
++  | 'PayStub'
++  | 'TaxDoc'
++  | 'Other';
++
++/**
++ * Sensitivity labels for privacy controls.
++ *
++ * DESIGN RATIONALE:
++ * These match common data classification schemes. "Unknown" is the safe default
++ * that lets users classify manually if the heuristics are uncertain.
++ */
++export type SensitivityLabel = 'Public' | 'Personal' | 'Sensitive' | 'Unknown';
++
++/**
++ * Result of document classification.
++ */
++export interface ClassificationResult {
++  /**
++   * Best-guess category for the document.
++   */
++  category: DocumentCategory;
++
++  /**
++   * Suggested sensitivity label.
++   */
++  sensitivity: SensitivityLabel;
++
++  /**
++   * Confidence score from 0 to 1.
++   * Higher = more confident in the classification.
++   */
++  confidence: number;
++
++  /**
++   * Keywords that triggered the classification.
++   * Useful for debugging/transparency.
++   */
++  matchedKeywords: string[];
++}
++
++// ============================================================================
++// CLASSIFICATION KEYWORDS
++// ============================================================================
++
++/**
++ * Keywords that suggest a job posting.
++ * Checked in both filename and text content (case-insensitive).
++ */
++const JOB_POSTING_KEYWORDS = [
++  'job posting',
++  'job announcement',
++  'vacancy',
++  'usajobs',
++  'position description',
++  'duties include',
++  'qualifications required',
++  'how to apply',
++  'closing date',
++  'open period',
++  'gs-',
++  'grade:',
++  'series:',
++  'pay range',
++  'hiring path',
++  'location negotiable',
++];
++
++/**
++ * Keywords that suggest a resume.
++ */
++const RESUME_KEYWORDS = [
++  'resume',
++  'curriculum vitae',
++  'cv',
++  'work experience',
++  'professional experience',
++  'education background',
++  'skills and abilities',
++  'career objective',
++  'career summary',
++  'employment history',
++];
++
++/**
++ * Keywords that suggest an offer letter.
++ */
++const OFFER_LETTER_KEYWORDS = [
++  'offer letter',
++  'tentative offer',
++  'final offer',
++  'job offer',
++  'employment offer',
++  'official offer',
++  'start date',
++  'report to duty',
++  'entrance on duty',
++  'eod date',
++  'we are pleased to offer',
++  'contingent upon',
++];
++
++/**
++ * Keywords that suggest benefits documentation.
++ */
++const BENEFITS_DOC_KEYWORDS = [
++  'fehb',
++  'benefits guide',
++  'health benefits',
++  'dental benefits',
++  'vision benefits',
++  'life insurance',
++  'fegli',
++  'tsp',
++  'thrift savings',
++  'retirement benefits',
++  'fers',
++  'csrs',
++  'leave balance',
++  'annual leave',
++  'sick leave',
++];
++
++/**
++ * Keywords that suggest a pay stub.
++ */
++const PAY_STUB_KEYWORDS = [
++  'pay stub',
++  'pay statement',
++  'earnings statement',
++  'leave and earnings',
++  'les',
++  'gross pay',
++  'net pay',
++  'withholdings',
++  'deductions',
++  'pay period',
++  'ppd',
++];
++
++/**
++ * Keywords that suggest a tax document.
++ */
++const TAX_DOC_KEYWORDS = [
++  'w-2',
++  'w2',
++  'tax form',
++  'tax document',
++  '1099',
++  'wage and tax',
++  'form w-',
++  'irs form',
++  'tax year',
++  'employer identification',
++  'ein:',
++];
++
++// ============================================================================
++// FILENAME PATTERNS
++// ============================================================================
++
++/**
++ * Filename patterns for quick classification.
++ * These are checked first before content analysis.
++ */
++const FILENAME_PATTERNS: Array<{ pattern: RegExp; category: DocumentCategory }> = [
++  { pattern: /resume/i, category: 'Resume' },
++  { pattern: /cv[\s_-]/i, category: 'Resume' },
++  { pattern: /curriculum[\s_-]?vitae/i, category: 'Resume' },
++  { pattern: /offer[\s_-]?letter/i, category: 'OfferLetter' },
++  { pattern: /tentative[\s_-]?offer/i, category: 'OfferLetter' },
++  { pattern: /final[\s_-]?offer/i, category: 'OfferLetter' },
++  { pattern: /job[\s_-]?posting/i, category: 'JobPosting' },
++  { pattern: /vacancy/i, category: 'JobPosting' },
++  { pattern: /announcement/i, category: 'JobPosting' },
++  { pattern: /usajobs/i, category: 'JobPosting' },
++  { pattern: /pay[\s_-]?stub/i, category: 'PayStub' },
++  { pattern: /les[\s_-]/i, category: 'PayStub' },
++  { pattern: /earnings[\s_-]?statement/i, category: 'PayStub' },
++  { pattern: /w[\s_-]?2/i, category: 'TaxDoc' },
++  { pattern: /1099/i, category: 'TaxDoc' },
++  { pattern: /tax[\s_-]?form/i, category: 'TaxDoc' },
++  { pattern: /fehb/i, category: 'BenefitsDoc' },
++  { pattern: /benefits[\s_-]?guide/i, category: 'BenefitsDoc' },
++];
++
++// ============================================================================
++// CLASSIFICATION FUNCTION
++// ============================================================================
++
++/**
++ * Classifies a document based on filename and/or text content.
++ *
++ * HOW IT WORKS:
++ * 1. First check filename against known patterns (quick win)
++ * 2. If content provided, scan for keywords
++ * 3. Count keyword matches per category
++ * 4. Return category with most matches, or "Other" if no matches
++ *
++ * DESIGN DECISION:
++ * We use simple string contains checks rather than regex for content.
++ * This is fast and works well for v1. Future versions could use NLP.
++ *
++ * @param filename - Name of the file (can be empty for pasted text)
++ * @param textContent - Text content to analyze (optional)
++ * @returns ClassificationResult with category, sensitivity, and confidence
++ */
++export function classifyDocument(
++  filename: string,
++  textContent: string | null
++): ClassificationResult {
++  // Initialize result with defaults
++  let category: DocumentCategory = 'Other';
++  let sensitivity: SensitivityLabel = 'Unknown';
++  let confidence = 0;
++  const matchedKeywords: string[] = [];
++
++  // Normalize inputs for case-insensitive matching
++  const normalizedFilename = filename.toLowerCase().trim();
++  const normalizedContent = textContent !== null ? textContent.toLowerCase() : '';
++
++  // =========================================================================
++  // STEP 1: CHECK FILENAME PATTERNS
++  // =========================================================================
++
++  // Quick classification from filename
++  for (let i = 0; i < FILENAME_PATTERNS.length; i++) {
++    const entry = FILENAME_PATTERNS[i];
++    if (entry.pattern.test(normalizedFilename)) {
++      category = entry.category;
++      confidence = 0.7; // Filename match gives decent confidence
++      matchedKeywords.push('filename:' + normalizedFilename);
++      break;
++    }
++  }
++
++  // =========================================================================
++  // STEP 2: SCAN CONTENT FOR KEYWORDS
++  // =========================================================================
++
++  // Only analyze content if we have it
++  if (normalizedContent !== '') {
++    // Count keyword matches per category
++    const categoryScores: Record<DocumentCategory, number> = {
++      JobPosting: 0,
++      Resume: 0,
++      OfferLetter: 0,
++      BenefitsDoc: 0,
++      PayStub: 0,
++      TaxDoc: 0,
++      Other: 0,
++    };
++
++    // Helper to check keywords and update scores
++    function checkKeywords(keywords: string[], cat: DocumentCategory): void {
++      for (let i = 0; i < keywords.length; i++) {
++        const keyword = keywords[i];
++        if (normalizedContent.indexOf(keyword) !== -1) {
++          categoryScores[cat] = categoryScores[cat] + 1;
++          matchedKeywords.push(keyword);
++        }
++      }
++    }
++
++    // Check each category's keywords
++    checkKeywords(JOB_POSTING_KEYWORDS, 'JobPosting');
++    checkKeywords(RESUME_KEYWORDS, 'Resume');
++    checkKeywords(OFFER_LETTER_KEYWORDS, 'OfferLetter');
++    checkKeywords(BENEFITS_DOC_KEYWORDS, 'BenefitsDoc');
++    checkKeywords(PAY_STUB_KEYWORDS, 'PayStub');
++    checkKeywords(TAX_DOC_KEYWORDS, 'TaxDoc');
++
++    // Find category with highest score
++    let maxScore = 0;
++    let maxCategory: DocumentCategory = 'Other';
++    const categories: DocumentCategory[] = [
++      'JobPosting',
++      'Resume',
++      'OfferLetter',
++      'BenefitsDoc',
++      'PayStub',
++      'TaxDoc',
++    ];
++
++    for (let i = 0; i < categories.length; i++) {
++      const cat = categories[i];
++      if (categoryScores[cat] > maxScore) {
++        maxScore = categoryScores[cat];
++        maxCategory = cat;
++      }
++    }
++
++    // If content analysis found a category, use it (may override filename)
++    if (maxScore > 0) {
++      category = maxCategory;
++      // Calculate confidence based on number of keyword matches
++      // More matches = higher confidence, capped at 0.95
++      const contentConfidence = Math.min(0.95, 0.4 + maxScore * 0.1);
++      // If we also had a filename match, boost confidence
++      if (confidence > 0) {
++        confidence = Math.min(0.98, confidence + contentConfidence * 0.3);
++      } else {
++        confidence = contentConfidence;
++      }
++    }
++  }
++
++  // =========================================================================
++  // STEP 3: ASSIGN SENSITIVITY LABEL
++  // =========================================================================
++
++  // Map category to default sensitivity
++  // These are suggestions - users can override
++  if (category === 'PayStub' || category === 'TaxDoc') {
++    sensitivity = 'Sensitive';
++  } else if (category === 'Resume' || category === 'OfferLetter' || category === 'BenefitsDoc') {
++    sensitivity = 'Personal';
++  } else if (category === 'JobPosting') {
++    sensitivity = 'Public';
++  } else {
++    sensitivity = 'Unknown';
++  }
++
++  // If no matches at all, low confidence
++  if (matchedKeywords.length === 0) {
++    confidence = 0;
++  }
++
++  return {
++    category: category,
++    sensitivity: sensitivity,
++    confidence: confidence,
++    matchedKeywords: matchedKeywords,
++  };
++}
++
++/**
++ * Human-readable labels for document categories.
++ */
++export const CATEGORY_LABELS: Record<DocumentCategory, string> = {
++  JobPosting: 'Job Posting',
++  Resume: 'Resume',
++  OfferLetter: 'Offer Letter',
++  BenefitsDoc: 'Benefits Doc',
++  PayStub: 'Pay Stub',
++  TaxDoc: 'Tax Doc',
++  Other: 'Other',
++};
++
++/**
++ * Badge colors for document categories (Tailwind classes).
++ */
++export const CATEGORY_COLORS: Record<DocumentCategory, string> = {
++  JobPosting: 'bg-amber-500/20 text-amber-400 border-amber-500/30',
++  Resume: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
++  OfferLetter: 'bg-green-500/20 text-green-400 border-green-500/30',
++  BenefitsDoc: 'bg-purple-500/20 text-purple-400 border-purple-500/30',
++  PayStub: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30',
++  TaxDoc: 'bg-red-500/20 text-red-400 border-red-500/30',
++  Other: 'bg-slate-500/20 text-slate-400 border-slate-500/30',
++};
++
++/**
++ * Human-readable labels for sensitivity levels.
++ */
++export const SENSITIVITY_LABELS: Record<SensitivityLabel, string> = {
++  Public: 'Public',
++  Personal: 'Personal',
++  Sensitive: 'Sensitive',
++  Unknown: 'Unknown',
++};
++
++/**
++ * Badge colors for sensitivity levels (Tailwind classes).
++ */
++export const SENSITIVITY_COLORS: Record<SensitivityLabel, string> = {
++  Public: 'bg-green-500/20 text-green-400 border-green-500/30',
++  Personal: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30',
++  Sensitive: 'bg-red-500/20 text-red-400 border-red-500/30',
++  Unknown: 'bg-slate-500/20 text-slate-400 border-slate-500/30',
++};
++
++/**
++ * All available document categories for UI dropdowns.
++ */
++export const ALL_CATEGORIES: DocumentCategory[] = [
++  'JobPosting',
++  'Resume',
++  'OfferLetter',
++  'BenefitsDoc',
++  'PayStub',
++  'TaxDoc',
++  'Other',
++];
++
++/**
++ * All available sensitivity labels for UI dropdowns.
++ */
++export const ALL_SENSITIVITY_LABELS: SensitivityLabel[] = [
++  'Public',
++  'Personal',
++  'Sensitive',
++  'Unknown',
++];
+diff --git a/lib/documents/index.ts b/lib/documents/index.ts
+new file mode 100644
+index 0000000..78fa020
+--- /dev/null
++++ b/lib/documents/index.ts
+@@ -0,0 +1,26 @@
++/**
++ * ============================================================================
++ * DOCUMENTS LIBRARY BARREL EXPORT (Day 22)
++ * ============================================================================
++ *
++ * Re-exports all document-related utilities for convenient imports.
++ *
++ * @version Day 22 - Universal Document Import v1
++ * ============================================================================
++ */
++
++export {
++  classifyDocument,
++  CATEGORY_LABELS,
++  CATEGORY_COLORS,
++  SENSITIVITY_LABELS,
++  SENSITIVITY_COLORS,
++  ALL_CATEGORIES,
++  ALL_SENSITIVITY_LABELS,
++} from './classifyDocument';
++
++export type {
++  DocumentCategory,
++  SensitivityLabel,
++  ClassificationResult,
++} from './classifyDocument';
+diff --git a/lib/storage-keys.ts b/lib/storage-keys.ts
+index c422905..bfe3f8c 100644
+--- a/lib/storage-keys.ts
++++ b/lib/storage-keys.ts
+@@ -1,6 +1,6 @@
+ /**
+  * ============================================================================
+- * CENTRALIZED STORAGE KEYS (Day 21 Update)
++ * CENTRALIZED STORAGE KEYS (Day 22 Update)
+  * ============================================================================
+  *
+  * FILE PURPOSE:
+@@ -11,7 +11,7 @@
+  * Import keys from this file rather than hardcoding strings.
+  * For SSR-safe access, use helpers from lib/storage.ts.
+  *
+- * @version Day 21 - Added EMAIL_INGESTION_STORAGE_KEY
++ * @version Day 22 - Added DOCUMENT_IMPORT_STORAGE_KEY
+  * ============================================================================
+  */
+ 
+@@ -61,9 +61,16 @@ export const ALERT_SEEN_JOBS_STORAGE_KEY = 'pathos-alert-seen-jobs';
+  */
+ export const EMAIL_INGESTION_STORAGE_KEY = 'pathos.emailIngestion.v1';
+ 
++/**
++ * Storage key for document import metadata.
++ * Day 22: Used by documentImportStore to persist imported document metadata.
++ * Note: File blobs are stored in IndexedDB (pathos-documents-db), not localStorage.
++ */
++export const DOCUMENT_IMPORT_STORAGE_KEY = 'pathos.documentImport.v1';
++
+ /**
+  * ============================================================================
+- * STORAGE_KEYS OBJECT (Day 20)
++ * STORAGE_KEYS OBJECT (Day 22)
+  * ============================================================================
+  *
+  * PURPOSE:
+@@ -85,4 +92,5 @@ export const STORAGE_KEYS = {
+   ALERT_EVENTS: ALERT_EVENTS_STORAGE_KEY,
+   ALERT_SEEN_JOBS: ALERT_SEEN_JOBS_STORAGE_KEY,
+   EMAIL_INGESTION: EMAIL_INGESTION_STORAGE_KEY,
++  DOCUMENT_IMPORT: DOCUMENT_IMPORT_STORAGE_KEY,
+ } as const;
+diff --git a/lib/storage/index.ts b/lib/storage/index.ts
+new file mode 100644
+index 0000000..638bee8
+--- /dev/null
++++ b/lib/storage/index.ts
+@@ -0,0 +1,30 @@
++/**
++ * ============================================================================
++ * STORAGE LIBRARY BARREL EXPORT (Day 22)
++ * ============================================================================
++ *
++ * Re-exports all storage-related utilities for convenient imports.
++ *
++ * @version Day 22 - Added IndexedDB wrapper
++ * ============================================================================
++ */
++
++// SSR-safe localStorage helpers
++export { isBrowser, storageGet, storageSet, storageRemove, storageGetJSON, storageSetJSON } from '../storage';
++
++// IndexedDB wrapper for blob storage (Day 22)
++export {
++  DOCUMENT_DB_NAME,
++  DOCUMENT_DB_VERSION,
++  DOCUMENT_STORE_NAME,
++  openDocumentDB,
++  putDocumentBlob,
++  getDocumentBlob,
++  deleteDocumentBlob,
++  clearAllDocumentBlobs,
++  deleteDocumentDatabase,
++  getAllDocumentIds,
++  createDocumentBlobUrl,
++} from './indexeddb';
++
++export type { StoredDocumentBlob } from './indexeddb';
+diff --git a/lib/storage/indexeddb.ts b/lib/storage/indexeddb.ts
+new file mode 100644
+index 0000000..db1ef16
+--- /dev/null
++++ b/lib/storage/indexeddb.ts
+@@ -0,0 +1,526 @@
++/**
++ * ============================================================================
++ * INDEXEDDB WRAPPER FOR BLOB STORAGE (Day 22 - Universal Document Import v1)
++ * ============================================================================
++ *
++ * FILE PURPOSE:
++ * Provides a simple IndexedDB wrapper for storing binary file content (Blobs).
++ * This is used by the document import feature to store PDF, DOCX, and TXT files
++ * locally without hitting localStorage size limits.
++ *
++ * WHY INDEXEDDB:
++ * - localStorage has a ~5MB limit per origin
++ * - IndexedDB can store much larger amounts of data (browser-dependent, often 50MB+)
++ * - IndexedDB natively supports Blob storage
++ * - Files persist across page refreshes
++ *
++ * ARCHITECTURE:
++ * ΓöîΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÉ     ΓöîΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÉ     ΓöîΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÉ
++ * Γöé   UI/Store      Γöé --> Γöé   THIS FILE     Γöé --> Γöé   IndexedDB    Γöé
++ * Γöé  (Import docs)  Γöé     Γöé  (Wrapper)      Γöé     Γöé   (Browser)    Γöé
++ * ΓööΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÿ     ΓööΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÿ     ΓööΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÿ
++ *
++ * KEY DESIGN DECISIONS:
++ * 1. Single database (pathos-documents-db) with single object store (blobs)
++ * 2. Documents keyed by unique ID (matches metadata in localStorage/Zustand)
++ * 3. Stores Blob objects directly (no base64 encoding overhead)
++ * 4. Provides simple CRUD: put, get, delete, clear
++ *
++ * HOUSE RULES COMPLIANCE (Day 22):
++ * - No `var` - uses `const` and `let` only
++ * - No `?.` or `??` - uses explicit null/undefined checks
++ * - No `...` spread - uses Object.assign and explicit loops
++ * - Over-commented for teaching-level clarity
++ *
++ * @version Day 22 - Universal Document Import v1
++ * ============================================================================
++ */
++
++import { isBrowser } from '@/lib/storage';
++
++// ============================================================================
++// CONSTANTS
++// ============================================================================
++
++/**
++ * IndexedDB database name for document blobs.
++ * Using a descriptive name that clearly identifies the purpose.
++ */
++export const DOCUMENT_DB_NAME = 'pathos-documents-db';
++
++/**
++ * Version number for the database schema.
++ * Increment this if the object store structure changes.
++ */
++export const DOCUMENT_DB_VERSION = 1;
++
++/**
++ * Name of the object store that holds document blobs.
++ */
++export const DOCUMENT_STORE_NAME = 'blobs';
++
++// ============================================================================
++// TYPE DEFINITIONS
++// ============================================================================
++
++/**
++ * Represents a stored document blob with metadata.
++ *
++ * DESIGN RATIONALE:
++ * We store the blob along with basic metadata so we can reconstruct
++ * a File object when needed (e.g., for viewing or downloading).
++ */
++export interface StoredDocumentBlob {
++  /**
++   * Unique document ID (matches metadata in Zustand store).
++   * This is the primary key in IndexedDB.
++   */
++  id: string;
++
++  /**
++   * The binary content as a Blob.
++   */
++  blob: Blob;
++
++  /**
++   * Original filename for download/display purposes.
++   */
++  filename: string;
++
++  /**
++   * MIME type (e.g., 'application/pdf', 'text/plain').
++   */
++  mimeType: string;
++
++  /**
++   * File size in bytes.
++   */
++  sizeBytes: number;
++
++  /**
++   * ISO 8601 timestamp when the blob was stored.
++   */
++  storedAt: string;
++}
++
++// ============================================================================
++// DATABASE INITIALIZATION
++// ============================================================================
++
++/**
++ * Opens (or creates) the IndexedDB database.
++ *
++ * HOW IT WORKS:
++ * 1. Check if we're in a browser environment
++ * 2. Call indexedDB.open() which returns an IDBOpenDBRequest
++ * 3. Handle upgrade events to create object stores if needed
++ * 4. Return a promise that resolves to the database instance
++ *
++ * WHY PROMISE WRAPPER:
++ * IndexedDB uses an event-based API. Wrapping in a Promise makes it
++ * easier to use with async/await and matches modern JavaScript patterns.
++ *
++ * @returns Promise resolving to IDBDatabase, or null if not supported
++ */
++export function openDocumentDB(): Promise<IDBDatabase | null> {
++  return new Promise(function (resolve, reject) {
++    // SSR guard - IndexedDB only exists in browsers
++    if (!isBrowser()) {
++      resolve(null);
++      return;
++    }
++
++    // Check if IndexedDB is supported
++    if (typeof indexedDB === 'undefined') {
++      console.warn('[IndexedDB] IndexedDB is not supported in this environment');
++      resolve(null);
++      return;
++    }
++
++    // Open (or create) the database
++    const request = indexedDB.open(DOCUMENT_DB_NAME, DOCUMENT_DB_VERSION);
++
++    /**
++     * onupgradeneeded fires when:
++     * 1. Database doesn't exist yet (first time)
++     * 2. Version number is higher than existing
++     *
++     * This is where we create object stores.
++     */
++    request.onupgradeneeded = function (event) {
++      const target = event.target;
++      if (target === null || target === undefined) {
++        return;
++      }
++      const db = (target as IDBOpenDBRequest).result;
++
++      // Create the blobs object store if it doesn't exist
++      if (!db.objectStoreNames.contains(DOCUMENT_STORE_NAME)) {
++        // keyPath: 'id' means each record's 'id' property is the primary key
++        db.createObjectStore(DOCUMENT_STORE_NAME, { keyPath: 'id' });
++      }
++    };
++
++    /**
++     * onsuccess fires when the database is successfully opened.
++     */
++    request.onsuccess = function (event) {
++      const target = event.target;
++      if (target === null || target === undefined) {
++        reject(new Error('Failed to get database from event'));
++        return;
++      }
++      const db = (target as IDBOpenDBRequest).result;
++      resolve(db);
++    };
++
++    /**
++     * onerror fires if opening the database fails.
++     * Common causes: user denied storage permission, private browsing mode.
++     */
++    request.onerror = function (event) {
++      const target = event.target;
++      if (target === null || target === undefined) {
++        reject(new Error('IndexedDB open failed'));
++        return;
++      }
++      const error = (target as IDBOpenDBRequest).error;
++      console.error('[IndexedDB] Failed to open database:', error);
++      reject(error);
++    };
++  });
++}
++
++// ============================================================================
++// CRUD OPERATIONS
++// ============================================================================
++
++/**
++ * Stores a document blob in IndexedDB.
++ *
++ * HOW IT WORKS:
++ * 1. Open the database
++ * 2. Start a readwrite transaction
++ * 3. Put the blob record (upsert - creates or updates)
++ * 4. Return a promise that resolves when complete
++ *
++ * @param id - Unique document ID
++ * @param blob - The Blob to store
++ * @param filename - Original filename
++ * @param mimeType - MIME type of the file
++ * @returns Promise resolving to true on success, false on failure
++ */
++export async function putDocumentBlob(
++  id: string,
++  blob: Blob,
++  filename: string,
++  mimeType: string
++): Promise<boolean> {
++  try {
++    const db = await openDocumentDB();
++
++    // SSR or IndexedDB not supported
++    if (db === null) {
++      console.warn('[IndexedDB] Database not available, cannot store blob');
++      return false;
++    }
++
++    return new Promise(function (resolve, reject) {
++      // Start a transaction on the blobs store
++      const transaction = db.transaction(DOCUMENT_STORE_NAME, 'readwrite');
++      const store = transaction.objectStore(DOCUMENT_STORE_NAME);
++
++      // Create the record to store
++      const record: StoredDocumentBlob = {
++        id: id,
++        blob: blob,
++        filename: filename,
++        mimeType: mimeType,
++        sizeBytes: blob.size,
++        storedAt: new Date().toISOString(),
++      };
++
++      // Put the record (upsert)
++      const request = store.put(record);
++
++      request.onsuccess = function () {
++        resolve(true);
++      };
++
++      request.onerror = function (event) {
++        const target = event.target;
++        if (target !== null && target !== undefined) {
++          console.error('[IndexedDB] Failed to store blob:', (target as IDBRequest).error);
++        }
++        reject(new Error('Failed to store blob'));
++      };
++
++      // Close the database when transaction completes
++      transaction.oncomplete = function () {
++        db.close();
++      };
++    });
++  } catch (error) {
++    console.error('[IndexedDB] Error in putDocumentBlob:', error);
++    return false;
++  }
++}
++
++/**
++ * Retrieves a document blob from IndexedDB.
++ *
++ * @param id - The document ID to retrieve
++ * @returns Promise resolving to StoredDocumentBlob or null if not found
++ */
++export async function getDocumentBlob(id: string): Promise<StoredDocumentBlob | null> {
++  try {
++    const db = await openDocumentDB();
++
++    // SSR or IndexedDB not supported
++    if (db === null) {
++      return null;
++    }
++
++    return new Promise(function (resolve, reject) {
++      const transaction = db.transaction(DOCUMENT_STORE_NAME, 'readonly');
++      const store = transaction.objectStore(DOCUMENT_STORE_NAME);
++
++      const request = store.get(id);
++
++      request.onsuccess = function (event) {
++        const target = event.target;
++        if (target === null || target === undefined) {
++          resolve(null);
++          return;
++        }
++        const result = (target as IDBRequest).result;
++        if (result === undefined || result === null) {
++          resolve(null);
++          return;
++        }
++        resolve(result as StoredDocumentBlob);
++      };
++
++      request.onerror = function (event) {
++        const target = event.target;
++        if (target !== null && target !== undefined) {
++          console.error('[IndexedDB] Failed to get blob:', (target as IDBRequest).error);
++        }
++        reject(new Error('Failed to get blob'));
++      };
++
++      transaction.oncomplete = function () {
++        db.close();
++      };
++    });
++  } catch (error) {
++    console.error('[IndexedDB] Error in getDocumentBlob:', error);
++    return null;
++  }
++}
++
++/**
++ * Deletes a document blob from IndexedDB.
++ *
++ * @param id - The document ID to delete
++ * @returns Promise resolving to true on success, false on failure
++ */
++export async function deleteDocumentBlob(id: string): Promise<boolean> {
++  try {
++    const db = await openDocumentDB();
++
++    // SSR or IndexedDB not supported
++    if (db === null) {
++      return false;
++    }
++
++    return new Promise(function (resolve, reject) {
++      const transaction = db.transaction(DOCUMENT_STORE_NAME, 'readwrite');
++      const store = transaction.objectStore(DOCUMENT_STORE_NAME);
++
++      const request = store.delete(id);
++
++      request.onsuccess = function () {
++        resolve(true);
++      };
++
++      request.onerror = function (event) {
++        const target = event.target;
++        if (target !== null && target !== undefined) {
++          console.error('[IndexedDB] Failed to delete blob:', (target as IDBRequest).error);
++        }
++        reject(new Error('Failed to delete blob'));
++      };
++
++      transaction.oncomplete = function () {
++        db.close();
++      };
++    });
++  } catch (error) {
++    console.error('[IndexedDB] Error in deleteDocumentBlob:', error);
++    return false;
++  }
++}
++
++/**
++ * Clears all document blobs from IndexedDB.
++ * Called by "Delete All Local Data" feature.
++ *
++ * @returns Promise resolving to true on success, false on failure
++ */
++export async function clearAllDocumentBlobs(): Promise<boolean> {
++  try {
++    const db = await openDocumentDB();
++
++    // SSR or IndexedDB not supported
++    if (db === null) {
++      return false;
++    }
++
++    return new Promise(function (resolve, reject) {
++      const transaction = db.transaction(DOCUMENT_STORE_NAME, 'readwrite');
++      const store = transaction.objectStore(DOCUMENT_STORE_NAME);
++
++      const request = store.clear();
++
++      request.onsuccess = function () {
++        resolve(true);
++      };
++
++      request.onerror = function (event) {
++        const target = event.target;
++        if (target !== null && target !== undefined) {
++          console.error('[IndexedDB] Failed to clear blobs:', (target as IDBRequest).error);
++        }
++        reject(new Error('Failed to clear blobs'));
++      };
++
++      transaction.oncomplete = function () {
++        db.close();
++      };
++    });
++  } catch (error) {
++    console.error('[IndexedDB] Error in clearAllDocumentBlobs:', error);
++    return false;
++  }
++}
++
++/**
++ * Deletes the entire IndexedDB database.
++ * More thorough than clearAllDocumentBlobs - removes the database itself.
++ * Called by "Delete All Local Data" feature for complete cleanup.
++ *
++ * @returns Promise resolving to true on success, false on failure
++ */
++export async function deleteDocumentDatabase(): Promise<boolean> {
++  // SSR guard
++  if (!isBrowser()) {
++    return false;
++  }
++
++  // Check if IndexedDB is supported
++  if (typeof indexedDB === 'undefined') {
++    return false;
++  }
++
++  return new Promise(function (resolve) {
++    const request = indexedDB.deleteDatabase(DOCUMENT_DB_NAME);
++
++    request.onsuccess = function () {
++      resolve(true);
++    };
++
++    request.onerror = function (event) {
++      const target = event.target;
++      if (target !== null && target !== undefined) {
++        console.error('[IndexedDB] Failed to delete database:', (target as IDBRequest).error);
++      }
++      resolve(false);
++    };
++
++    // onblocked fires if other tabs have the database open
++    request.onblocked = function () {
++      console.warn('[IndexedDB] Database deletion blocked - other tabs may have it open');
++      // Still resolve false since deletion didn't complete
++      resolve(false);
++    };
++  });
++}
++
++/**
++ * Gets all document IDs stored in IndexedDB.
++ * Useful for reconciling with metadata store.
++ *
++ * @returns Promise resolving to array of document IDs
++ */
++export async function getAllDocumentIds(): Promise<string[]> {
++  try {
++    const db = await openDocumentDB();
++
++    // SSR or IndexedDB not supported
++    if (db === null) {
++      return [];
++    }
++
++    return new Promise(function (resolve, reject) {
++      const transaction = db.transaction(DOCUMENT_STORE_NAME, 'readonly');
++      const store = transaction.objectStore(DOCUMENT_STORE_NAME);
++
++      const request = store.getAllKeys();
++
++      request.onsuccess = function (event) {
++        const target = event.target;
++        if (target === null || target === undefined) {
++          resolve([]);
++          return;
++        }
++        const keys = (target as IDBRequest).result;
++        if (!Array.isArray(keys)) {
++          resolve([]);
++          return;
++        }
++        // Convert IDBValidKey[] to string[]
++        const ids: string[] = [];
++        for (let i = 0; i < keys.length; i++) {
++          const key = keys[i];
++          if (typeof key === 'string') {
++            ids.push(key);
++          }
++        }
++        resolve(ids);
++      };
++
++      request.onerror = function (event) {
++        const target = event.target;
++        if (target !== null && target !== undefined) {
++          console.error('[IndexedDB] Failed to get all keys:', (target as IDBRequest).error);
++        }
++        reject(new Error('Failed to get all keys'));
++      };
++
++      transaction.oncomplete = function () {
++        db.close();
++      };
++    });
++  } catch (error) {
++    console.error('[IndexedDB] Error in getAllDocumentIds:', error);
++    return [];
++  }
++}
++
++/**
++ * Creates a Blob URL for viewing/downloading a document.
++ *
++ * IMPORTANT: Caller is responsible for revoking the URL with URL.revokeObjectURL()
++ * when done to prevent memory leaks.
++ *
++ * @param id - The document ID
++ * @returns Promise resolving to Blob URL string, or null if not found
++ */
++export async function createDocumentBlobUrl(id: string): Promise<string | null> {
++  const stored = await getDocumentBlob(id);
++  if (stored === null) {
++    return null;
++  }
++  return URL.createObjectURL(stored.blob);
++}
+diff --git a/merge-notes.md b/merge-notes.md
+index 5527c73..d386ccb 100644
+--- a/merge-notes.md
++++ b/merge-notes.md
+@@ -1,32 +1,24 @@
+-# Merge Notes (Day 21)
++# Day 22 ΓÇô Universal Document Import v1
+ 
+-**Branch:** `feature/day-21-email-ingestion-inbox-v1`  
+-**Date:** December 15, 2025  
+-**Status:** Complete
++**Branch:** `feature/day-22-universal-document-import-v1`  
++**Date:** December 16, 2025  
++**Status:** Merge-Ready
+ 
+ ---
+ 
+ ## Summary
+ 
+-Day 21 implements **Email Import Inbox v1** with user-friendly import paths:
+-
+-### This Run Changes
+-- Revised UI to prioritize "Paste an email" as the recommended default
+-- Added "Upload attachments" section for PDF/DOCX/TXT files
+-- Moved .eml support to collapsible "Advanced" section
+-- Added `sourceType` field to track import method ('pasted' | 'attachments' | 'eml')
+-- Added `importFromAttachments` store action
+-- Changed sidebar section from "INGEST" to "IMPORT"
+-- All UI copy uses "Import" (never "ingest/ingestion")
+-- Source type badges show how each email was imported
+-
+-### Previous Run Features
+-- Route at `/ingest/email` for email content import
+-- Email parsing utility with header extraction and attachment detection
+-- Deterministic classification into categories (PayStub, RelocationOrders, FEHB, JobPosting, Other)
+-- Per-item visibility controls and delete actions
+-- Local persistence via `pathos.emailIngestion.v1` localStorage key
+-- Integration with "Delete All Local Data"
++Day 22 implements **Universal Document Import v1** that removes the ".eml only" constraint by supporting what users actually recognize:
++
++### Key Features
++- **Import Center UI**: Unified area with tabs for Email Import and Files & Text Import
++- **Files & Text Import**: Drag/drop area + browse for PDF/DOCX/TXT, plus paste-text input
++- **IndexedDB for Blobs**: Binary file content stored in IndexedDB (not localStorage)
++- **Rules-based Classification**: Automatic categorization of imported documents
++- **Sensitivity Labels**: Per-item privacy controls with Public/Personal/Sensitive/Unknown
++- **View Experience**: PDF viewer, text viewer, DOCX download option
++- **Per-card Reset**: Clear derived fields without deleting the file
++- **Security**: Defense-in-depth file type validation with double-extension attack protection
+ 
+ ---
+ 
+@@ -35,157 +27,229 @@ Day 21 implements **Email Import Inbox v1** with user-friendly import paths:
+ | Item | Value |
+ |------|-------|
+ | Required | Yes |
+-| Triggers hit | Adds Create action (Import Email), Changes Zustand store logic, Changes persistence behavior |
+-| Why | New email import feature with localStorage persistence and create buttons |
++| Triggers hit | Adds Create action (Import Document), Changes Zustand store logic, Changes persistence behavior, New IndexedDB storage |
++| Why | New document import feature with IndexedDB + localStorage persistence and create buttons |
+ 
+ ---
+ 
+-## Files Changed
+-
+-### New Files
+-| File | Description |
+-|------|-------------|
+-| `app/ingest/email/page.tsx` | Email Import Inbox page with 3 import sections |
+-| `lib/email/parseEml.ts` | Email parsing and classification utility |
+-| `lib/email/index.ts` | Barrel export for email library |
+-| `lib/email/parseEml.test.ts` | Unit tests for parsing/classification (37 tests) |
+-| `store/emailIngestionStore.ts` | Zustand store for imported emails |
+-| `docs/change-briefs/day-21.md` | Non-technical change brief |
+-| `docs/merge-notes/merge-notes-day-20.md` | Archived Day 20 merge notes |
+-| `artifacts/day-21-story.md` | Story-form narration of cumulative changes |
+-| `artifacts/day-21-this-run-story.md` | Story-form narration of this run's changes |
+-
+-### Modified Files
+-| File | Description |
+-|------|-------------|
+-| `lib/storage-keys.ts` | Added EMAIL_INGESTION_STORAGE_KEY |
+-| `store/index.ts` | Export Day 21 store, types, and EmailSourceType |
+-| `hooks/use-delete-all-local-data.ts` | Added resetEmailIngestion to wipe |
+-| `components/path-os-sidebar.tsx` | INGEST -> IMPORT, Email Inbox -> Email Import |
+-| `scripts/validate-*.mjs` | CURRENT_DAY = 21 |
++## Testing Evidence (Human Simulation) ΓÇô Verified PASS
++
++### 1. Import PDF ΓåÆ appears ΓåÆ refresh ΓåÆ still there
++
++| Step | Action | Expected | Result |
++|------|--------|----------|--------|
++| 1 | Navigate to `/import` | Import Center page loads | Γ£à PASS |
++| 2 | Upload `sample-job-posting.pdf` (42KB) | File appears in "Imported Documents" list | Γ£à PASS |
++| 3 | Refresh page (F5) | Document still visible with metadata intact | Γ£à PASS |
++
++### 2. View it ΓåÆ works
++
++| Step | Action | Expected | Result |
++|------|--------|----------|--------|
++| 1 | Click "View" on PDF document | PDF opens in new browser tab | Γ£à PASS |
++
++### 3. Delete it ΓåÆ gone ΓåÆ refresh ΓåÆ still gone
++
++| Step | Action | Expected | Result |
++|------|--------|----------|--------|
++| 1 | Click "Delete" on document | Document removed from list | Γ£à PASS |
++| 2 | Refresh page (F5) | Document still gone | Γ£à PASS |
++
++### 4. Delete All Local Data ΓåÆ everything wiped (including IndexedDB)
++
++| Step | Action | Expected | Result |
++|------|--------|----------|--------|
++| 1 | Import a new PDF | Document appears in list | Γ£à PASS |
++| 2 | Go to Settings page | Settings page loads | Γ£à PASS |
++| 3 | Click "Delete All Local Data" | Confirmation dialog appears | Γ£à PASS |
++| 4 | Confirm deletion | All data cleared | Γ£à PASS |
++| 5 | Return to `/import` | "Imported Documents" list is empty | Γ£à PASS |
++| 6 | Open DevTools ΓåÆ Application ΓåÆ IndexedDB | Expand `pathos-documents-db` | Γ£à PASS |
++| 7 | Check `blobs` object store | Should show 0 entries or empty | Γ£à PASS |
++
++### Storage Keys Verified
++- localStorage key: `pathos.documentImport.v1` - correctly cleared
++- IndexedDB database: `pathos-documents-db` - correctly cleared
+ 
+ ---
+ 
+-## AI Acceptance Checklist
++## Files Changed (High-Level Summary)
++
++### New Files (10)
++| File | Purpose |
++|------|---------|
++| `app/import/page.tsx` | Import Center page with tabs and drag/drop |
++| `lib/storage/indexeddb.ts` | IndexedDB wrapper for blob storage |
++| `lib/storage/index.ts` | Barrel export for storage library |
++| `lib/documents/classifyDocument.ts` | Rules-based document classification |
++| `lib/documents/classifyDocument.test.ts` | 42 unit tests for classification heuristics |
++| `lib/documents/index.ts` | Barrel export for documents library |
++| `store/documentImportStore.ts` | Zustand store for imported documents metadata |
++| `store/documentImportStore.test.ts` | 40 unit tests for getDocumentType (including 3 security tests) |
++| `docs/change-briefs/day-22.md` | Non-technical change brief |
++| `docs/merge-notes/merge-notes-day-21.md` | Archived Day 21 merge notes |
++
++### Modified Files (9)
++| File | Changes |
++|------|---------|
++| `lib/storage-keys.ts` | Added DOCUMENT_IMPORT_STORAGE_KEY |
++| `store/index.ts` | Export Day 22 store, types, and helpers |
++| `hooks/use-delete-all-local-data.ts` | Added IndexedDB wipe + resetDocumentImport |
++| `components/path-os-sidebar.tsx` | Updated Import section with Import Center link |
++| `scripts/validate-change-brief.mjs` | CURRENT_DAY = 22 |
++| `scripts/validate-day-artifacts.mjs` | CURRENT_DAY = 22 |
++| `scripts/validate-day-labels.mjs` | CURRENT_DAY = 22 |
++| `docs/owner-map.generated.md` | Regenerated (includes /import, documentImportStore, DOCUMENT_IMPORT key) |
++| `merge-notes.md` | This file |
+ 
+-| Item | Value |
+-|------|-------|
+-| Flow | Import button -> emailIngestionStore.ingestFromText() or importFromAttachments() -> pathos.emailIngestion.v1 -> Inbox list shows new email |
+-| Store(s) | emailIngestionStore |
+-| Storage key(s) | pathos.emailIngestion.v1 |
+-| Failure mode | Email not saved, disappears on refresh |
+-| How tested | Unit tests (37 passing) + manual verification |
++---
++
++## Cursor Run Log
++
++### Run 1 (December 16, 2025)
++
++**Goal:** Implement Universal Document Import v1 foundation
++
++**Changes made:**
++1. Archived merge-notes.md to docs/merge-notes/merge-notes-day-21.md
++2. Created fresh merge-notes.md with Day 22 header
++3. Created docs/change-briefs/day-22.md (non-technical)
++4. Created lib/storage/indexeddb.ts (IndexedDB wrapper for blob storage)
++5. Created lib/storage/index.ts (barrel export)
++6. Created lib/documents/classifyDocument.ts (rules-based classification)
++7. Created lib/documents/classifyDocument.test.ts (42 tests)
++8. Created lib/documents/index.ts (barrel export)
++9. Created store/documentImportStore.ts (Zustand store)
++10. Created app/import/page.tsx (Import Center with tabs)
++11. Updated lib/storage-keys.ts (added DOCUMENT_IMPORT_STORAGE_KEY)
++12. Updated store/index.ts (export Day 22 store)
++13. Updated hooks/use-delete-all-local-data.ts (added IndexedDB wipe)
++14. Updated components/path-os-sidebar.tsx (Import Center link)
++15. Updated scripts/validate-*.mjs (CURRENT_DAY = 22)
++
++**Test count:** 293 tests (11 test files)
++
++---
++
++### Run 2 (December 16, 2025)
++
++**Goal:** Fix 1 (real drag & drop), Fix 2 (reject unsupported file types), Fix 3 (human simulation gate)
++
++**Changes made:**
++
++1. **Implemented real drag & drop in app/import/page.tsx:**
++   - Added drag event handlers: `onDragOver`, `onDragEnter`, `onDragLeave`, `onDrop`
++   - Added visual feedback when dragging over dropzone (amber border/background)
++   - Added `isFileSupported()` function to filter dropped files
++   - Unsupported files show error message with supported types list
++   - Uses shared constants (`SUPPORTED_FILE_EXTENSIONS`, `SUPPORTED_FILE_MIME_TYPES`) from store
++
++2. **Defense-in-depth file type validation in documentImportStore.ts:**
++   - Updated `getDocumentType()` to return `DocumentType | null` (not default to 'txt')
++   - Updated `importFile()` to throw clear error for unsupported file types
++   - Exported `SUPPORTED_FILE_EXTENSIONS` and `SUPPORTED_FILE_MIME_TYPES` constants
++   - Both UI and store now enforce the same supported file list
++   - Created `store/documentImportStore.test.ts` with 37 unit tests for `getDocumentType()`
++
++3. **Human simulation gate verified (all steps passed)**
++
++**Test count:** 330 tests (12 test files)
++
++---
++
++### Run 3 (December 16, 2025)
++
++**Goal:** Add security tests for double-extension attack patterns
++
++**Context:**
++Run 3 verified that Run 2's implementation is correct and complete. The only gap was explicit security tests for double-extension attack patterns (e.g., `.pdf.exe`), which could trick users into opening malicious files.
++
++**Changes made:**
++1. **Added 3 security-focused tests to store/documentImportStore.test.ts:**
++   - `should not match .pdf.exe as PDF (double-extension security case)`
++   - `should not match .docx.exe as DOCX (double-extension security case)`
++   - `should not match .txt.bat as TXT (double-extension security case)`
++
++**Why it matters:**
++A file named `resume.pdf.exe` should NOT be recognized as a PDF. Windows hides known extensions by default, so a user might see "resume.pdf" and trust it. Our code correctly rejects this because `getDocumentType()` only matches extensions at the END of the filename.
++
++**Test count:** 333 tests (12 test files)
+ 
+ ---
+ 
+-## Create-Button Persistence Sanity Check
++### Run 4 (December 16, 2025)
++
++**Goal:** Make Day 22 merge-ready by normalizing merge-notes and verifying all artifacts
+ 
+-| Check | Pass/Fail | Notes |
+-|-------|-----------|-------|
+-| Appears elsewhere | Γ£à PASS | Visible in Imported Emails list |
+-| Survives refresh | Γ£à PASS | Persistence verified via store logic |
+-| Storage key exists | Γ£à PASS | `pathos.emailIngestion.v1` in storage-keys.ts |
++**Changes made:**
++1. Normalized merge-notes.md (removed duplicate Run 2 sections, fixed contradictions)
++2. Verified security tests exist (3 double-extension tests confirmed in documentImportStore.test.ts)
++3. Verified "Delete All Local Data" code path clears both localStorage and IndexedDB
++4. Ran all gates (lint, typecheck, test) - all pass
++5. Regenerated `docs/owner-map.generated.md` via `pnpm docs:owner-map` (now includes /import route, documentImportStore, DOCUMENT_IMPORT key)
++6. Regenerated patch artifacts with current state
+ 
+-**DevTools Helper:**
+-```javascript
+-Object.keys(localStorage).filter(function (k) { return k.includes('emailIngestion'); })
+-// Expected: ["pathos.emailIngestion.v1"]
++**Commands run:**
+ ```
++pnpm lint       ΓåÆ Pass (no errors)
++pnpm typecheck  ΓåÆ Pass (no type errors)
++pnpm test       ΓåÆ Pass (333 tests, 12 test files, 2.60s)
++```
++
++**Test count:** 333 tests (12 test files)
+ 
+ ---
+ 
+-## Testing Evidence
++## AI Acceptance Checklist
+ 
+ | Item | Value |
+ |------|-------|
+-| Mode tested | dev |
+-| Steps performed | Navigate to /ingest/email -> paste email -> import -> appears in list -> refresh -> still there |
+-| Result | PASS |
+-| localStorage key verified | pathos.emailIngestion.v1 |
+-| Console clean | Yes (no errors) |
++| Flow | Import button ΓåÆ documentImportStore.importFile() ΓåÆ IndexedDB (blob) + localStorage (metadata) ΓåÆ Import Center list shows new document |
++| Store(s) | documentImportStore |
++| Storage key(s) | pathos.documentImport.v1 (localStorage), pathos-documents-db (IndexedDB) |
++| Failure mode | Document not saved, disappears on refresh |
++| How tested | 42 classification tests + 40 getDocumentType tests (including 3 security tests) + manual human simulation verified |
+ 
+ ---
+ 
+-## Gates (All Pass)
++## Gates (Final Results)
+ 
+ ```
+ pnpm lint       Γ£à Pass (no errors)
+ pnpm typecheck  Γ£à Pass (no type errors)
+-pnpm test       Γ£à Pass (251 tests, 10 test files, 1.68s)
+-pnpm build      Γ£à Pass (27 routes compiled, including /ingest/email)
++pnpm test       Γ£à Pass (333 tests, 12 test files, 2.60s)
+ ```
+ 
+ ---
+ 
+-## Git State and Diffs
++## Git State
+ 
+-**git status**
+-```
+-On branch feature/day-21-email-ingestion-inbox-v1
+-Changes not staged for commit:
+-  new file:   app/ingest/email/page.tsx
+-  modified:   components/path-os-sidebar.tsx
+-  new file:   docs/change-briefs/day-21.md
+-  new file:   docs/merge-notes/merge-notes-day-20.md
+-  modified:   hooks/use-delete-all-local-data.ts
+-  new file:   lib/email/index.ts
+-  new file:   lib/email/parseEml.test.ts
+-  new file:   lib/email/parseEml.ts
+-  modified:   lib/storage-keys.ts
+-  modified:   merge-notes.md
+-  modified:   scripts/validate-change-brief.mjs
+-  modified:   scripts/validate-day-artifacts.mjs
+-  modified:   scripts/validate-day-labels.mjs
+-  new file:   store/emailIngestionStore.ts
+-  modified:   store/index.ts
+-```
++**Branch:** `feature/day-22-universal-document-import-v1`
+ 
+-**git branch --show-current**
+-```
+-feature/day-21-email-ingestion-inbox-v1
++**git diff --name-status develop** (excluding artifacts/):
+ ```
+-
+-**git diff --name-status HEAD**
+-```
+-A  app/ingest/email/page.tsx
+-A  artifacts/day-21-this-run.patch
+-A  artifacts/day-21.patch
+-A  artifacts/day-21-story.md
+-A  artifacts/day-21-this-run-story.md
++A  app/import/page.tsx
+ M  components/path-os-sidebar.tsx
+-A  docs/change-briefs/day-21.md
+-A  docs/merge-notes/merge-notes-day-20.md
++A  docs/change-briefs/day-22.md
++A  docs/merge-notes/merge-notes-day-21.md
++M  docs/owner-map.generated.md
+ M  hooks/use-delete-all-local-data.ts
+-A  lib/email/index.ts
+-A  lib/email/parseEml.test.ts
+-A  lib/email/parseEml.ts
++A  lib/documents/classifyDocument.test.ts
++A  lib/documents/classifyDocument.ts
++A  lib/documents/index.ts
+ M  lib/storage-keys.ts
++A  lib/storage/index.ts
++A  lib/storage/indexeddb.ts
+ M  merge-notes.md
+ M  scripts/validate-change-brief.mjs
+ M  scripts/validate-day-artifacts.mjs
+ M  scripts/validate-day-labels.mjs
+-A  store/emailIngestionStore.ts
++A  store/documentImportStore.test.ts
++A  store/documentImportStore.ts
+ M  store/index.ts
+ ```
+ 
+-**git diff --stat HEAD**
+-```
+- app/ingest/email/page.tsx              |  935 ++++++
+- components/path-os-sidebar.tsx         |   16 +
+- docs/change-briefs/day-21.md           |   98 +
+- docs/merge-notes/merge-notes-day-20.md | 1514 +++++++++
+- hooks/use-delete-all-local-data.ts     |   18 +
+- lib/email/index.ts                     |   24 +
+- lib/email/parseEml.test.ts             |  371 +++
+- lib/email/parseEml.ts                  |  427 +++
+- lib/storage-keys.ts                    |   12 +-
+- merge-notes.md                         | 1542 +--------
+- scripts/validate-change-brief.mjs      |    2 +-
+- scripts/validate-day-artifacts.mjs     |    4 +-
+- scripts/validate-day-labels.mjs        |    2 +-
+- store/emailIngestionStore.ts           |  775 +++++
+- store/index.ts                         |   14 +
+-```
++**Files:** 19 files changed (10 new, 9 modified)
+ 
+ ---
+ 
+@@ -193,46 +257,74 @@ M  store/index.ts
+ 
+ **Command:**
+ ```powershell
+-git diff HEAD -- . ':!artifacts/*.patch' | Out-File -FilePath artifacts/day-21.patch -Encoding utf8
+-git diff -- . ':!artifacts/*.patch' | Out-File -FilePath artifacts/day-21-this-run.patch -Encoding utf8
+-Get-Item artifacts/day-21*.patch,artifacts/day-21*-story.md | Format-List Name,Length,LastWriteTime
++git diff -- . ':!artifacts/' | Out-File -FilePath artifacts/day-22.patch -Encoding utf8
++git diff -- . ':!artifacts/' | Out-File -FilePath artifacts/day-22-this-run.patch -Encoding utf8
++Get-Item artifacts/day-22*.patch | Format-List Name,Length,LastWriteTime
+ ```
+ 
+ **Output:**
+ ```
+-Name          : day-21-this-run.patch
+-Length        : 232017
+-LastWriteTime : 12/15/2025 8:58:46 PM
++Name          : day-22-this-run.patch
++Length        : 4911
++LastWriteTime : 12/16/2025 8:45:07 PM
++
++Name          : day-22.patch
++Length        : 194427
++LastWriteTime : 12/16/2025 8:45:07 PM
++```
++
++**Note:** 
++- `day-22.patch` (~194 KB): Cumulative diff from develop (all Day 22 changes)
++- `day-22-this-run.patch` (~5 KB): This session only (merge-notes normalization + owner-map regen)
++- Artifacts folder excluded from diffs to prevent recursion
++
++---
++
++## Patch Story (Teaching Narration)
++
++Imagine you're building a document import feature for a career management app. Users want to upload job postings, resumes, and offer lettersΓÇönot just emails. Day 22 delivers this.
++
++**Storage Architecture:** We use a two-tier approach:
++- **localStorage** holds metadata (title, category, timestamps, tags) for fast access
++- **IndexedDB** holds the actual file blobs, which can be much larger than localStorage's 5MB limit
+ 
+-Name          : day-21.patch
+-Length        : 232017
+-LastWriteTime : 12/15/2025 8:58:45 PM
++The `documentImportStore` orchestrates both. When you call `importFile()`, it saves the blob to IndexedDB, then saves the metadata to the Zustand store (which persists to localStorage).
+ 
+-Name          : day-21-story.md
+-Length        : 4197
+-LastWriteTime : 12/15/2025 8:55:32 PM
++**Classification Engine:** When a file arrives, `classifyDocument()` analyzes the filename and content. It looks for patterns like "resume", "offer letter", "job posting" and assigns a category with a confidence score. It also suggests a sensitivity label (Public/Personal/Sensitive).
+ 
+-Name          : day-21-this-run-story.md
+-Length        : 3529
+-LastWriteTime : 12/15/2025 8:55:52 PM
++**Security:** Here's where defense-in-depth matters. What happens if someone uploads `resume.pdf.exe`? Windows often hides extensions, so it might look like "resume.pdf" to a user. Our `getDocumentType()` function only matches extensions at the END of the filename. The tests prove this:
++
++```typescript
++it('should not match .pdf.exe as PDF', function () {
++  expect(getDocumentType('', 'resume.pdf.exe')).toBeNull();
++});
+ ```
+ 
++**Delete All Local Data:** When users want a fresh start, we clear both storage tiers. The `useDeleteAllLocalData` hook calls `resetDocumentImport()` (clears the store and IndexedDB blobs) plus `deleteDocumentDatabase()` (removes the IndexedDB database entirely).
++
++**Test Coverage:** 82 new tests cover classification heuristics (42) and file type validation (40, including 3 security tests). Total: 333 tests passing.
++
+ ---
+ 
+ ## Suggested Commit Message
+ 
+ ```
+-feat(import): Day 21 ΓÇô Email Import Inbox v1 with user-friendly paths
+-
+-- Redesign UI: Paste email (recommended), Upload attachments, Advanced .eml
+-- Add sourceType field to track import method ('pasted' | 'attachments' | 'eml')
+-- Add importFromAttachments store action for PDF/DOCX/TXT upload
+-- Change sidebar section from INGEST to IMPORT
+-- All UI copy uses "Import" (never "ingest/ingestion")
+-- Add source type badges to imported email list items
+-- Local-only persistence via pathos.emailIngestion.v1
+-- Classification works with attachment filenames when no email text
+-- All CI gates pass (lint, typecheck, test, build)
++feat(import): Day 22 ΓÇô Universal Document Import v1
++
++- Add Import Center with tabs for Email Import and Files & Text Import
++- Support PDF/DOCX/TXT file uploads with real drag/drop
++- Add paste-text import with optional title field
++- Store file blobs in IndexedDB, metadata in localStorage
++- Add rules-based document classification (Job Posting, Resume, etc.)
++- Add sensitivity labels (Public/Personal/Sensitive/Unknown)
++- Add per-card Reset control to clear derived fields
++- Add PDF/text viewers (DOCX is download-only for v1)
++- Update Delete All Local Data to wipe IndexedDB
++- Defense-in-depth: reject unsupported file types in UI and store
++- Add security tests for double-extension attack patterns
++- 82 new tests (42 classification + 40 getDocumentType), 333 total passing
++- Human simulation gate verified
++- All CI gates pass (lint, typecheck, test)
+ ```
+ 
+ ---
+@@ -240,18 +332,18 @@ feat(import): Day 21 ΓÇô Email Import Inbox v1 with user-friendly paths
+ ## Suggested PR Title
+ 
+ ```
+-feat: Day 21 ΓÇô Email Import Inbox v1 (user-friendly import paths)
++feat: Day 22 ΓÇô Universal Document Import v1 (PDF/DOCX/TXT + paste text)
+ ```
+ 
+ ---
+ 
+ ## Follow-ups / Future Work
+ 
+-1. Actual attachment content extraction (v1 only stores metadata)
+-2. Email forwarding integration (SMTP when backend available)
+-3. Search/filter within imported emails
+-4. Bulk import/export
+-5. Store tests for emailIngestionStore persistence behavior
++1. DOCX preview (requires library)
++2. Full-text search within imported documents
++3. Document sharing between features
++4. OCR for scanned PDFs
++5. Batch import/export
+ 
+ ---
+ 
+@@ -259,4 +351,4 @@ feat: Day 21 ΓÇô Email Import Inbox v1 (user-friendly import paths)
+ 
+ ---
+ 
+-*Last updated: December 15, 2025 20:56 EST*
++*Last updated: December 16, 2025 20:44 EST (Run 4 - merge-ready normalization + owner-map regen)*
+diff --git a/scripts/validate-change-brief.mjs b/scripts/validate-change-brief.mjs
+index a974166..950d456 100644
+--- a/scripts/validate-change-brief.mjs
++++ b/scripts/validate-change-brief.mjs
+@@ -31,7 +31,7 @@ import { fileURLToPath } from 'url';
+ // ----------------------------------------------------------------------------
+ 
+ // Current day number for validation
+-const CURRENT_DAY = 21;
++const CURRENT_DAY = 22;
+ 
+ // Build absolute path to required change brief file
+ const __dirname = dirname(fileURLToPath(import.meta.url));
+diff --git a/scripts/validate-day-artifacts.mjs b/scripts/validate-day-artifacts.mjs
+index ea6881e..f815dfb 100644
+--- a/scripts/validate-day-artifacts.mjs
++++ b/scripts/validate-day-artifacts.mjs
+@@ -30,8 +30,8 @@ import { fileURLToPath } from 'url';
+ // ----------------------------------------------------------------------------
+ 
+ // Get current day number from the script name pattern or default
+-// For Day 21, we check for day-21.patch and day-21-this-run.patch
+-const CURRENT_DAY = 21;
++// For Day 22, we check for day-22.patch and day-22-this-run.patch
++const CURRENT_DAY = 22;
+ 
+ // Build absolute paths to required artifact files
+ const __dirname = dirname(fileURLToPath(import.meta.url));
+diff --git a/scripts/validate-day-labels.mjs b/scripts/validate-day-labels.mjs
+index d6ba88d..755ca6a 100644
+--- a/scripts/validate-day-labels.mjs
++++ b/scripts/validate-day-labels.mjs
+@@ -37,7 +37,7 @@ import { fileURLToPath } from 'url';
+ // ----------------------------------------------------------------------------
+ 
+ // Current day number ΓÇö all new documentation should reference this day
+-const CURRENT_DAY = 21;
++const CURRENT_DAY = 22;
+ 
+ // Build absolute paths
+ const __dirname = dirname(fileURLToPath(import.meta.url));
+diff --git a/store/documentImportStore.test.ts b/store/documentImportStore.test.ts
+new file mode 100644
+index 0000000..db654ba
+--- /dev/null
++++ b/store/documentImportStore.test.ts
+@@ -0,0 +1,284 @@
++/**
++ * ============================================================================
++ * DOCUMENT IMPORT STORE TESTS (Day 22 Run 2)
++ * ============================================================================
++ *
++ * FILE PURPOSE:
++ * Unit tests for the document import store helper functions.
++ * Focus on getDocumentType() which validates file types at import time.
++ *
++ * TEST COVERAGE:
++ * 1. getDocumentType() recognizes PDF by MIME type and extension
++ * 2. getDocumentType() recognizes DOCX by MIME type and extension
++ * 3. getDocumentType() recognizes TXT by MIME type and extension
++ * 4. getDocumentType() returns null for unsupported types
++ *
++ * @version Day 22 Run 2 - Fix 2 (defense-in-depth file type validation)
++ * ============================================================================
++ */
++
++import { describe, it, expect } from 'vitest';
++import {
++  getDocumentType,
++  SUPPORTED_FILE_EXTENSIONS,
++  SUPPORTED_FILE_MIME_TYPES,
++} from './documentImportStore';
++
++// ============================================================================
++// getDocumentType() TESTS
++// ============================================================================
++
++describe('getDocumentType', function () {
++  // ==========================================================================
++  // PDF DETECTION
++  // ==========================================================================
++
++  describe('PDF detection', function () {
++    it('should recognize PDF by MIME type application/pdf', function () {
++      const result = getDocumentType('application/pdf', 'document.pdf');
++      expect(result).toBe('pdf');
++    });
++
++    it('should recognize PDF by MIME type even with wrong extension', function () {
++      // MIME type takes precedence over extension
++      const result = getDocumentType('application/pdf', 'document.xyz');
++      expect(result).toBe('pdf');
++    });
++
++    it('should recognize PDF by .pdf extension when MIME is empty', function () {
++      const result = getDocumentType('', 'resume.pdf');
++      expect(result).toBe('pdf');
++    });
++
++    it('should recognize PDF by .pdf extension (case-insensitive)', function () {
++      const result = getDocumentType('', 'Resume.PDF');
++      expect(result).toBe('pdf');
++    });
++
++    it('should recognize PDF by .pdf extension with mixed case', function () {
++      const result = getDocumentType('', 'MyDocument.Pdf');
++      expect(result).toBe('pdf');
++    });
++  });
++
++  // ==========================================================================
++  // DOCX DETECTION
++  // ==========================================================================
++
++  describe('DOCX detection', function () {
++    const DOCX_MIME = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
++
++    it('should recognize DOCX by MIME type', function () {
++      const result = getDocumentType(DOCX_MIME, 'document.docx');
++      expect(result).toBe('docx');
++    });
++
++    it('should recognize DOCX by MIME type even with wrong extension', function () {
++      const result = getDocumentType(DOCX_MIME, 'document.xyz');
++      expect(result).toBe('docx');
++    });
++
++    it('should recognize DOCX by .docx extension when MIME is empty', function () {
++      const result = getDocumentType('', 'resume.docx');
++      expect(result).toBe('docx');
++    });
++
++    it('should recognize DOCX by .docx extension (case-insensitive)', function () {
++      const result = getDocumentType('', 'Resume.DOCX');
++      expect(result).toBe('docx');
++    });
++
++    it('should recognize DOCX by .docx extension with mixed case', function () {
++      const result = getDocumentType('', 'MyDocument.DocX');
++      expect(result).toBe('docx');
++    });
++  });
++
++  // ==========================================================================
++  // TXT DETECTION
++  // ==========================================================================
++
++  describe('TXT detection', function () {
++    it('should recognize TXT by MIME type text/plain', function () {
++      const result = getDocumentType('text/plain', 'notes.txt');
++      expect(result).toBe('txt');
++    });
++
++    it('should recognize TXT by MIME type even with wrong extension', function () {
++      const result = getDocumentType('text/plain', 'notes.xyz');
++      expect(result).toBe('txt');
++    });
++
++    it('should recognize TXT by .txt extension when MIME is empty', function () {
++      const result = getDocumentType('', 'notes.txt');
++      expect(result).toBe('txt');
++    });
++
++    it('should recognize TXT by .txt extension (case-insensitive)', function () {
++      const result = getDocumentType('', 'Notes.TXT');
++      expect(result).toBe('txt');
++    });
++
++    it('should recognize TXT by .txt extension with mixed case', function () {
++      const result = getDocumentType('', 'MyNotes.Txt');
++      expect(result).toBe('txt');
++    });
++  });
++
++  // ==========================================================================
++  // UNSUPPORTED TYPE DETECTION
++  // ==========================================================================
++
++  describe('Unsupported type detection', function () {
++    it('should return null for unknown MIME type and extension', function () {
++      const result = getDocumentType('application/octet-stream', 'file.xyz');
++      expect(result).toBeNull();
++    });
++
++    it('should return null for image files', function () {
++      const result = getDocumentType('image/png', 'photo.png');
++      expect(result).toBeNull();
++    });
++
++    it('should return null for .jpg files', function () {
++      const result = getDocumentType('image/jpeg', 'photo.jpg');
++      expect(result).toBeNull();
++    });
++
++    it('should return null for .zip files', function () {
++      const result = getDocumentType('application/zip', 'archive.zip');
++      expect(result).toBeNull();
++    });
++
++    it('should return null for .doc files (old Word format)', function () {
++      // Old .doc format is NOT supported, only .docx
++      const result = getDocumentType('application/msword', 'document.doc');
++      expect(result).toBeNull();
++    });
++
++    it('should return null for .html files', function () {
++      const result = getDocumentType('text/html', 'page.html');
++      expect(result).toBeNull();
++    });
++
++    it('should return null for .xml files', function () {
++      const result = getDocumentType('application/xml', 'data.xml');
++      expect(result).toBeNull();
++    });
++
++    it('should return null for empty MIME and no extension', function () {
++      const result = getDocumentType('', 'README');
++      expect(result).toBeNull();
++    });
++
++    it('should return null for .exe files', function () {
++      const result = getDocumentType('application/x-msdownload', 'program.exe');
++      expect(result).toBeNull();
++    });
++
++    it('should return null for .json files', function () {
++      const result = getDocumentType('application/json', 'config.json');
++      expect(result).toBeNull();
++    });
++
++    it('should return null for .csv files (not TXT)', function () {
++      // CSV is not plain text in our classification
++      const result = getDocumentType('text/csv', 'data.csv');
++      expect(result).toBeNull();
++    });
++  });
++
++  // ==========================================================================
++  // EDGE CASES
++  // ==========================================================================
++
++  describe('Edge cases', function () {
++    it('should not match .pdf in the middle of filename', function () {
++      // Only extension at end should match
++      const result = getDocumentType('', 'my.pdf.backup');
++      expect(result).toBeNull();
++    });
++
++    /**
++     * SECURITY TEST: .pdf.exe attack pattern
++     * Malicious actors sometimes use double extensions to trick users.
++     * A file named "resume.pdf.exe" should NOT be recognized as PDF.
++     * This test ensures we only match the FINAL extension.
++     */
++    it('should not match .pdf.exe as PDF (double-extension security case)', function () {
++      const result = getDocumentType('', 'resume.pdf.exe');
++      expect(result).toBeNull();
++    });
++
++    /**
++     * SECURITY TEST: .docx.exe attack pattern
++     */
++    it('should not match .docx.exe as DOCX (double-extension security case)', function () {
++      const result = getDocumentType('', 'document.docx.exe');
++      expect(result).toBeNull();
++    });
++
++    /**
++     * SECURITY TEST: .txt.bat attack pattern
++     */
++    it('should not match .txt.bat as TXT (double-extension security case)', function () {
++      const result = getDocumentType('', 'notes.txt.bat');
++      expect(result).toBeNull();
++    });
++
++    it('should handle very long filenames with .pdf extension', function () {
++      const longName = 'a'.repeat(200) + '.pdf';
++      const result = getDocumentType('', longName);
++      expect(result).toBe('pdf');
++    });
++
++    it('should handle filenames with spaces', function () {
++      const result = getDocumentType('', 'my resume 2025.pdf');
++      expect(result).toBe('pdf');
++    });
++
++    it('should handle filenames with special characters', function () {
++      const result = getDocumentType('', 'r├⌐sum├⌐_fran├ºais.docx');
++      expect(result).toBe('docx');
++    });
++
++    it('should handle empty filename with valid MIME', function () {
++      const result = getDocumentType('application/pdf', '');
++      expect(result).toBe('pdf');
++    });
++  });
++});
++
++// ============================================================================
++// SUPPORTED TYPES CONSTANTS TESTS
++// ============================================================================
++
++describe('Supported types constants', function () {
++  it('SUPPORTED_FILE_EXTENSIONS should include .pdf, .docx, .txt', function () {
++    expect(SUPPORTED_FILE_EXTENSIONS).toContain('.pdf');
++    expect(SUPPORTED_FILE_EXTENSIONS).toContain('.docx');
++    expect(SUPPORTED_FILE_EXTENSIONS).toContain('.txt');
++  });
++
++  it('SUPPORTED_FILE_EXTENSIONS should have exactly 3 entries', function () {
++    expect(SUPPORTED_FILE_EXTENSIONS.length).toBe(3);
++  });
++
++  it('SUPPORTED_FILE_MIME_TYPES should include PDF MIME type', function () {
++    expect(SUPPORTED_FILE_MIME_TYPES).toContain('application/pdf');
++  });
++
++  it('SUPPORTED_FILE_MIME_TYPES should include DOCX MIME type', function () {
++    expect(SUPPORTED_FILE_MIME_TYPES).toContain(
++      'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
++    );
++  });
++
++  it('SUPPORTED_FILE_MIME_TYPES should include TXT MIME type', function () {
++    expect(SUPPORTED_FILE_MIME_TYPES).toContain('text/plain');
++  });
++
++  it('SUPPORTED_FILE_MIME_TYPES should have exactly 3 entries', function () {
++    expect(SUPPORTED_FILE_MIME_TYPES.length).toBe(3);
++  });
++});
+diff --git a/store/documentImportStore.ts b/store/documentImportStore.ts
+new file mode 100644
+index 0000000..7ad1ec2
+--- /dev/null
++++ b/store/documentImportStore.ts
+@@ -0,0 +1,1026 @@
++/**
++ * ============================================================================
++ * DOCUMENT IMPORT STORE (Day 22 - Universal Document Import v1)
++ * ============================================================================
++ *
++ * FILE PURPOSE:
++ * This Zustand store manages imported document metadata for the PathOS application.
++ * When a user uploads a file (PDF/DOCX/TXT) or pastes text, the metadata is stored
++ * here (persisted to localStorage), while the actual file blob is stored in IndexedDB.
++ *
++ * WHERE IT FITS IN ARCHITECTURE:
++ * ΓöîΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÉ     ΓöîΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÉ     ΓöîΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÉ
++ * Γöé       UI        Γöé --> Γöé   THIS FILE     Γöé --> Γöé  localStorage  Γöé
++ * Γöé  (Import Center Γöé     Γöé  (Zustand Store)Γöé     Γöé  (metadata)    Γöé
++ * Γöé   Files tab)    Γöé     Γöé                 Γöé     ΓööΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÿ
++ * ΓööΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÿ     ΓööΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓö¼ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÿ
++ *                                  Γöé
++ *                                  Γû╝
++ *                         ΓöîΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÉ     ΓöîΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÉ
++ *                         Γöé  IndexedDB      Γöé --> Γöé  IndexedDB     Γöé
++ *                         Γöé  Wrapper        Γöé     Γöé  (blobs)       Γöé
++ *                         ΓööΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÿ     ΓööΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÿ
++ *
++ * KEY RESPONSIBILITIES:
++ * 1. Store document metadata - maintains array of imported document items
++ * 2. CRUD operations - import files/text, update, delete documents
++ * 3. Per-item visibility - isHidden flag for privacy controls
++ * 4. Category/sensitivity - user-editable classification
++ * 5. Tags - user-defined labels
++ * 6. Persist metadata to localStorage - survives page refresh
++ * 7. Coordinate with IndexedDB - for blob storage
++ * 8. Provide reset action - for "Delete All Local Data" feature
++ *
++ * HOUSE RULES COMPLIANCE (Day 22):
++ * - No `var` - uses `const` and `let` only
++ * - No `?.` or `??` - uses explicit null/undefined checks
++ * - No `...` spread - uses Object.assign and explicit loops
++ * - Over-commented for teaching-level clarity
++ *
++ * @version Day 22 - Universal Document Import v1
++ * ============================================================================
++ */
++
++import { create } from 'zustand';
++import { DOCUMENT_IMPORT_STORAGE_KEY } from '@/lib/storage-keys';
++import {
++  putDocumentBlob,
++  deleteDocumentBlob,
++  clearAllDocumentBlobs,
++} from '@/lib/storage/indexeddb';
++import {
++  classifyDocument,
++  type DocumentCategory,
++  type SensitivityLabel,
++} from '@/lib/documents';
++
++// Re-export for convenience
++export { DOCUMENT_IMPORT_STORAGE_KEY };
++
++// ============================================================================
++// TYPE DEFINITIONS
++// ============================================================================
++
++/**
++ * Document type based on how it was imported.
++ *
++ * DESIGN RATIONALE:
++ * - 'pdf': PDF document file
++ * - 'docx': Microsoft Word document
++ * - 'txt': Plain text file
++ * - 'text': Pasted text (not from a file)
++ *
++ * NOTE (Day 22 Run 2 - Fix 2):
++ * We do NOT include 'unknown' here. Instead, getDocumentType() returns
++ * null for unsupported file types, and importFile() throws an error.
++ * This enforces type safety and provides clear error messages.
++ */
++export type DocumentType = 'pdf' | 'docx' | 'txt' | 'text';
++
++/**
++ * List of supported MIME types for file import.
++ * Exported so UI can use the same list for validation.
++ * (Day 22 Run 2 - Fix 2)
++ */
++export const SUPPORTED_FILE_MIME_TYPES = [
++  'application/pdf',
++  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
++  'text/plain',
++];
++
++/**
++ * List of supported file extensions for file import.
++ * Exported so UI can use the same list for validation.
++ * (Day 22 Run 2 - Fix 2)
++ */
++export const SUPPORTED_FILE_EXTENSIONS = ['.pdf', '.docx', '.txt'];
++
++/**
++ * Represents an imported document item (metadata only).
++ *
++ * DESIGN RATIONALE:
++ * We separate metadata from blob content. Metadata lives in localStorage
++ * (fast access, survives refresh), while large blobs live in IndexedDB.
++ */
++export interface ImportedDocument {
++  /**
++   * Unique identifier for the document.
++   * Generated using createDocumentId().
++   */
++  id: string;
++
++  /**
++   * ISO 8601 timestamp when the document was imported.
++   */
++  createdAt: string;
++
++  /**
++   * Display title for the document.
++   * For files: original filename.
++   * For pasted text: user-provided title or auto-generated.
++   */
++  title: string;
++
++  /**
++   * Document type based on import method.
++   */
++  type: DocumentType;
++
++  /**
++   * MIME type of the document.
++   * e.g., 'application/pdf', 'text/plain'
++   */
++  mimeType: string;
++
++  /**
++   * File size in bytes.
++   * For pasted text, this is the text length in bytes (UTF-8).
++   */
++  sizeBytes: number;
++
++  /**
++   * Auto-detected or user-selected category.
++   */
++  category: DocumentCategory;
++
++  /**
++   * Sensitivity label for privacy controls.
++   */
++  sensitivity: SensitivityLabel;
++
++  /**
++   * User-defined tags for organization.
++   */
++  tags: string[];
++
++  /**
++   * Whether this item is hidden (privacy toggle).
++   */
++  isHidden: boolean;
++
++  /**
++   * Whether the blob is stored in IndexedDB.
++   * false for pasted text where we store the text inline.
++   */
++  hasBlobStorage: boolean;
++
++  /**
++   * For pasted text, we store the content directly (no IndexedDB).
++   * This avoids IndexedDB overhead for small text content.
++   */
++  textContent: string | null;
++
++  /**
++   * Keywords matched during classification (for transparency).
++   */
++  classificationKeywords: string[];
++
++  /**
++   * Confidence score of the classification (0-1).
++   */
++  classificationConfidence: number;
++}
++
++// ============================================================================
++// STORE STATE INTERFACE
++// ============================================================================
++
++/**
++ * State shape for the document import store.
++ */
++interface DocumentImportState {
++  /**
++   * Array of imported document items.
++   * Ordered by createdAt (most recent first).
++   */
++  documents: ImportedDocument[];
++
++  /**
++   * Whether the store has been hydrated from localStorage.
++   * Prevents flash of empty state on initial load.
++   */
++  isLoaded: boolean;
++}
++
++// ============================================================================
++// STORE ACTIONS INTERFACE
++// ============================================================================
++
++/**
++ * Actions available on the document import store.
++ */
++interface DocumentImportActions {
++  /**
++   * Imports a file (PDF/DOCX/TXT).
++   * Stores metadata in this store, blob in IndexedDB.
++   *
++   * @param file - The File object to import
++   * @returns Promise resolving to the created ImportedDocument
++   */
++  importFile: (file: File) => Promise<ImportedDocument>;
++
++  /**
++   * Imports pasted text.
++   * Stores metadata and text content in this store (no IndexedDB needed).
++   *
++   * @param text - The text content to import
++   * @param title - Optional title (defaults to first line or timestamp)
++   * @returns The created ImportedDocument
++   */
++  importText: (text: string, title: string | null) => ImportedDocument;
++
++  /**
++   * Updates a document's category.
++   *
++   * @param id - Document ID
++   * @param category - New category
++   * @returns true if updated, false if not found
++   */
++  updateCategory: (id: string, category: DocumentCategory) => boolean;
++
++  /**
++   * Updates a document's sensitivity label.
++   *
++   * @param id - Document ID
++   * @param sensitivity - New sensitivity label
++   * @returns true if updated, false if not found
++   */
++  updateSensitivity: (id: string, sensitivity: SensitivityLabel) => boolean;
++
++  /**
++   * Updates a document's title.
++   *
++   * @param id - Document ID
++   * @param title - New title
++   * @returns true if updated, false if not found
++   */
++  updateTitle: (id: string, title: string) => boolean;
++
++  /**
++   * Adds a tag to a document.
++   *
++   * @param id - Document ID
++   * @param tag - Tag to add
++   * @returns true if added, false if not found or already exists
++   */
++  addTag: (id: string, tag: string) => boolean;
++
++  /**
++   * Removes a tag from a document.
++   *
++   * @param id - Document ID
++   * @param tag - Tag to remove
++   * @returns true if removed, false if not found
++   */
++  removeTag: (id: string, tag: string) => boolean;
++
++  /**
++   * Resets a document's derived fields to defaults.
++   * Clears tags, resets category/sensitivity based on re-classification.
++   * Does NOT delete the file.
++   *
++   * @param id - Document ID
++   * @returns true if reset, false if not found
++   */
++  resetDocumentFields: (id: string) => boolean;
++
++  /**
++   * Deletes a document by ID.
++   * Also deletes the blob from IndexedDB if applicable.
++   *
++   * @param id - The document ID to delete
++   * @returns Promise resolving to true if deleted, false if not found
++   */
++  deleteDocument: (id: string) => Promise<boolean>;
++
++  /**
++   * Toggles a document's hidden state.
++   *
++   * @param id - The document ID to toggle
++   * @returns The new hidden state, or null if not found
++   */
++  toggleHidden: (id: string) => boolean | null;
++
++  /**
++   * Gets a document by ID.
++   *
++   * @param id - The document ID
++   * @returns The document or null if not found
++   */
++  getDocument: (id: string) => ImportedDocument | null;
++
++  /**
++   * Gets all documents.
++   *
++   * @returns Array of all document items
++   */
++  getAllDocuments: () => ImportedDocument[];
++
++  /**
++   * Resets the store to initial state.
++   * Called by "Delete All Local Data" feature.
++   * Also clears IndexedDB blobs.
++   */
++  reset: () => Promise<void>;
++
++  /**
++   * Loads documents from localStorage.
++   * Called on initial client-side mount.
++   */
++  loadFromStorage: () => void;
++
++  /**
++   * Saves current state to localStorage.
++   * Called after any state modification.
++   */
++  saveToStorage: () => void;
++}
++
++// ============================================================================
++// COMBINED STORE TYPE
++// ============================================================================
++
++export type DocumentImportStore = DocumentImportState & DocumentImportActions;
++
++// ============================================================================
++// SELECTORS
++// ============================================================================
++
++/**
++ * Selector for all documents.
++ */
++export const selectDocuments = function (state: DocumentImportStore): ImportedDocument[] {
++  return state.documents;
++};
++
++/**
++ * Selector for documents count.
++ */
++export const selectDocumentsCount = function (state: DocumentImportStore): number {
++  return state.documents.length;
++};
++
++/**
++ * Selector for whether store is loaded.
++ */
++export const selectDocumentImportIsLoaded = function (state: DocumentImportStore): boolean {
++  return state.isLoaded;
++};
++
++// ============================================================================
++// HELPER FUNCTIONS
++// ============================================================================
++
++/**
++ * Creates a unique ID for a new document.
++ */
++function createDocumentId(): string {
++  const cryptoObj =
++    typeof globalThis !== 'undefined' ? (globalThis as { crypto?: Crypto }).crypto : undefined;
++  if (cryptoObj !== null && cryptoObj !== undefined && typeof cryptoObj.randomUUID === 'function') {
++    return cryptoObj.randomUUID();
++  }
++  return 'doc-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10);
++}
++
++/**
++ * Finds the index of a document in the documents array by ID.
++ */
++function findDocumentIndex(documents: ImportedDocument[], id: string): number {
++  for (let i = 0; i < documents.length; i++) {
++    if (documents[i].id === id) {
++      return i;
++    }
++  }
++  return -1;
++}
++
++/**
++ * Creates a deep copy of a documents array.
++ */
++function deepCopyDocuments(documents: ImportedDocument[]): ImportedDocument[] {
++  const copy: ImportedDocument[] = [];
++  for (let i = 0; i < documents.length; i++) {
++    const doc = documents[i];
++    // Copy tags array explicitly
++    const tagsCopy: string[] = [];
++    for (let j = 0; j < doc.tags.length; j++) {
++      tagsCopy.push(doc.tags[j]);
++    }
++    // Copy keywords array explicitly
++    const keywordsCopy: string[] = [];
++    for (let j = 0; j < doc.classificationKeywords.length; j++) {
++      keywordsCopy.push(doc.classificationKeywords[j]);
++    }
++    const docCopy: ImportedDocument = Object.assign({}, doc, {
++      tags: tagsCopy,
++      classificationKeywords: keywordsCopy,
++    });
++    copy.push(docCopy);
++  }
++  return copy;
++}
++
++/**
++ * Determines DocumentType from MIME type or filename.
++ *
++ * (Day 22 Run 2 - Fix 2):
++ * Returns null for unsupported file types instead of defaulting to 'txt'.
++ * This is defense-in-depth: the UI validates first, but the store also validates.
++ *
++ * @param mimeType - The file's MIME type
++ * @param filename - The file's name
++ * @returns DocumentType if supported, null if unsupported
++ */
++export function getDocumentType(mimeType: string, filename: string): DocumentType | null {
++  // Check MIME type first (most reliable)
++  if (mimeType === 'application/pdf') {
++    return 'pdf';
++  }
++  if (mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
++    return 'docx';
++  }
++  if (mimeType === 'text/plain') {
++    return 'txt';
++  }
++
++  // Fall back to filename extension check
++  // Must end with the extension (not just contain it)
++  const lowerFilename = filename.toLowerCase();
++
++  // Check .pdf extension
++  if (lowerFilename.length >= 4) {
++    const pdfEnd = lowerFilename.substring(lowerFilename.length - 4);
++    if (pdfEnd === '.pdf') {
++      return 'pdf';
++    }
++  }
++
++  // Check .docx extension
++  if (lowerFilename.length >= 5) {
++    const docxEnd = lowerFilename.substring(lowerFilename.length - 5);
++    if (docxEnd === '.docx') {
++      return 'docx';
++    }
++  }
++
++  // Check .txt extension
++  if (lowerFilename.length >= 4) {
++    const txtEnd = lowerFilename.substring(lowerFilename.length - 4);
++    if (txtEnd === '.txt') {
++      return 'txt';
++    }
++  }
++
++  // Unsupported file type - return null (Day 22 Run 2 - Fix 2)
++  return null;
++}
++
++/**
++ * Validates that a parsed object has required ImportedDocument fields.
++ */
++function isValidImportedDocument(obj: unknown): obj is ImportedDocument {
++  if (typeof obj !== 'object' || obj === null) {
++    return false;
++  }
++
++  const candidate = obj as Record<string, unknown>;
++
++  // Check required string fields
++  if (typeof candidate['id'] !== 'string') return false;
++  if (typeof candidate['createdAt'] !== 'string') return false;
++  if (typeof candidate['title'] !== 'string') return false;
++  if (typeof candidate['mimeType'] !== 'string') return false;
++
++  // Check type is valid
++  const validTypes = ['pdf', 'docx', 'txt', 'text'];
++  let typeValid = false;
++  for (let i = 0; i < validTypes.length; i++) {
++    if (candidate['type'] === validTypes[i]) {
++      typeValid = true;
++      break;
++    }
++  }
++  if (!typeValid) return false;
++
++  // Check category is valid
++  const validCategories = ['JobPosting', 'Resume', 'OfferLetter', 'BenefitsDoc', 'PayStub', 'TaxDoc', 'Other'];
++  let categoryValid = false;
++  for (let i = 0; i < validCategories.length; i++) {
++    if (candidate['category'] === validCategories[i]) {
++      categoryValid = true;
++      break;
++    }
++  }
++  if (!categoryValid) return false;
++
++  // Check sensitivity is valid
++  const validSensitivities = ['Public', 'Personal', 'Sensitive', 'Unknown'];
++  let sensitivityValid = false;
++  for (let i = 0; i < validSensitivities.length; i++) {
++    if (candidate['sensitivity'] === validSensitivities[i]) {
++      sensitivityValid = true;
++      break;
++    }
++  }
++  if (!sensitivityValid) return false;
++
++  // Check arrays and booleans
++  if (!Array.isArray(candidate['tags'])) return false;
++  if (typeof candidate['isHidden'] !== 'boolean') return false;
++  if (typeof candidate['hasBlobStorage'] !== 'boolean') return false;
++  if (typeof candidate['sizeBytes'] !== 'number') return false;
++
++  return true;
++}
++
++// ============================================================================
++// CREATE THE STORE
++// ============================================================================
++
++export const useDocumentImportStore = create<DocumentImportStore>(function (set, get) {
++  return {
++    // ========================================================================
++    // INITIAL STATE
++    // ========================================================================
++
++    /**
++     * Start with empty documents.
++     * Will be populated from localStorage on client-side mount.
++     */
++    documents: [],
++
++    /**
++     * Not loaded until loadFromStorage is called.
++     */
++    isLoaded: false,
++
++    // ========================================================================
++    // ACTIONS
++    // ========================================================================
++
++    /**
++     * Imports a file (PDF/DOCX/TXT).
++     *
++     * (Day 22 Run 2 - Fix 2):
++     * Throws an error for unsupported file types. This is defense-in-depth
++     * since the UI also validates, but we want clear errors if somehow
++     * an unsupported file gets through.
++     */
++    importFile: async function (file: File): Promise<ImportedDocument> {
++      const id = createDocumentId();
++      const now = new Date().toISOString();
++      const docType = getDocumentType(file.type, file.name);
++
++      // Day 22 Run 2 - Fix 2: Reject unsupported file types
++      if (docType === null) {
++        throw new Error(
++          'Unsupported file type: "' + file.name + '". ' +
++          'Supported types are PDF, DOCX, and TXT files.'
++        );
++      }
++
++      const mimeType = file.type !== '' ? file.type : 'application/octet-stream';
++
++      // For text files, read content for classification
++      let textContent: string | null = null;
++      if (docType === 'txt') {
++        textContent = await new Promise<string>(function (resolve, reject) {
++          const reader = new FileReader();
++          reader.onload = function (event) {
++            const result = event.target;
++            if (result === null || result === undefined) {
++              reject(new Error('Failed to read file'));
++              return;
++            }
++            const text = result.result;
++            if (typeof text !== 'string') {
++              reject(new Error('File content is not text'));
++              return;
++            }
++            resolve(text);
++          };
++          reader.onerror = function () {
++            reject(new Error('Error reading file'));
++          };
++          reader.readAsText(file);
++        });
++      }
++
++      // Classify the document
++      const classification = classifyDocument(file.name, textContent);
++
++      // Store blob in IndexedDB
++      const blobStored = await putDocumentBlob(id, file, file.name, mimeType);
++      if (!blobStored) {
++        console.warn('[DocumentImportStore] Failed to store blob in IndexedDB');
++      }
++
++      // Create the document metadata
++      const newDoc: ImportedDocument = {
++        id: id,
++        createdAt: now,
++        title: file.name,
++        type: docType,
++        mimeType: mimeType,
++        sizeBytes: file.size,
++        category: classification.category,
++        sensitivity: classification.sensitivity,
++        tags: [],
++        isHidden: false,
++        hasBlobStorage: blobStored,
++        textContent: docType === 'txt' ? textContent : null,
++        classificationKeywords: classification.matchedKeywords,
++        classificationConfidence: classification.confidence,
++      };
++
++      // Add to documents array
++      const state = get();
++      const newDocuments: ImportedDocument[] = [newDoc];
++      for (let i = 0; i < state.documents.length; i++) {
++        newDocuments.push(state.documents[i]);
++      }
++
++      set({ documents: newDocuments });
++      get().saveToStorage();
++
++      return newDoc;
++    },
++
++    /**
++     * Imports pasted text.
++     */
++    importText: function (text: string, title: string | null): ImportedDocument {
++      const id = createDocumentId();
++      const now = new Date().toISOString();
++
++      // Generate title if not provided
++      let docTitle = title;
++      if (docTitle === null || docTitle.trim() === '') {
++        // Use first line or first 50 chars
++        const firstLine = text.split('\n')[0];
++        if (firstLine.length > 50) {
++          docTitle = firstLine.substring(0, 50) + '...';
++        } else if (firstLine.length > 0) {
++          docTitle = firstLine;
++        } else {
++          docTitle = 'Pasted Text - ' + now.substring(0, 10);
++        }
++      }
++
++      // Calculate size in bytes (UTF-8)
++      const encoder = new TextEncoder();
++      const sizeBytes = encoder.encode(text).length;
++
++      // Classify the document
++      const classification = classifyDocument(docTitle, text);
++
++      const newDoc: ImportedDocument = {
++        id: id,
++        createdAt: now,
++        title: docTitle,
++        type: 'text',
++        mimeType: 'text/plain',
++        sizeBytes: sizeBytes,
++        category: classification.category,
++        sensitivity: classification.sensitivity,
++        tags: [],
++        isHidden: false,
++        hasBlobStorage: false, // Pasted text stored inline
++        textContent: text,
++        classificationKeywords: classification.matchedKeywords,
++        classificationConfidence: classification.confidence,
++      };
++
++      const state = get();
++      const newDocuments: ImportedDocument[] = [newDoc];
++      for (let i = 0; i < state.documents.length; i++) {
++        newDocuments.push(state.documents[i]);
++      }
++
++      set({ documents: newDocuments });
++      get().saveToStorage();
++
++      return newDoc;
++    },
++
++    /**
++     * Updates a document's category.
++     */
++    updateCategory: function (id: string, category: DocumentCategory): boolean {
++      const state = get();
++      const index = findDocumentIndex(state.documents, id);
++
++      if (index === -1) {
++        return false;
++      }
++
++      const newDocuments = deepCopyDocuments(state.documents);
++      newDocuments[index].category = category;
++
++      set({ documents: newDocuments });
++      get().saveToStorage();
++
++      return true;
++    },
++
++    /**
++     * Updates a document's sensitivity label.
++     */
++    updateSensitivity: function (id: string, sensitivity: SensitivityLabel): boolean {
++      const state = get();
++      const index = findDocumentIndex(state.documents, id);
++
++      if (index === -1) {
++        return false;
++      }
++
++      const newDocuments = deepCopyDocuments(state.documents);
++      newDocuments[index].sensitivity = sensitivity;
++
++      set({ documents: newDocuments });
++      get().saveToStorage();
++
++      return true;
++    },
++
++    /**
++     * Updates a document's title.
++     */
++    updateTitle: function (id: string, title: string): boolean {
++      const state = get();
++      const index = findDocumentIndex(state.documents, id);
++
++      if (index === -1) {
++        return false;
++      }
++
++      const newDocuments = deepCopyDocuments(state.documents);
++      newDocuments[index].title = title;
++
++      set({ documents: newDocuments });
++      get().saveToStorage();
++
++      return true;
++    },
++
++    /**
++     * Adds a tag to a document.
++     */
++    addTag: function (id: string, tag: string): boolean {
++      const state = get();
++      const index = findDocumentIndex(state.documents, id);
++
++      if (index === -1) {
++        return false;
++      }
++
++      // Check if tag already exists
++      const doc = state.documents[index];
++      for (let i = 0; i < doc.tags.length; i++) {
++        if (doc.tags[i] === tag) {
++          return false; // Already exists
++        }
++      }
++
++      const newDocuments = deepCopyDocuments(state.documents);
++      newDocuments[index].tags.push(tag);
++
++      set({ documents: newDocuments });
++      get().saveToStorage();
++
++      return true;
++    },
++
++    /**
++     * Removes a tag from a document.
++     */
++    removeTag: function (id: string, tag: string): boolean {
++      const state = get();
++      const index = findDocumentIndex(state.documents, id);
++
++      if (index === -1) {
++        return false;
++      }
++
++      const newDocuments = deepCopyDocuments(state.documents);
++      const newTags: string[] = [];
++      let found = false;
++
++      for (let i = 0; i < newDocuments[index].tags.length; i++) {
++        if (newDocuments[index].tags[i] !== tag) {
++          newTags.push(newDocuments[index].tags[i]);
++        } else {
++          found = true;
++        }
++      }
++
++      if (!found) {
++        return false;
++      }
++
++      newDocuments[index].tags = newTags;
++
++      set({ documents: newDocuments });
++      get().saveToStorage();
++
++      return true;
++    },
++
++    /**
++     * Resets a document's derived fields to defaults.
++     */
++    resetDocumentFields: function (id: string): boolean {
++      const state = get();
++      const index = findDocumentIndex(state.documents, id);
++
++      if (index === -1) {
++        return false;
++      }
++
++      const doc = state.documents[index];
++
++      // Re-classify based on title and text content
++      const classification = classifyDocument(doc.title, doc.textContent);
++
++      const newDocuments = deepCopyDocuments(state.documents);
++      newDocuments[index].category = classification.category;
++      newDocuments[index].sensitivity = classification.sensitivity;
++      newDocuments[index].tags = [];
++      newDocuments[index].classificationKeywords = classification.matchedKeywords;
++      newDocuments[index].classificationConfidence = classification.confidence;
++
++      set({ documents: newDocuments });
++      get().saveToStorage();
++
++      return true;
++    },
++
++    /**
++     * Deletes a document by ID.
++     */
++    deleteDocument: async function (id: string): Promise<boolean> {
++      const state = get();
++      const index = findDocumentIndex(state.documents, id);
++
++      if (index === -1) {
++        return false;
++      }
++
++      const doc = state.documents[index];
++
++      // Delete blob from IndexedDB if it exists
++      if (doc.hasBlobStorage) {
++        await deleteDocumentBlob(id);
++      }
++
++      // Remove from documents array
++      const newDocuments: ImportedDocument[] = [];
++      for (let i = 0; i < state.documents.length; i++) {
++        if (i !== index) {
++          newDocuments.push(state.documents[i]);
++        }
++      }
++
++      set({ documents: newDocuments });
++      get().saveToStorage();
++
++      return true;
++    },
++
++    /**
++     * Toggles a document's hidden state.
++     */
++    toggleHidden: function (id: string): boolean | null {
++      const state = get();
++      const index = findDocumentIndex(state.documents, id);
++
++      if (index === -1) {
++        return null;
++      }
++
++      const newDocuments = deepCopyDocuments(state.documents);
++      newDocuments[index].isHidden = !newDocuments[index].isHidden;
++
++      set({ documents: newDocuments });
++      get().saveToStorage();
++
++      return newDocuments[index].isHidden;
++    },
++
++    /**
++     * Gets a document by ID.
++     */
++    getDocument: function (id: string): ImportedDocument | null {
++      const state = get();
++      const index = findDocumentIndex(state.documents, id);
++
++      if (index === -1) {
++        return null;
++      }
++
++      // Return a copy
++      const doc = state.documents[index];
++      const tagsCopy: string[] = [];
++      for (let i = 0; i < doc.tags.length; i++) {
++        tagsCopy.push(doc.tags[i]);
++      }
++      const keywordsCopy: string[] = [];
++      for (let i = 0; i < doc.classificationKeywords.length; i++) {
++        keywordsCopy.push(doc.classificationKeywords[i]);
++      }
++      return Object.assign({}, doc, {
++        tags: tagsCopy,
++        classificationKeywords: keywordsCopy,
++      });
++    },
++
++    /**
++     * Gets all documents.
++     */
++    getAllDocuments: function (): ImportedDocument[] {
++      return deepCopyDocuments(get().documents);
++    },
++
++    /**
++     * Resets the store to initial state.
++     */
++    reset: async function (): Promise<void> {
++      // Clear IndexedDB blobs
++      await clearAllDocumentBlobs();
++
++      set({
++        documents: [],
++        isLoaded: true,
++      });
++
++      // Clear from localStorage (SSR-safe)
++      if (typeof window !== 'undefined') {
++        try {
++          localStorage.removeItem(DOCUMENT_IMPORT_STORAGE_KEY);
++        } catch (error) {
++          console.error('[DocumentImportStore] Failed to clear storage:', error);
++        }
++      }
++    },
++
++    /**
++     * Loads documents from localStorage.
++     */
++    loadFromStorage: function (): void {
++      // SSR guard
++      if (typeof window === 'undefined') {
++        set({ isLoaded: true });
++        return;
++      }
++
++      const loadedDocuments: ImportedDocument[] = [];
++
++      try {
++        const stored = localStorage.getItem(DOCUMENT_IMPORT_STORAGE_KEY);
++
++        if (stored !== null && stored !== '') {
++          const parsed = JSON.parse(stored);
++
++          if (Array.isArray(parsed)) {
++            for (let i = 0; i < parsed.length; i++) {
++              const doc = parsed[i];
++              if (isValidImportedDocument(doc)) {
++                loadedDocuments.push(doc);
++              } else {
++                console.warn('[DocumentImportStore] Skipping invalid document at index', i);
++              }
++            }
++          } else {
++            console.warn('[DocumentImportStore] Stored data is not an array, resetting');
++          }
++        }
++      } catch (error) {
++        console.error('[DocumentImportStore] Failed to load from storage:', error);
++      }
++
++      set({
++        documents: loadedDocuments,
++        isLoaded: true,
++      });
++    },
++
++    /**
++     * Saves current state to localStorage.
++     */
++    saveToStorage: function (): void {
++      // SSR guard
++      if (typeof window === 'undefined') {
++        return;
++      }
++
++      const state = get();
++
++      try {
++        localStorage.setItem(DOCUMENT_IMPORT_STORAGE_KEY, JSON.stringify(state.documents));
++      } catch (error) {
++        console.error('[DocumentImportStore] Failed to save to storage:', error);
++      }
++    },
++  };
++});
+diff --git a/store/index.ts b/store/index.ts
+index b3083ae..afe15a3 100644
+--- a/store/index.ts
++++ b/store/index.ts
+@@ -179,3 +179,21 @@ export type {
+   EmailSourceType,
+ } from './emailIngestionStore';
+ 
++// Day 22: Document Import Store (Universal Document Import)
++export {
++  useDocumentImportStore,
++  selectDocuments,
++  selectDocumentsCount,
++  selectDocumentImportIsLoaded,
++  // Day 22 Run 2: Export helper function and constants for file type validation
++  getDocumentType,
++  SUPPORTED_FILE_MIME_TYPES,
++  SUPPORTED_FILE_EXTENSIONS,
++} from './documentImportStore';
++
++export type {
++  DocumentImportStore,
++  ImportedDocument,
++  DocumentType,
++} from './documentImportStore';
++

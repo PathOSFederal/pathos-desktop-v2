@@ -1,0 +1,33 @@
+@import 'tailwindcss';
+
+/*
+ * Desktop renderer base styles.
+ * Theme tokens come from packages/ui/src/styles/theme.css
+ * which is imported by SharedAppShell automatically.
+ */
+
+html,
+body,
+#root {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+  background: #0b0f14;
+  color: #e2e8f0;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Electron frameless window: allow dragging the title bar area */
+[data-platform="desktop"] header {
+  -webkit-app-region: drag;
+}
+
+[data-platform="desktop"] header button,
+[data-platform="desktop"] header input,
+[data-platform="desktop"] header a {
+  -webkit-app-region: no-drag;
+}

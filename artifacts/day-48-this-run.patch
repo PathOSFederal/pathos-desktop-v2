@@ -1,0 +1,1802 @@
+diff --git a/README.md b/README.md
+index 93cb6d7..1cb27eb 100644
+--- a/README.md
++++ b/README.md
+@@ -24,6 +24,21 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
+ 
+ You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+ 
++## Desktop Workflows
++
++PathOS also has a desktop shell in `pathos-desktop/`.
++
++**Realtime dev (Next.js + Electron):**
++```powershell
++cd C:\path\to\fedpath-tier1-frontend
++pnpm desktop:dev
++
++cd C:\path\to\fedpath-tier1-frontend\pathos-desktop
++pnpm dev
++```
++
++See `docs/dev-docs/desktop-workflows.md` for packaged QA and installer flows.
++
+ This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+ 
+ ## Learn More
+diff --git a/artifacts/day-47-cumulative.patch b/artifacts/day-47-cumulative.patch
+index cc81e89..2c61374 100644
+--- a/artifacts/day-47-cumulative.patch
++++ b/artifacts/day-47-cumulative.patch
+@@ -1,23 +1,623 @@
++diff --git a/app/download/page.tsx b/app/download/page.tsx
++new file mode 100644
++index 0000000..a51eeb3
++--- /dev/null
+++++ b/app/download/page.tsx
++@@ -0,0 +1,93 @@
+++import Link from 'next/link';
+++import { PageShell } from '@/components/layout/page-shell';
+++import { Button } from '@/components/ui/button';
+++import { Card } from '@/components/ui/card';
+++
+++const DOWNLOAD_OPTIONS = [
+++  {
+++    platform: 'Windows',
+++    detail: 'Best for agency-issued PCs and most federal desktops.',
+++    availability: 'Download for Windows',
+++    href: '/downloads/pathos-setup.exe',
+++  },
+++  {
+++    platform: 'macOS',
+++    detail: 'Apple Silicon and Intel builds will be provided.',
+++    availability: 'Coming soon',
+++  },
+++  {
+++    platform: 'Linux',
+++    detail: 'For secure, self-managed environments.',
+++    availability: 'Coming soon',
+++  },
+++];
+++
+++export default function DownloadPage() {
+++  return (
+++    <div className="min-h-screen bg-background text-foreground">
+++      <PageShell className="px-6 py-16">
+++        <div className="mx-auto max-w-3xl text-center space-y-5">
+++          <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">Get PathOS</p>
+++          <h1 className="text-3xl font-semibold">Download the desktop app to do the real work locally.</h1>
+++          <p className="text-base text-muted-foreground">
+++            PathOS runs on your machine and keeps USAJOBS authoritative. The web is only the front door.
+++          </p>
+++        </div>
+++
+++        <div className="mt-12 grid gap-6 md:grid-cols-3">
+++          {DOWNLOAD_OPTIONS.map(function (option) {
+++            return (
+++              <Card key={option.platform} className="border-border/60 bg-card p-6 text-left">
+++                <p className="text-sm font-semibold">{option.platform}</p>
+++                <p className="mt-2 text-sm text-muted-foreground">{option.detail}</p>
+++                {option.href ? (
+++                  <Button className="mt-4 w-full" asChild>
+++                    <a href={option.href} download>
+++                      {option.availability}
+++                    </a>
+++                  </Button>
+++                ) : (
+++                  <Button className="mt-4 w-full" variant="outline" disabled>
+++                    {option.availability}
+++                  </Button>
+++                )}
+++              </Card>
+++            );
+++          })}
+++        </div>
+++
+++        <div className="mt-14 grid gap-8 lg:grid-cols-[1.1fr_1fr]">
+++          <div className="space-y-4">
+++            <h2 className="text-xl font-semibold">Before you download</h2>
+++            <p className="text-sm text-muted-foreground">
+++              PathOS is built to keep your USAJOBS activity local and inspectable. There is no web-based job search
+++              inside PathOS.
+++            </p>
+++            <div className="grid gap-3 text-sm text-muted-foreground">
+++              <p className="rounded-lg border border-border/60 bg-card px-4 py-3">Runs locally in a desktop shell.</p>
+++              <p className="rounded-lg border border-border/60 bg-card px-4 py-3">
+++                Does not intercept credentials or read the USAJOBS page DOM.
+++              </p>
+++              <p className="rounded-lg border border-border/60 bg-card px-4 py-3">
+++                Does not modify USAJOBS or submit anything on your behalf.
+++              </p>
+++            </div>
+++          </div>
+++          <Card className="border-border/60 bg-card p-6 text-left">
+++            <h3 className="text-base font-semibold">What happens after install</h3>
+++            <ol className="mt-4 space-y-3 text-sm text-muted-foreground">
+++              <li>1. Launch PathOS on your desktop.</li>
+++              <li>2. USAJOBS opens in a native BrowserView.</li>
+++              <li>3. PathAdvisor sits beside the official site to guide your decisions.</li>
+++            </ol>
+++            <div className="mt-6">
+++              <Button size="sm" asChild>
+++                <Link href="/">Back to overview</Link>
+++              </Button>
+++            </div>
+++          </Card>
+++        </div>
+++      </PageShell>
+++    </div>
+++  );
+++}
++diff --git a/app/page.tsx b/app/page.tsx
++index f889cb6..c9859c5 100644
++--- a/app/page.tsx
+++++ b/app/page.tsx
++@@ -1,5 +1,85 @@
++-import { redirect } from 'next/navigation';
+++import Link from 'next/link';
+++import { PageShell } from '@/components/layout/page-shell';
+++import { Button } from '@/components/ui/button';
+++import { Card } from '@/components/ui/card';
++ 
++ export default function Home() {
++-  redirect('/dashboard');
+++  return (
+++    <div className="min-h-screen bg-background text-foreground">
+++      <PageShell className="px-6 py-16">
+++        <div className="mx-auto max-w-4xl text-center space-y-6">
+++          <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">Desktop-first by design</p>
+++          <h1 className="text-4xl font-semibold leading-tight">
+++            PathOS is a desktop application that guides you alongside USAJOBS.
+++          </h1>
+++          <p className="text-lg text-muted-foreground">
+++            PathAdvisor is your calm, human copilot. You browse USAJOBS directly while PathOS stays beside you,
+++            offering guidance without touching your account or submissions.
+++          </p>
+++          <div className="flex flex-col items-center justify-center gap-3 sm:flex-row">
+++            <Button size="lg" asChild>
+++              <Link href="/download">Get PathOS for Desktop</Link>
+++            </Button>
+++            <p className="text-xs text-muted-foreground">Discover online, work locally.</p>
+++          </div>
+++        </div>
+++
+++        <div className="mt-16 grid gap-6 md:grid-cols-3">
+++          <Card className="border-border/60 bg-card p-6 text-left">
+++            <p className="text-sm font-semibold">What PathOS is</p>
+++            <p className="mt-3 text-sm text-muted-foreground">
+++              A desktop-first guidance layer for federal job seekers. It keeps USAJOBS as the system of record and
+++              keeps your decisions grounded in the official source.
+++            </p>
+++          </Card>
+++          <Card className="border-border/60 bg-card p-6 text-left">
+++            <p className="text-sm font-semibold">What PathOS is not</p>
+++            <p className="mt-3 text-sm text-muted-foreground">
+++              Not an automation tool. It does not auto-apply, autofill, scrape, or capture credentials. Your USAJOBS
+++              account stays untouched.
+++            </p>
+++          </Card>
+++          <Card className="border-border/60 bg-card p-6 text-left">
+++            <p className="text-sm font-semibold">Why desktop</p>
+++            <p className="mt-3 text-sm text-muted-foreground">
+++              The work stays local. That keeps the trust boundary clear and reduces surface area for sensitive federal
+++              job activity.
+++            </p>
+++          </Card>
+++        </div>
+++
+++        <div className="mt-16 grid gap-8 lg:grid-cols-[1.2fr_1fr]">
+++          <div className="space-y-4">
+++            <h2 className="text-2xl font-semibold">Trust boundary, stated plainly</h2>
+++            <p className="text-sm text-muted-foreground">
+++              PathOS runs locally and never interferes with USAJOBS. The architecture is the promise.
+++            </p>
+++            <div className="grid gap-3 text-sm text-muted-foreground">
+++              <p className="rounded-lg border border-border/60 bg-card px-4 py-3">Runs locally in a desktop app.</p>
+++              <p className="rounded-lg border border-border/60 bg-card px-4 py-3">
+++                Does not intercept credentials or read the USAJOBS page DOM.
+++              </p>
+++              <p className="rounded-lg border border-border/60 bg-card px-4 py-3">
+++                Does not modify USAJOBS or submit anything on your behalf.
+++              </p>
+++              <p className="rounded-lg border border-border/60 bg-card px-4 py-3">
+++                Uses pixel-only, ephemeral screenshots for PathAdvisor explanations.
+++              </p>
+++            </div>
+++          </div>
+++          <Card className="border-border/60 bg-card p-6 text-left">
+++            <h3 className="text-lg font-semibold">How it works</h3>
+++            <ol className="mt-4 space-y-3 text-sm text-muted-foreground">
+++              <li>1. Discover PathOS online and download the desktop app.</li>
+++              <li>2. Open USAJOBS in the native desktop view.</li>
+++              <li>3. Keep PathAdvisor open beside you for guidance and clarity.</li>
+++            </ol>
+++            <Button size="sm" className="mt-6" asChild>
+++              <Link href="/download">Download PathOS</Link>
+++            </Button>
+++          </Card>
+++        </div>
+++      </PageShell>
+++    </div>
+++  );
++ }
++diff --git a/artifacts/day-47-cumulative.patch b/artifacts/day-47-cumulative.patch
++new file mode 100644
++index 0000000..cc81e89
++--- /dev/null
+++++ b/artifacts/day-47-cumulative.patch
++@@ -0,0 +1,140 @@
+++diff --git a/docs/change-briefs/day-46.md b/docs/change-briefs/day-46.md
+++index 6224491..bbbebef 100644
+++--- a/docs/change-briefs/day-46.md
++++++ b/docs/change-briefs/day-46.md
+++@@ -9,6 +9,7 @@
+++ 
+++ - The landing page now explains that PathOS is a desktop application and keeps USAJOBS as the system of record.
+++ - A new download page guides users into installing the desktop app with OS placeholders, and Windows downloads are now enabled.
++++- Download button now downloads the PathOS Desktop installer.
+++ - Trust boundary wording is consistent between the web front door and the desktop welcome experience.
+++ 
+++ ---
+++diff --git a/merge-notes.md b/merge-notes.md
+++index 4828b83..ea8f996 100644
+++--- a/merge-notes.md
++++++ b/merge-notes.md
+++@@ -511,3 +511,16 @@ Shows Day 39 changes vs develop baseline ✓
+++ - `components/desktop/GuidedUsaJobsDesktopWorkspace.tsx`
+++ - `docs/change-briefs/day-46.md`
+++ - `merge-notes.md`
++++
++++---
++++
++++# Day 47 — Windows Installer Download Wiring (Follow-up)
++++
++++**Branch:** `feature/day-47-desktop-repo-and-installer`  
++++**Date:** January 23, 2026  
++++**Status:** In progress
++++
++++## Notes
++++
++++- Windows download button points to `/downloads/pathos-setup.exe` served from `public/downloads/pathos-setup.exe`.
++++- Verification: `curl -I http://localhost:3000/downloads/pathos-setup.exe` → `200`
+++diff --git a/pnpm-lock.yaml b/pnpm-lock.yaml
+++index a1694d5..0334f4d 100644
+++--- a/pnpm-lock.yaml
++++++ b/pnpm-lock.yaml
+++@@ -224,7 +224,7 @@ importers:
+++         version: 5.9.3
+++       vitest:
+++         specifier: ^3.2.3
+++-        version: 3.2.4(@types/node@22.0.0)(jiti@2.6.1)(lightningcss@1.30.1)
++++        version: 3.2.4(@types/debug@4.1.12)(@types/node@22.0.0)(jiti@2.6.1)(lightningcss@1.30.1)
+++       wait-on:
+++         specifier: ^9.0.3
+++         version: 9.0.3
+++@@ -1759,6 +1759,9 @@ packages:
+++   '@types/d3-timer@3.0.2':
+++     resolution: {integrity: sha512-Ps3T8E8dZDam6fUyNiMkekK3XUsaUEik+idO9/YjPtfj2qruF8tFBXS7XhtE4iIXBLxhmLjP3SXpLhVf21I9Lw==}
+++ 
++++  '@types/debug@4.1.12':
++++    resolution: {integrity: sha512-vIChWdVG3LG1SMxEvI/AK+FWJthlrqlTu7fbrlywTkkaONwk/UAGaULXRlf8vkzFBLVm0zkMdCquhL5aOjhXPQ==}
++++
+++   '@types/deep-eql@4.0.2':
+++     resolution: {integrity: sha512-c9h9dVVMigMPc4bwTvC5dxqtqJZwQPePsWjPlpSOnojbor6pGqdk541lfA7AqFQr5pB1BRdq0juY9db81BwyFw==}
+++ 
+++@@ -1777,6 +1780,9 @@ packages:
+++   '@types/keyv@3.1.4':
+++     resolution: {integrity: sha512-BQ5aZNSCpj7D6K2ksrRCTmKRLEpnPvWDiLPfoGyhZ++8YtiK9d/3DBKPJgry359X/P1PfruyYwvnvwFjuEiEIg==}
+++ 
++++  '@types/ms@2.1.0':
++++    resolution: {integrity: sha512-GsCCIZDE/p3i96vtEqx+7dBUGXrc7zeSK3wwPHIaRThS+9OhWIXRqzs4d6k1SVU8g91DrNRWxWUGhp5KXQb2VA==}
++++
+++   '@types/node@22.0.0':
+++     resolution: {integrity: sha512-VT7KSYudcPOzP5Q0wfbowyNLaVR8QWUdw+088uFWwfvpY6uCWaXpqV6ieLAu9WBcnTa7H4Z5RLK8I5t2FuOcqw==}
+++ 
+++@@ -3760,6 +3766,7 @@ packages:
+++   tar@7.5.2:
+++     resolution: {integrity: sha512-7NyxrTE4Anh8km8iEy7o0QYPs+0JKBTj5ZaqHg6B39erLg0qYXN3BijtShwbsNSvQ+LN75+KV+C4QR/f6Gwnpg==}
+++     engines: {node: '>=18'}
++++    deprecated: Old versions of tar are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exhorbitant rates) by contacting i@izs.me
+++ 
+++   tiny-invariant@1.3.3:
+++     resolution: {integrity: sha512-+FbBPE1o9QAYvviau/qC5SE3caw21q3xkvWKBtja5vgqOWIHHJ3ioaq1VPfn/Szqctz2bU/oYeKd9/z5BL+PVg==}
+++@@ -5476,7 +5483,7 @@ snapshots:
+++     dependencies:
+++       '@types/http-cache-semantics': 4.0.4
+++       '@types/keyv': 3.1.4
+++-      '@types/node': 22.0.0
++++      '@types/node': 24.10.9
+++       '@types/responselike': 1.0.3
+++ 
+++   '@types/chai@5.2.3':
+++@@ -5508,6 +5515,11 @@ snapshots:
+++ 
+++   '@types/d3-timer@3.0.2': {}
+++ 
++++  '@types/debug@4.1.12':
++++    dependencies:
++++      '@types/ms': 2.1.0
++++    optional: true
++++
+++   '@types/deep-eql@4.0.2': {}
+++ 
+++   '@types/estree@1.0.8': {}
+++@@ -5520,7 +5532,10 @@ snapshots:
+++ 
+++   '@types/keyv@3.1.4':
+++     dependencies:
+++-      '@types/node': 22.0.0
++++      '@types/node': 24.10.9
++++
++++  '@types/ms@2.1.0':
++++    optional: true
+++ 
+++   '@types/node@22.0.0':
+++     dependencies:
+++@@ -5540,13 +5555,13 @@ snapshots:
+++ 
+++   '@types/responselike@1.0.3':
+++     dependencies:
+++-      '@types/node': 22.0.0
++++      '@types/node': 24.10.9
+++ 
+++   '@types/use-sync-external-store@0.0.6': {}
+++ 
+++   '@types/yauzl@2.10.3':
+++     dependencies:
+++-      '@types/node': 22.0.0
++++      '@types/node': 24.10.9
+++     optional: true
+++ 
+++   '@typescript-eslint/eslint-plugin@8.48.1(@typescript-eslint/parser@8.48.1(eslint@9.39.1(jiti@2.6.1))(typescript@5.9.3))(eslint@9.39.1(jiti@2.6.1))(typescript@5.9.3)':
+++@@ -7987,7 +8002,7 @@ snapshots:
+++       jiti: 2.6.1
+++       lightningcss: 1.30.1
+++ 
+++-  vitest@3.2.4(@types/node@22.0.0)(jiti@2.6.1)(lightningcss@1.30.1):
++++  vitest@3.2.4(@types/debug@4.1.12)(@types/node@22.0.0)(jiti@2.6.1)(lightningcss@1.30.1):
+++     dependencies:
+++       '@types/chai': 5.2.3
+++       '@vitest/expect': 3.2.4
+++@@ -8013,6 +8028,7 @@ snapshots:
+++       vite-node: 3.2.4(@types/node@22.0.0)(jiti@2.6.1)(lightningcss@1.30.1)
+++       why-is-node-running: 2.3.0
+++     optionalDependencies:
++++      '@types/debug': 4.1.12
+++       '@types/node': 22.0.0
+++     transitivePeerDependencies:
+++       - jiti
++diff --git a/artifacts/day-47-staged.patch b/artifacts/day-47-staged.patch
++new file mode 100644
++index 0000000..e69de29
++diff --git a/artifacts/day-47-this-run.patch b/artifacts/day-47-this-run.patch
++new file mode 100644
++index 0000000..cc81e89
++--- /dev/null
+++++ b/artifacts/day-47-this-run.patch
++@@ -0,0 +1,140 @@
+++diff --git a/docs/change-briefs/day-46.md b/docs/change-briefs/day-46.md
+++index 6224491..bbbebef 100644
+++--- a/docs/change-briefs/day-46.md
++++++ b/docs/change-briefs/day-46.md
+++@@ -9,6 +9,7 @@
+++ 
+++ - The landing page now explains that PathOS is a desktop application and keeps USAJOBS as the system of record.
+++ - A new download page guides users into installing the desktop app with OS placeholders, and Windows downloads are now enabled.
++++- Download button now downloads the PathOS Desktop installer.
+++ - Trust boundary wording is consistent between the web front door and the desktop welcome experience.
+++ 
+++ ---
+++diff --git a/merge-notes.md b/merge-notes.md
+++index 4828b83..ea8f996 100644
+++--- a/merge-notes.md
++++++ b/merge-notes.md
+++@@ -511,3 +511,16 @@ Shows Day 39 changes vs develop baseline ✓
+++ - `components/desktop/GuidedUsaJobsDesktopWorkspace.tsx`
+++ - `docs/change-briefs/day-46.md`
+++ - `merge-notes.md`
++++
++++---
++++
++++# Day 47 — Windows Installer Download Wiring (Follow-up)
++++
++++**Branch:** `feature/day-47-desktop-repo-and-installer`  
++++**Date:** January 23, 2026  
++++**Status:** In progress
++++
++++## Notes
++++
++++- Windows download button points to `/downloads/pathos-setup.exe` served from `public/downloads/pathos-setup.exe`.
++++- Verification: `curl -I http://localhost:3000/downloads/pathos-setup.exe` → `200`
+++diff --git a/pnpm-lock.yaml b/pnpm-lock.yaml
+++index a1694d5..0334f4d 100644
+++--- a/pnpm-lock.yaml
++++++ b/pnpm-lock.yaml
+++@@ -224,7 +224,7 @@ importers:
+++         version: 5.9.3
+++       vitest:
+++         specifier: ^3.2.3
+++-        version: 3.2.4(@types/node@22.0.0)(jiti@2.6.1)(lightningcss@1.30.1)
++++        version: 3.2.4(@types/debug@4.1.12)(@types/node@22.0.0)(jiti@2.6.1)(lightningcss@1.30.1)
+++       wait-on:
+++         specifier: ^9.0.3
+++         version: 9.0.3
+++@@ -1759,6 +1759,9 @@ packages:
+++   '@types/d3-timer@3.0.2':
+++     resolution: {integrity: sha512-Ps3T8E8dZDam6fUyNiMkekK3XUsaUEik+idO9/YjPtfj2qruF8tFBXS7XhtE4iIXBLxhmLjP3SXpLhVf21I9Lw==}
+++ 
++++  '@types/debug@4.1.12':
++++    resolution: {integrity: sha512-vIChWdVG3LG1SMxEvI/AK+FWJthlrqlTu7fbrlywTkkaONwk/UAGaULXRlf8vkzFBLVm0zkMdCquhL5aOjhXPQ==}
++++
+++   '@types/deep-eql@4.0.2':
+++     resolution: {integrity: sha512-c9h9dVVMigMPc4bwTvC5dxqtqJZwQPePsWjPlpSOnojbor6pGqdk541lfA7AqFQr5pB1BRdq0juY9db81BwyFw==}
+++ 
+++@@ -1777,6 +1780,9 @@ packages:
+++   '@types/keyv@3.1.4':
+++     resolution: {integrity: sha512-BQ5aZNSCpj7D6K2ksrRCTmKRLEpnPvWDiLPfoGyhZ++8YtiK9d/3DBKPJgry359X/P1PfruyYwvnvwFjuEiEIg==}
+++ 
++++  '@types/ms@2.1.0':
++++    resolution: {integrity: sha512-GsCCIZDE/p3i96vtEqx+7dBUGXrc7zeSK3wwPHIaRThS+9OhWIXRqzs4d6k1SVU8g91DrNRWxWUGhp5KXQb2VA==}
++++
+++   '@types/node@22.0.0':
+++     resolution: {integrity: sha512-VT7KSYudcPOzP5Q0wfbowyNLaVR8QWUdw+088uFWwfvpY6uCWaXpqV6ieLAu9WBcnTa7H4Z5RLK8I5t2FuOcqw==}
+++ 
+++@@ -3760,6 +3766,7 @@ packages:
+++   tar@7.5.2:
+++     resolution: {integrity: sha512-7NyxrTE4Anh8km8iEy7o0QYPs+0JKBTj5ZaqHg6B39erLg0qYXN3BijtShwbsNSvQ+LN75+KV+C4QR/f6Gwnpg==}
+++     engines: {node: '>=18'}
++++    deprecated: Old versions of tar are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exhorbitant rates) by contacting i@izs.me
+++ 
+++   tiny-invariant@1.3.3:
+++     resolution: {integrity: sha512-+FbBPE1o9QAYvviau/qC5SE3caw21q3xkvWKBtja5vgqOWIHHJ3ioaq1VPfn/Szqctz2bU/oYeKd9/z5BL+PVg==}
+++@@ -5476,7 +5483,7 @@ snapshots:
+++     dependencies:
+++       '@types/http-cache-semantics': 4.0.4
+++       '@types/keyv': 3.1.4
+++-      '@types/node': 22.0.0
++++      '@types/node': 24.10.9
+++       '@types/responselike': 1.0.3
+++ 
+++   '@types/chai@5.2.3':
+++@@ -5508,6 +5515,11 @@ snapshots:
+++ 
+++   '@types/d3-timer@3.0.2': {}
+++ 
++++  '@types/debug@4.1.12':
++++    dependencies:
++++      '@types/ms': 2.1.0
++++    optional: true
++++
+++   '@types/deep-eql@4.0.2': {}
+++ 
+++   '@types/estree@1.0.8': {}
+++@@ -5520,7 +5532,10 @@ snapshots:
+++ 
+++   '@types/keyv@3.1.4':
+++     dependencies:
+++-      '@types/node': 22.0.0
++++      '@types/node': 24.10.9
++++
++++  '@types/ms@2.1.0':
++++    optional: true
+++ 
+++   '@types/node@22.0.0':
+++     dependencies:
+++@@ -5540,13 +5555,13 @@ snapshots:
+++ 
+++   '@types/responselike@1.0.3':
+++     dependencies:
+++-      '@types/node': 22.0.0
++++      '@types/node': 24.10.9
+++ 
+++   '@types/use-sync-external-store@0.0.6': {}
+++ 
+++   '@types/yauzl@2.10.3':
+++     dependencies:
+++-      '@types/node': 22.0.0
++++      '@types/node': 24.10.9
+++     optional: true
+++ 
+++   '@typescript-eslint/eslint-plugin@8.48.1(@typescript-eslint/parser@8.48.1(eslint@9.39.1(jiti@2.6.1))(typescript@5.9.3))(eslint@9.39.1(jiti@2.6.1))(typescript@5.9.3)':
+++@@ -7987,7 +8002,7 @@ snapshots:
+++       jiti: 2.6.1
+++       lightningcss: 1.30.1
+++ 
+++-  vitest@3.2.4(@types/node@22.0.0)(jiti@2.6.1)(lightningcss@1.30.1):
++++  vitest@3.2.4(@types/debug@4.1.12)(@types/node@22.0.0)(jiti@2.6.1)(lightningcss@1.30.1):
+++     dependencies:
+++       '@types/chai': 5.2.3
+++       '@vitest/expect': 3.2.4
+++@@ -8013,6 +8028,7 @@ snapshots:
+++       vite-node: 3.2.4(@types/node@22.0.0)(jiti@2.6.1)(lightningcss@1.30.1)
+++       why-is-node-running: 2.3.0
+++     optionalDependencies:
++++      '@types/debug': 4.1.12
+++       '@types/node': 22.0.0
+++     transitivePeerDependencies:
+++       - jiti
++diff --git a/components/app-shell.tsx b/components/app-shell.tsx
++index a4c2d1d..209ad1b 100644
++--- a/components/app-shell.tsx
+++++ b/components/app-shell.tsx
++@@ -81,6 +81,7 @@ export function AppShell(props: { children: React.ReactNode }) {
++   const pathname = usePathname();
++   const isDashboardPage = pathname === '/dashboard';
++   const isDesktopShellRoute = pathname === '/desktop/usajobs-guided';
+++  const isPublicRoute = pathname === '/' || pathname === '/download';
++   
++   // Day 38 Overlay v1: Hide PathAdvisorPanel when tailoring overlay is active
++   // The TailoringWorkspaceOverlay has its own GuidanceStrip and optional PathAdvisor drawer
++@@ -116,6 +117,11 @@ export function AppShell(props: { children: React.ReactNode }) {
++   // ============================================================================
++   useAnchorRouteReset();
++ 
+++  // Public routes: skip onboarding and app chrome
+++  if (isPublicRoute) {
+++    return <div className="min-h-screen bg-background">{children}</div>;
+++  }
+++
++   // Show onboarding disclaimer if user hasn't accepted it yet
++   if (!hasAcceptedGlobalDisclaimer) {
++     return <OnboardingDisclaimerStep />;
++diff --git a/components/desktop/GuidedUsaJobsDesktopWorkspace.tsx b/components/desktop/GuidedUsaJobsDesktopWorkspace.tsx
++index 69e8a84..6eefb97 100644
++--- a/components/desktop/GuidedUsaJobsDesktopWorkspace.tsx
+++++ b/components/desktop/GuidedUsaJobsDesktopWorkspace.tsx
++@@ -32,8 +32,8 @@ const TOP_BAR_HEIGHT = 64;
++  * Copy for the trust boundary. Keep this visible and unambiguous.
++  */
++ const TRUST_BOUNDARY_COPY =
++-  'PathOS does not access your USAJOBS account. You are browsing USAJOBS directly. ' +
++-  'PathOS does not auto-apply, does not capture credentials, and does not read the page DOM.';
+++  'PathOS runs locally and sits beside USAJOBS. It does not intercept credentials, modify USAJOBS, ' +
+++  'or submit anything on your behalf.';
++ 
++ const CONTEXT_OPTIONS = [
++   'Terms/Consent',
++@@ -381,8 +381,8 @@ export function GuidedUsaJobsDesktopWorkspace() {
++                     <div className="rounded-md border border-border/60 bg-slate-900/40 p-3 text-xs">
++                       <p className="font-semibold text-foreground">Trust boundary details</p>
++                       <p className="mt-2 text-muted-foreground">
++-                        USAJOBS is rendered in a native BrowserView. PathOS never injects scripts,
++-                        never scrapes HTML, and never auto-fills or submits forms.
+++                        USAJOBS is rendered in a native BrowserView. PathOS never injects scripts, never scrapes HTML,
+++                        and only uses pixel-only, ephemeral screenshots in Ask Mode.
++                       </p>
++                     </div>
++                   ) : null}
+ diff --git a/docs/change-briefs/day-46.md b/docs/change-briefs/day-46.md
+-index 6224491..bbbebef 100644
+---- a/docs/change-briefs/day-46.md
++new file mode 100644
++index 0000000..bbbebef
++--- /dev/null
+ +++ b/docs/change-briefs/day-46.md
+-@@ -9,6 +9,7 @@
+- 
+- - The landing page now explains that PathOS is a desktop application and keeps USAJOBS as the system of record.
+- - A new download page guides users into installing the desktop app with OS placeholders, and Windows downloads are now enabled.
++@@ -0,0 +1,39 @@
+++# Day 46 — Desktop-First Front Door
+++
+++**Date:** January 22, 2026  
+++**Type:** Messaging Alignment
+++
+++---
+++
+++## What Changed
+++
+++- The landing page now explains that PathOS is a desktop application and keeps USAJOBS as the system of record.
+++- A new download page guides users into installing the desktop app with OS placeholders, and Windows downloads are now enabled.
+ +- Download button now downloads the PathOS Desktop installer.
+- - Trust boundary wording is consistent between the web front door and the desktop welcome experience.
+- 
+- ---
+++- Trust boundary wording is consistent between the web front door and the desktop welcome experience.
+++
+++---
+++
+++## Why This Matters
+++
+++PathOS is desktop-first by design. The web experience now makes it obvious where the real work happens and why that is safer for federal job seekers. This reduces confusion and reinforces that PathAdvisor is guidance, not automation.
+++
+++---
+++
+++## What Users Will Notice
+++
+++- A calm landing page that answers: "Where do I actually do the work?"
+++- A clear, step-by-step download flow with expectations set upfront.
+++- Consistent trust boundary language from the website to the desktop app.
+++
+++---
+++
+++## Trust + OPSEC Clarity
+++
+++- PathOS runs locally in a desktop shell.
+++- It does not intercept credentials or read the USAJOBS page DOM.
+++- It does not modify USAJOBS or submit anything on a user's behalf.
+++
+++---
+++
+++*This change is copy and layout only. No backend or automation behavior is introduced.*
+ diff --git a/merge-notes.md b/merge-notes.md
+-index 4828b83..ea8f996 100644
++index 6de6453..ea8f996 100644
+ --- a/merge-notes.md
+ +++ b/merge-notes.md
+-@@ -511,3 +511,16 @@ Shows Day 39 changes vs develop baseline ✓
+- - `components/desktop/GuidedUsaJobsDesktopWorkspace.tsx`
+- - `docs/change-briefs/day-46.md`
+- - `merge-notes.md`
++@@ -480,3 +480,47 @@ Shows Day 39 changes vs develop baseline ✓
++ 
++ **Commit:** 9bab638
++ **Branch:** feature/day-39-resume-export-pathadvisor-wiring-v1
+++
+++---
+++
+++# Day 46 — Desktop-First Front Door (Landing + Download + Trust Alignment)
+++
+++**Branch:** `feature/day-46-desktop-front-door`  
+++**Date:** January 22, 2026  
+++**Status:** Complete
+++
+++## Summary
+++
+++- Replaced the root redirect with a desktop-first landing page that explains what PathOS is and is not.
+++- Added a guided `/download` page with OS placeholders and trust boundary reinforcement before installation.
+++- Enabled the Windows download button and linked it to the installer path.
+++- Allowed public landing and download routes to render without onboarding or app chrome.
+++- Aligned desktop trust boundary copy with the web front door.
+++
+++## Why
+++
+++- Make the desktop-first model obvious at first glance.
+++- Remove any implication that job search happens on the web.
+++- Keep trust language consistent from discovery to first-run.
+++
+++## Files Touched
+++
+++- `app/page.tsx`
+++- `app/download/page.tsx`
+++- `components/app-shell.tsx`
+++- `components/desktop/GuidedUsaJobsDesktopWorkspace.tsx`
+++- `docs/change-briefs/day-46.md`
+++- `merge-notes.md`
+ +
+ +---
+ +
+@@ -138,3 +738,7 @@ index a1694d5..0334f4d 100644
+        '@types/node': 22.0.0
+      transitivePeerDependencies:
+        - jiti
++diff --git a/public/downloads/pathos-setup.exe b/public/downloads/pathos-setup.exe
++new file mode 100644
++index 0000000..54a78da
++Binary files /dev/null and b/public/downloads/pathos-setup.exe differ
+diff --git a/artifacts/day-47-this-run.patch b/artifacts/day-47-this-run.patch
+index cc81e89..7eab8e2 100644
+--- a/artifacts/day-47-this-run.patch
++++ b/artifacts/day-47-this-run.patch
+@@ -1,140 +1,910 @@
+-diff --git a/docs/change-briefs/day-46.md b/docs/change-briefs/day-46.md
+-index 6224491..bbbebef 100644
+---- a/docs/change-briefs/day-46.md
+-+++ b/docs/change-briefs/day-46.md
+-@@ -9,6 +9,7 @@
++diff --git a/README.md b/README.md
++index 93cb6d7..1cb27eb 100644
++--- a/README.md
+++++ b/README.md
++@@ -24,6 +24,21 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
+  
+- - The landing page now explains that PathOS is a desktop application and keeps USAJOBS as the system of record.
+- - A new download page guides users into installing the desktop app with OS placeholders, and Windows downloads are now enabled.
+-+- Download button now downloads the PathOS Desktop installer.
+- - Trust boundary wording is consistent between the web front door and the desktop welcome experience.
++ You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+  
+- ---
+-diff --git a/merge-notes.md b/merge-notes.md
+-index 4828b83..ea8f996 100644
+---- a/merge-notes.md
+-+++ b/merge-notes.md
+-@@ -511,3 +511,16 @@ Shows Day 39 changes vs develop baseline ✓
+- - `components/desktop/GuidedUsaJobsDesktopWorkspace.tsx`
+- - `docs/change-briefs/day-46.md`
+- - `merge-notes.md`
+++## Desktop Workflows
+ +
+-+---
+++PathOS also has a desktop shell in `pathos-desktop/`.
+++
+++**Realtime dev (Next.js + Electron):**
+++```powershell
+++cd C:\path\to\fedpath-tier1-frontend
+++pnpm desktop:dev
+ +
+-+# Day 47 — Windows Installer Download Wiring (Follow-up)
+++cd C:\path\to\fedpath-tier1-frontend\pathos-desktop
+++pnpm dev
+++```
+++
+++See `docs/dev-docs/desktop-workflows.md` for packaged QA and installer flows.
+++
++ This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
++ 
++ ## Learn More
++diff --git a/artifacts/day-47-cumulative.patch b/artifacts/day-47-cumulative.patch
++index cc81e89..2c61374 100644
++--- a/artifacts/day-47-cumulative.patch
+++++ b/artifacts/day-47-cumulative.patch
++@@ -1,23 +1,623 @@
+++diff --git a/app/download/page.tsx b/app/download/page.tsx
+++new file mode 100644
+++index 0000000..a51eeb3
+++--- /dev/null
++++++ b/app/download/page.tsx
+++@@ -0,0 +1,93 @@
++++import Link from 'next/link';
++++import { PageShell } from '@/components/layout/page-shell';
++++import { Button } from '@/components/ui/button';
++++import { Card } from '@/components/ui/card';
++++
++++const DOWNLOAD_OPTIONS = [
++++  {
++++    platform: 'Windows',
++++    detail: 'Best for agency-issued PCs and most federal desktops.',
++++    availability: 'Download for Windows',
++++    href: '/downloads/pathos-setup.exe',
++++  },
++++  {
++++    platform: 'macOS',
++++    detail: 'Apple Silicon and Intel builds will be provided.',
++++    availability: 'Coming soon',
++++  },
++++  {
++++    platform: 'Linux',
++++    detail: 'For secure, self-managed environments.',
++++    availability: 'Coming soon',
++++  },
++++];
++++
++++export default function DownloadPage() {
++++  return (
++++    <div className="min-h-screen bg-background text-foreground">
++++      <PageShell className="px-6 py-16">
++++        <div className="mx-auto max-w-3xl text-center space-y-5">
++++          <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">Get PathOS</p>
++++          <h1 className="text-3xl font-semibold">Download the desktop app to do the real work locally.</h1>
++++          <p className="text-base text-muted-foreground">
++++            PathOS runs on your machine and keeps USAJOBS authoritative. The web is only the front door.
++++          </p>
++++        </div>
++++
++++        <div className="mt-12 grid gap-6 md:grid-cols-3">
++++          {DOWNLOAD_OPTIONS.map(function (option) {
++++            return (
++++              <Card key={option.platform} className="border-border/60 bg-card p-6 text-left">
++++                <p className="text-sm font-semibold">{option.platform}</p>
++++                <p className="mt-2 text-sm text-muted-foreground">{option.detail}</p>
++++                {option.href ? (
++++                  <Button className="mt-4 w-full" asChild>
++++                    <a href={option.href} download>
++++                      {option.availability}
++++                    </a>
++++                  </Button>
++++                ) : (
++++                  <Button className="mt-4 w-full" variant="outline" disabled>
++++                    {option.availability}
++++                  </Button>
++++                )}
++++              </Card>
++++            );
++++          })}
++++        </div>
++++
++++        <div className="mt-14 grid gap-8 lg:grid-cols-[1.1fr_1fr]">
++++          <div className="space-y-4">
++++            <h2 className="text-xl font-semibold">Before you download</h2>
++++            <p className="text-sm text-muted-foreground">
++++              PathOS is built to keep your USAJOBS activity local and inspectable. There is no web-based job search
++++              inside PathOS.
++++            </p>
++++            <div className="grid gap-3 text-sm text-muted-foreground">
++++              <p className="rounded-lg border border-border/60 bg-card px-4 py-3">Runs locally in a desktop shell.</p>
++++              <p className="rounded-lg border border-border/60 bg-card px-4 py-3">
++++                Does not intercept credentials or read the USAJOBS page DOM.
++++              </p>
++++              <p className="rounded-lg border border-border/60 bg-card px-4 py-3">
++++                Does not modify USAJOBS or submit anything on your behalf.
++++              </p>
++++            </div>
++++          </div>
++++          <Card className="border-border/60 bg-card p-6 text-left">
++++            <h3 className="text-base font-semibold">What happens after install</h3>
++++            <ol className="mt-4 space-y-3 text-sm text-muted-foreground">
++++              <li>1. Launch PathOS on your desktop.</li>
++++              <li>2. USAJOBS opens in a native BrowserView.</li>
++++              <li>3. PathAdvisor sits beside the official site to guide your decisions.</li>
++++            </ol>
++++            <div className="mt-6">
++++              <Button size="sm" asChild>
++++                <Link href="/">Back to overview</Link>
++++              </Button>
++++            </div>
++++          </Card>
++++        </div>
++++      </PageShell>
++++    </div>
++++  );
++++}
+++diff --git a/app/page.tsx b/app/page.tsx
+++index f889cb6..c9859c5 100644
+++--- a/app/page.tsx
++++++ b/app/page.tsx
+++@@ -1,5 +1,85 @@
+++-import { redirect } from 'next/navigation';
++++import Link from 'next/link';
++++import { PageShell } from '@/components/layout/page-shell';
++++import { Button } from '@/components/ui/button';
++++import { Card } from '@/components/ui/card';
+++ 
+++ export default function Home() {
+++-  redirect('/dashboard');
++++  return (
++++    <div className="min-h-screen bg-background text-foreground">
++++      <PageShell className="px-6 py-16">
++++        <div className="mx-auto max-w-4xl text-center space-y-6">
++++          <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">Desktop-first by design</p>
++++          <h1 className="text-4xl font-semibold leading-tight">
++++            PathOS is a desktop application that guides you alongside USAJOBS.
++++          </h1>
++++          <p className="text-lg text-muted-foreground">
++++            PathAdvisor is your calm, human copilot. You browse USAJOBS directly while PathOS stays beside you,
++++            offering guidance without touching your account or submissions.
++++          </p>
++++          <div className="flex flex-col items-center justify-center gap-3 sm:flex-row">
++++            <Button size="lg" asChild>
++++              <Link href="/download">Get PathOS for Desktop</Link>
++++            </Button>
++++            <p className="text-xs text-muted-foreground">Discover online, work locally.</p>
++++          </div>
++++        </div>
++++
++++        <div className="mt-16 grid gap-6 md:grid-cols-3">
++++          <Card className="border-border/60 bg-card p-6 text-left">
++++            <p className="text-sm font-semibold">What PathOS is</p>
++++            <p className="mt-3 text-sm text-muted-foreground">
++++              A desktop-first guidance layer for federal job seekers. It keeps USAJOBS as the system of record and
++++              keeps your decisions grounded in the official source.
++++            </p>
++++          </Card>
++++          <Card className="border-border/60 bg-card p-6 text-left">
++++            <p className="text-sm font-semibold">What PathOS is not</p>
++++            <p className="mt-3 text-sm text-muted-foreground">
++++              Not an automation tool. It does not auto-apply, autofill, scrape, or capture credentials. Your USAJOBS
++++              account stays untouched.
++++            </p>
++++          </Card>
++++          <Card className="border-border/60 bg-card p-6 text-left">
++++            <p className="text-sm font-semibold">Why desktop</p>
++++            <p className="mt-3 text-sm text-muted-foreground">
++++              The work stays local. That keeps the trust boundary clear and reduces surface area for sensitive federal
++++              job activity.
++++            </p>
++++          </Card>
++++        </div>
++++
++++        <div className="mt-16 grid gap-8 lg:grid-cols-[1.2fr_1fr]">
++++          <div className="space-y-4">
++++            <h2 className="text-2xl font-semibold">Trust boundary, stated plainly</h2>
++++            <p className="text-sm text-muted-foreground">
++++              PathOS runs locally and never interferes with USAJOBS. The architecture is the promise.
++++            </p>
++++            <div className="grid gap-3 text-sm text-muted-foreground">
++++              <p className="rounded-lg border border-border/60 bg-card px-4 py-3">Runs locally in a desktop app.</p>
++++              <p className="rounded-lg border border-border/60 bg-card px-4 py-3">
++++                Does not intercept credentials or read the USAJOBS page DOM.
++++              </p>
++++              <p className="rounded-lg border border-border/60 bg-card px-4 py-3">
++++                Does not modify USAJOBS or submit anything on your behalf.
++++              </p>
++++              <p className="rounded-lg border border-border/60 bg-card px-4 py-3">
++++                Uses pixel-only, ephemeral screenshots for PathAdvisor explanations.
++++              </p>
++++            </div>
++++          </div>
++++          <Card className="border-border/60 bg-card p-6 text-left">
++++            <h3 className="text-lg font-semibold">How it works</h3>
++++            <ol className="mt-4 space-y-3 text-sm text-muted-foreground">
++++              <li>1. Discover PathOS online and download the desktop app.</li>
++++              <li>2. Open USAJOBS in the native desktop view.</li>
++++              <li>3. Keep PathAdvisor open beside you for guidance and clarity.</li>
++++            </ol>
++++            <Button size="sm" className="mt-6" asChild>
++++              <Link href="/download">Download PathOS</Link>
++++            </Button>
++++          </Card>
++++        </div>
++++      </PageShell>
++++    </div>
++++  );
+++ }
+++diff --git a/artifacts/day-47-cumulative.patch b/artifacts/day-47-cumulative.patch
+++new file mode 100644
+++index 0000000..cc81e89
+++--- /dev/null
++++++ b/artifacts/day-47-cumulative.patch
+++@@ -0,0 +1,140 @@
++++diff --git a/docs/change-briefs/day-46.md b/docs/change-briefs/day-46.md
++++index 6224491..bbbebef 100644
++++--- a/docs/change-briefs/day-46.md
+++++++ b/docs/change-briefs/day-46.md
++++@@ -9,6 +9,7 @@
++++ 
++++ - The landing page now explains that PathOS is a desktop application and keeps USAJOBS as the system of record.
++++ - A new download page guides users into installing the desktop app with OS placeholders, and Windows downloads are now enabled.
+++++- Download button now downloads the PathOS Desktop installer.
++++ - Trust boundary wording is consistent between the web front door and the desktop welcome experience.
++++ 
++++ ---
++++diff --git a/merge-notes.md b/merge-notes.md
++++index 4828b83..ea8f996 100644
++++--- a/merge-notes.md
+++++++ b/merge-notes.md
++++@@ -511,3 +511,16 @@ Shows Day 39 changes vs develop baseline ✓
++++ - `components/desktop/GuidedUsaJobsDesktopWorkspace.tsx`
++++ - `docs/change-briefs/day-46.md`
++++ - `merge-notes.md`
+++++
+++++---
+++++
+++++# Day 47 — Windows Installer Download Wiring (Follow-up)
+++++
+++++**Branch:** `feature/day-47-desktop-repo-and-installer`  
+++++**Date:** January 23, 2026  
+++++**Status:** In progress
+++++
+++++## Notes
+++++
+++++- Windows download button points to `/downloads/pathos-setup.exe` served from `public/downloads/pathos-setup.exe`.
+++++- Verification: `curl -I http://localhost:3000/downloads/pathos-setup.exe` → `200`
++++diff --git a/pnpm-lock.yaml b/pnpm-lock.yaml
++++index a1694d5..0334f4d 100644
++++--- a/pnpm-lock.yaml
+++++++ b/pnpm-lock.yaml
++++@@ -224,7 +224,7 @@ importers:
++++         version: 5.9.3
++++       vitest:
++++         specifier: ^3.2.3
++++-        version: 3.2.4(@types/node@22.0.0)(jiti@2.6.1)(lightningcss@1.30.1)
+++++        version: 3.2.4(@types/debug@4.1.12)(@types/node@22.0.0)(jiti@2.6.1)(lightningcss@1.30.1)
++++       wait-on:
++++         specifier: ^9.0.3
++++         version: 9.0.3
++++@@ -1759,6 +1759,9 @@ packages:
++++   '@types/d3-timer@3.0.2':
++++     resolution: {integrity: sha512-Ps3T8E8dZDam6fUyNiMkekK3XUsaUEik+idO9/YjPtfj2qruF8tFBXS7XhtE4iIXBLxhmLjP3SXpLhVf21I9Lw==}
++++ 
+++++  '@types/debug@4.1.12':
+++++    resolution: {integrity: sha512-vIChWdVG3LG1SMxEvI/AK+FWJthlrqlTu7fbrlywTkkaONwk/UAGaULXRlf8vkzFBLVm0zkMdCquhL5aOjhXPQ==}
+++++
++++   '@types/deep-eql@4.0.2':
++++     resolution: {integrity: sha512-c9h9dVVMigMPc4bwTvC5dxqtqJZwQPePsWjPlpSOnojbor6pGqdk541lfA7AqFQr5pB1BRdq0juY9db81BwyFw==}
++++ 
++++@@ -1777,6 +1780,9 @@ packages:
++++   '@types/keyv@3.1.4':
++++     resolution: {integrity: sha512-BQ5aZNSCpj7D6K2ksrRCTmKRLEpnPvWDiLPfoGyhZ++8YtiK9d/3DBKPJgry359X/P1PfruyYwvnvwFjuEiEIg==}
++++ 
+++++  '@types/ms@2.1.0':
+++++    resolution: {integrity: sha512-GsCCIZDE/p3i96vtEqx+7dBUGXrc7zeSK3wwPHIaRThS+9OhWIXRqzs4d6k1SVU8g91DrNRWxWUGhp5KXQb2VA==}
+++++
++++   '@types/node@22.0.0':
++++     resolution: {integrity: sha512-VT7KSYudcPOzP5Q0wfbowyNLaVR8QWUdw+088uFWwfvpY6uCWaXpqV6ieLAu9WBcnTa7H4Z5RLK8I5t2FuOcqw==}
++++ 
++++@@ -3760,6 +3766,7 @@ packages:
++++   tar@7.5.2:
++++     resolution: {integrity: sha512-7NyxrTE4Anh8km8iEy7o0QYPs+0JKBTj5ZaqHg6B39erLg0qYXN3BijtShwbsNSvQ+LN75+KV+C4QR/f6Gwnpg==}
++++     engines: {node: '>=18'}
+++++    deprecated: Old versions of tar are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exhorbitant rates) by contacting i@izs.me
++++ 
++++   tiny-invariant@1.3.3:
++++     resolution: {integrity: sha512-+FbBPE1o9QAYvviau/qC5SE3caw21q3xkvWKBtja5vgqOWIHHJ3ioaq1VPfn/Szqctz2bU/oYeKd9/z5BL+PVg==}
++++@@ -5476,7 +5483,7 @@ snapshots:
++++     dependencies:
++++       '@types/http-cache-semantics': 4.0.4
++++       '@types/keyv': 3.1.4
++++-      '@types/node': 22.0.0
+++++      '@types/node': 24.10.9
++++       '@types/responselike': 1.0.3
++++ 
++++   '@types/chai@5.2.3':
++++@@ -5508,6 +5515,11 @@ snapshots:
++++ 
++++   '@types/d3-timer@3.0.2': {}
++++ 
+++++  '@types/debug@4.1.12':
+++++    dependencies:
+++++      '@types/ms': 2.1.0
+++++    optional: true
+++++
++++   '@types/deep-eql@4.0.2': {}
++++ 
++++   '@types/estree@1.0.8': {}
++++@@ -5520,7 +5532,10 @@ snapshots:
++++ 
++++   '@types/keyv@3.1.4':
++++     dependencies:
++++-      '@types/node': 22.0.0
+++++      '@types/node': 24.10.9
+++++
+++++  '@types/ms@2.1.0':
+++++    optional: true
++++ 
++++   '@types/node@22.0.0':
++++     dependencies:
++++@@ -5540,13 +5555,13 @@ snapshots:
++++ 
++++   '@types/responselike@1.0.3':
++++     dependencies:
++++-      '@types/node': 22.0.0
+++++      '@types/node': 24.10.9
++++ 
++++   '@types/use-sync-external-store@0.0.6': {}
++++ 
++++   '@types/yauzl@2.10.3':
++++     dependencies:
++++-      '@types/node': 22.0.0
+++++      '@types/node': 24.10.9
++++     optional: true
++++ 
++++   '@typescript-eslint/eslint-plugin@8.48.1(@typescript-eslint/parser@8.48.1(eslint@9.39.1(jiti@2.6.1))(typescript@5.9.3))(eslint@9.39.1(jiti@2.6.1))(typescript@5.9.3)':
++++@@ -7987,7 +8002,7 @@ snapshots:
++++       jiti: 2.6.1
++++       lightningcss: 1.30.1
++++ 
++++-  vitest@3.2.4(@types/node@22.0.0)(jiti@2.6.1)(lightningcss@1.30.1):
+++++  vitest@3.2.4(@types/debug@4.1.12)(@types/node@22.0.0)(jiti@2.6.1)(lightningcss@1.30.1):
++++     dependencies:
++++       '@types/chai': 5.2.3
++++       '@vitest/expect': 3.2.4
++++@@ -8013,6 +8028,7 @@ snapshots:
++++       vite-node: 3.2.4(@types/node@22.0.0)(jiti@2.6.1)(lightningcss@1.30.1)
++++       why-is-node-running: 2.3.0
++++     optionalDependencies:
+++++      '@types/debug': 4.1.12
++++       '@types/node': 22.0.0
++++     transitivePeerDependencies:
++++       - jiti
+++diff --git a/artifacts/day-47-staged.patch b/artifacts/day-47-staged.patch
+++new file mode 100644
+++index 0000000..e69de29
+++diff --git a/artifacts/day-47-this-run.patch b/artifacts/day-47-this-run.patch
+++new file mode 100644
+++index 0000000..cc81e89
+++--- /dev/null
++++++ b/artifacts/day-47-this-run.patch
+++@@ -0,0 +1,140 @@
++++diff --git a/docs/change-briefs/day-46.md b/docs/change-briefs/day-46.md
++++index 6224491..bbbebef 100644
++++--- a/docs/change-briefs/day-46.md
+++++++ b/docs/change-briefs/day-46.md
++++@@ -9,6 +9,7 @@
++++ 
++++ - The landing page now explains that PathOS is a desktop application and keeps USAJOBS as the system of record.
++++ - A new download page guides users into installing the desktop app with OS placeholders, and Windows downloads are now enabled.
+++++- Download button now downloads the PathOS Desktop installer.
++++ - Trust boundary wording is consistent between the web front door and the desktop welcome experience.
++++ 
++++ ---
++++diff --git a/merge-notes.md b/merge-notes.md
++++index 4828b83..ea8f996 100644
++++--- a/merge-notes.md
+++++++ b/merge-notes.md
++++@@ -511,3 +511,16 @@ Shows Day 39 changes vs develop baseline ✓
++++ - `components/desktop/GuidedUsaJobsDesktopWorkspace.tsx`
++++ - `docs/change-briefs/day-46.md`
++++ - `merge-notes.md`
+++++
+++++---
+++++
+++++# Day 47 — Windows Installer Download Wiring (Follow-up)
+++++
+++++**Branch:** `feature/day-47-desktop-repo-and-installer`  
+++++**Date:** January 23, 2026  
+++++**Status:** In progress
+++++
+++++## Notes
+++++
+++++- Windows download button points to `/downloads/pathos-setup.exe` served from `public/downloads/pathos-setup.exe`.
+++++- Verification: `curl -I http://localhost:3000/downloads/pathos-setup.exe` → `200`
++++diff --git a/pnpm-lock.yaml b/pnpm-lock.yaml
++++index a1694d5..0334f4d 100644
++++--- a/pnpm-lock.yaml
+++++++ b/pnpm-lock.yaml
++++@@ -224,7 +224,7 @@ importers:
++++         version: 5.9.3
++++       vitest:
++++         specifier: ^3.2.3
++++-        version: 3.2.4(@types/node@22.0.0)(jiti@2.6.1)(lightningcss@1.30.1)
+++++        version: 3.2.4(@types/debug@4.1.12)(@types/node@22.0.0)(jiti@2.6.1)(lightningcss@1.30.1)
++++       wait-on:
++++         specifier: ^9.0.3
++++         version: 9.0.3
++++@@ -1759,6 +1759,9 @@ packages:
++++   '@types/d3-timer@3.0.2':
++++     resolution: {integrity: sha512-Ps3T8E8dZDam6fUyNiMkekK3XUsaUEik+idO9/YjPtfj2qruF8tFBXS7XhtE4iIXBLxhmLjP3SXpLhVf21I9Lw==}
++++ 
+++++  '@types/debug@4.1.12':
+++++    resolution: {integrity: sha512-vIChWdVG3LG1SMxEvI/AK+FWJthlrqlTu7fbrlywTkkaONwk/UAGaULXRlf8vkzFBLVm0zkMdCquhL5aOjhXPQ==}
+++++
++++   '@types/deep-eql@4.0.2':
++++     resolution: {integrity: sha512-c9h9dVVMigMPc4bwTvC5dxqtqJZwQPePsWjPlpSOnojbor6pGqdk541lfA7AqFQr5pB1BRdq0juY9db81BwyFw==}
++++ 
++++@@ -1777,6 +1780,9 @@ packages:
++++   '@types/keyv@3.1.4':
++++     resolution: {integrity: sha512-BQ5aZNSCpj7D6K2ksrRCTmKRLEpnPvWDiLPfoGyhZ++8YtiK9d/3DBKPJgry359X/P1PfruyYwvnvwFjuEiEIg==}
++++ 
+++++  '@types/ms@2.1.0':
+++++    resolution: {integrity: sha512-GsCCIZDE/p3i96vtEqx+7dBUGXrc7zeSK3wwPHIaRThS+9OhWIXRqzs4d6k1SVU8g91DrNRWxWUGhp5KXQb2VA==}
+++++
++++   '@types/node@22.0.0':
++++     resolution: {integrity: sha512-VT7KSYudcPOzP5Q0wfbowyNLaVR8QWUdw+088uFWwfvpY6uCWaXpqV6ieLAu9WBcnTa7H4Z5RLK8I5t2FuOcqw==}
++++ 
++++@@ -3760,6 +3766,7 @@ packages:
++++   tar@7.5.2:
++++     resolution: {integrity: sha512-7NyxrTE4Anh8km8iEy7o0QYPs+0JKBTj5ZaqHg6B39erLg0qYXN3BijtShwbsNSvQ+LN75+KV+C4QR/f6Gwnpg==}
++++     engines: {node: '>=18'}
+++++    deprecated: Old versions of tar are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exhorbitant rates) by contacting i@izs.me
++++ 
++++   tiny-invariant@1.3.3:
++++     resolution: {integrity: sha512-+FbBPE1o9QAYvviau/qC5SE3caw21q3xkvWKBtja5vgqOWIHHJ3ioaq1VPfn/Szqctz2bU/oYeKd9/z5BL+PVg==}
++++@@ -5476,7 +5483,7 @@ snapshots:
++++     dependencies:
++++       '@types/http-cache-semantics': 4.0.4
++++       '@types/keyv': 3.1.4
++++-      '@types/node': 22.0.0
+++++      '@types/node': 24.10.9
++++       '@types/responselike': 1.0.3
++++ 
++++   '@types/chai@5.2.3':
++++@@ -5508,6 +5515,11 @@ snapshots:
++++ 
++++   '@types/d3-timer@3.0.2': {}
++++ 
+++++  '@types/debug@4.1.12':
+++++    dependencies:
+++++      '@types/ms': 2.1.0
+++++    optional: true
+++++
++++   '@types/deep-eql@4.0.2': {}
++++ 
++++   '@types/estree@1.0.8': {}
++++@@ -5520,7 +5532,10 @@ snapshots:
++++ 
++++   '@types/keyv@3.1.4':
++++     dependencies:
++++-      '@types/node': 22.0.0
+++++      '@types/node': 24.10.9
+++++
+++++  '@types/ms@2.1.0':
+++++    optional: true
++++ 
++++   '@types/node@22.0.0':
++++     dependencies:
++++@@ -5540,13 +5555,13 @@ snapshots:
++++ 
++++   '@types/responselike@1.0.3':
++++     dependencies:
++++-      '@types/node': 22.0.0
+++++      '@types/node': 24.10.9
++++ 
++++   '@types/use-sync-external-store@0.0.6': {}
++++ 
++++   '@types/yauzl@2.10.3':
++++     dependencies:
++++-      '@types/node': 22.0.0
+++++      '@types/node': 24.10.9
++++     optional: true
++++ 
++++   '@typescript-eslint/eslint-plugin@8.48.1(@typescript-eslint/parser@8.48.1(eslint@9.39.1(jiti@2.6.1))(typescript@5.9.3))(eslint@9.39.1(jiti@2.6.1))(typescript@5.9.3)':
++++@@ -7987,7 +8002,7 @@ snapshots:
++++       jiti: 2.6.1
++++       lightningcss: 1.30.1
++++ 
++++-  vitest@3.2.4(@types/node@22.0.0)(jiti@2.6.1)(lightningcss@1.30.1):
+++++  vitest@3.2.4(@types/debug@4.1.12)(@types/node@22.0.0)(jiti@2.6.1)(lightningcss@1.30.1):
++++     dependencies:
++++       '@types/chai': 5.2.3
++++       '@vitest/expect': 3.2.4
++++@@ -8013,6 +8028,7 @@ snapshots:
++++       vite-node: 3.2.4(@types/node@22.0.0)(jiti@2.6.1)(lightningcss@1.30.1)
++++       why-is-node-running: 2.3.0
++++     optionalDependencies:
+++++      '@types/debug': 4.1.12
++++       '@types/node': 22.0.0
++++     transitivePeerDependencies:
++++       - jiti
+++diff --git a/components/app-shell.tsx b/components/app-shell.tsx
+++index a4c2d1d..209ad1b 100644
+++--- a/components/app-shell.tsx
++++++ b/components/app-shell.tsx
+++@@ -81,6 +81,7 @@ export function AppShell(props: { children: React.ReactNode }) {
+++   const pathname = usePathname();
+++   const isDashboardPage = pathname === '/dashboard';
+++   const isDesktopShellRoute = pathname === '/desktop/usajobs-guided';
++++  const isPublicRoute = pathname === '/' || pathname === '/download';
+++   
+++   // Day 38 Overlay v1: Hide PathAdvisorPanel when tailoring overlay is active
+++   // The TailoringWorkspaceOverlay has its own GuidanceStrip and optional PathAdvisor drawer
+++@@ -116,6 +117,11 @@ export function AppShell(props: { children: React.ReactNode }) {
+++   // ============================================================================
+++   useAnchorRouteReset();
+++ 
++++  // Public routes: skip onboarding and app chrome
++++  if (isPublicRoute) {
++++    return <div className="min-h-screen bg-background">{children}</div>;
++++  }
++++
+++   // Show onboarding disclaimer if user hasn't accepted it yet
+++   if (!hasAcceptedGlobalDisclaimer) {
+++     return <OnboardingDisclaimerStep />;
+++diff --git a/components/desktop/GuidedUsaJobsDesktopWorkspace.tsx b/components/desktop/GuidedUsaJobsDesktopWorkspace.tsx
+++index 69e8a84..6eefb97 100644
+++--- a/components/desktop/GuidedUsaJobsDesktopWorkspace.tsx
++++++ b/components/desktop/GuidedUsaJobsDesktopWorkspace.tsx
+++@@ -32,8 +32,8 @@ const TOP_BAR_HEIGHT = 64;
+++  * Copy for the trust boundary. Keep this visible and unambiguous.
+++  */
+++ const TRUST_BOUNDARY_COPY =
+++-  'PathOS does not access your USAJOBS account. You are browsing USAJOBS directly. ' +
+++-  'PathOS does not auto-apply, does not capture credentials, and does not read the page DOM.';
++++  'PathOS runs locally and sits beside USAJOBS. It does not intercept credentials, modify USAJOBS, ' +
++++  'or submit anything on your behalf.';
+++ 
+++ const CONTEXT_OPTIONS = [
+++   'Terms/Consent',
+++@@ -381,8 +381,8 @@ export function GuidedUsaJobsDesktopWorkspace() {
+++                     <div className="rounded-md border border-border/60 bg-slate-900/40 p-3 text-xs">
+++                       <p className="font-semibold text-foreground">Trust boundary details</p>
+++                       <p className="mt-2 text-muted-foreground">
+++-                        USAJOBS is rendered in a native BrowserView. PathOS never injects scripts,
+++-                        never scrapes HTML, and never auto-fills or submits forms.
++++                        USAJOBS is rendered in a native BrowserView. PathOS never injects scripts, never scrapes HTML,
++++                        and only uses pixel-only, ephemeral screenshots in Ask Mode.
+++                       </p>
+++                     </div>
+++                   ) : null}
++ diff --git a/docs/change-briefs/day-46.md b/docs/change-briefs/day-46.md
++-index 6224491..bbbebef 100644
++---- a/docs/change-briefs/day-46.md
+++new file mode 100644
+++index 0000000..bbbebef
+++--- /dev/null
++ +++ b/docs/change-briefs/day-46.md
++-@@ -9,6 +9,7 @@
++- 
++- - The landing page now explains that PathOS is a desktop application and keeps USAJOBS as the system of record.
++- - A new download page guides users into installing the desktop app with OS placeholders, and Windows downloads are now enabled.
+++@@ -0,0 +1,39 @@
++++# Day 46 — Desktop-First Front Door
++++
++++**Date:** January 22, 2026  
++++**Type:** Messaging Alignment
++++
++++---
++++
++++## What Changed
++++
++++- The landing page now explains that PathOS is a desktop application and keeps USAJOBS as the system of record.
++++- A new download page guides users into installing the desktop app with OS placeholders, and Windows downloads are now enabled.
++ +- Download button now downloads the PathOS Desktop installer.
++- - Trust boundary wording is consistent between the web front door and the desktop welcome experience.
++- 
++- ---
++++- Trust boundary wording is consistent between the web front door and the desktop welcome experience.
++++
++++---
++++
++++## Why This Matters
++++
++++PathOS is desktop-first by design. The web experience now makes it obvious where the real work happens and why that is safer for federal job seekers. This reduces confusion and reinforces that PathAdvisor is guidance, not automation.
++++
++++---
++++
++++## What Users Will Notice
++++
++++- A calm landing page that answers: "Where do I actually do the work?"
++++- A clear, step-by-step download flow with expectations set upfront.
++++- Consistent trust boundary language from the website to the desktop app.
++++
++++---
++++
++++## Trust + OPSEC Clarity
++++
++++- PathOS runs locally in a desktop shell.
++++- It does not intercept credentials or read the USAJOBS page DOM.
++++- It does not modify USAJOBS or submit anything on a user's behalf.
++++
++++---
++++
++++*This change is copy and layout only. No backend or automation behavior is introduced.*
++ diff --git a/merge-notes.md b/merge-notes.md
++-index 4828b83..ea8f996 100644
+++index 6de6453..ea8f996 100644
++ --- a/merge-notes.md
++ +++ b/merge-notes.md
++-@@ -511,3 +511,16 @@ Shows Day 39 changes vs develop baseline ✓
++- - `components/desktop/GuidedUsaJobsDesktopWorkspace.tsx`
++- - `docs/change-briefs/day-46.md`
++- - `merge-notes.md`
+++@@ -480,3 +480,47 @@ Shows Day 39 changes vs develop baseline ✓
+++ 
+++ **Commit:** 9bab638
+++ **Branch:** feature/day-39-resume-export-pathadvisor-wiring-v1
++++
++++---
++++
++++# Day 46 — Desktop-First Front Door (Landing + Download + Trust Alignment)
++++
++++**Branch:** `feature/day-46-desktop-front-door`  
++++**Date:** January 22, 2026  
++++**Status:** Complete
++++
++++## Summary
++++
++++- Replaced the root redirect with a desktop-first landing page that explains what PathOS is and is not.
++++- Added a guided `/download` page with OS placeholders and trust boundary reinforcement before installation.
++++- Enabled the Windows download button and linked it to the installer path.
++++- Allowed public landing and download routes to render without onboarding or app chrome.
++++- Aligned desktop trust boundary copy with the web front door.
++++
++++## Why
++++
++++- Make the desktop-first model obvious at first glance.
++++- Remove any implication that job search happens on the web.
++++- Keep trust language consistent from discovery to first-run.
++++
++++## Files Touched
++++
++++- `app/page.tsx`
++++- `app/download/page.tsx`
++++- `components/app-shell.tsx`
++++- `components/desktop/GuidedUsaJobsDesktopWorkspace.tsx`
++++- `docs/change-briefs/day-46.md`
++++- `merge-notes.md`
++ +
++ +---
++ +
++@@ -138,3 +738,7 @@ index a1694d5..0334f4d 100644
++        '@types/node': 22.0.0
++      transitivePeerDependencies:
++        - jiti
+++diff --git a/public/downloads/pathos-setup.exe b/public/downloads/pathos-setup.exe
+++new file mode 100644
+++index 0000000..54a78da
+++Binary files /dev/null and b/public/downloads/pathos-setup.exe differ
++diff --git a/artifacts/day-47-this-run.patch b/artifacts/day-47-this-run.patch
++index cc81e89..7616749 100644
++--- a/artifacts/day-47-this-run.patch
+++++ b/artifacts/day-47-this-run.patch
++@@ -1,140 +0,0 @@
++-diff --git a/docs/change-briefs/day-46.md b/docs/change-briefs/day-46.md
++-index 6224491..bbbebef 100644
++---- a/docs/change-briefs/day-46.md
++-+++ b/docs/change-briefs/day-46.md
++-@@ -9,6 +9,7 @@
++- 
++- - The landing page now explains that PathOS is a desktop application and keeps USAJOBS as the system of record.
++- - A new download page guides users into installing the desktop app with OS placeholders, and Windows downloads are now enabled.
++-+- Download button now downloads the PathOS Desktop installer.
++- - Trust boundary wording is consistent between the web front door and the desktop welcome experience.
++- 
++- ---
++-diff --git a/merge-notes.md b/merge-notes.md
++-index 4828b83..ea8f996 100644
++---- a/merge-notes.md
++-+++ b/merge-notes.md
++-@@ -511,3 +511,16 @@ Shows Day 39 changes vs develop baseline ✓
++- - `components/desktop/GuidedUsaJobsDesktopWorkspace.tsx`
++- - `docs/change-briefs/day-46.md`
++- - `merge-notes.md`
++-+
++-+---
++-+
++-+# Day 47 — Windows Installer Download Wiring (Follow-up)
++-+
++-+**Branch:** `feature/day-47-desktop-repo-and-installer`  
++-+**Date:** January 23, 2026  
++-+**Status:** In progress
++-+
++-+## Notes
++-+
++-+- Windows download button points to `/downloads/pathos-setup.exe` served from `public/downloads/pathos-setup.exe`.
++-+- Verification: `curl -I http://localhost:3000/downloads/pathos-setup.exe` → `200`
++-diff --git a/pnpm-lock.yaml b/pnpm-lock.yaml
++-index a1694d5..0334f4d 100644
++---- a/pnpm-lock.yaml
++-+++ b/pnpm-lock.yaml
++-@@ -224,7 +224,7 @@ importers:
++-         version: 5.9.3
++-       vitest:
++-         specifier: ^3.2.3
++--        version: 3.2.4(@types/node@22.0.0)(jiti@2.6.1)(lightningcss@1.30.1)
++-+        version: 3.2.4(@types/debug@4.1.12)(@types/node@22.0.0)(jiti@2.6.1)(lightningcss@1.30.1)
++-       wait-on:
++-         specifier: ^9.0.3
++-         version: 9.0.3
++-@@ -1759,6 +1759,9 @@ packages:
++-   '@types/d3-timer@3.0.2':
++-     resolution: {integrity: sha512-Ps3T8E8dZDam6fUyNiMkekK3XUsaUEik+idO9/YjPtfj2qruF8tFBXS7XhtE4iIXBLxhmLjP3SXpLhVf21I9Lw==}
++- 
++-+  '@types/debug@4.1.12':
++-+    resolution: {integrity: sha512-vIChWdVG3LG1SMxEvI/AK+FWJthlrqlTu7fbrlywTkkaONwk/UAGaULXRlf8vkzFBLVm0zkMdCquhL5aOjhXPQ==}
++-+
++-   '@types/deep-eql@4.0.2':
++-     resolution: {integrity: sha512-c9h9dVVMigMPc4bwTvC5dxqtqJZwQPePsWjPlpSOnojbor6pGqdk541lfA7AqFQr5pB1BRdq0juY9db81BwyFw==}
++- 
++-@@ -1777,6 +1780,9 @@ packages:
++-   '@types/keyv@3.1.4':
++-     resolution: {integrity: sha512-BQ5aZNSCpj7D6K2ksrRCTmKRLEpnPvWDiLPfoGyhZ++8YtiK9d/3DBKPJgry359X/P1PfruyYwvnvwFjuEiEIg==}
++- 
++-+  '@types/ms@2.1.0':
++-+    resolution: {integrity: sha512-GsCCIZDE/p3i96vtEqx+7dBUGXrc7zeSK3wwPHIaRThS+9OhWIXRqzs4d6k1SVU8g91DrNRWxWUGhp5KXQb2VA==}
++-+
++-   '@types/node@22.0.0':
++-     resolution: {integrity: sha512-VT7KSYudcPOzP5Q0wfbowyNLaVR8QWUdw+088uFWwfvpY6uCWaXpqV6ieLAu9WBcnTa7H4Z5RLK8I5t2FuOcqw==}
++- 
++-@@ -3760,6 +3766,7 @@ packages:
++-   tar@7.5.2:
++-     resolution: {integrity: sha512-7NyxrTE4Anh8km8iEy7o0QYPs+0JKBTj5ZaqHg6B39erLg0qYXN3BijtShwbsNSvQ+LN75+KV+C4QR/f6Gwnpg==}
++-     engines: {node: '>=18'}
++-+    deprecated: Old versions of tar are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exhorbitant rates) by contacting i@izs.me
++- 
++-   tiny-invariant@1.3.3:
++-     resolution: {integrity: sha512-+FbBPE1o9QAYvviau/qC5SE3caw21q3xkvWKBtja5vgqOWIHHJ3ioaq1VPfn/Szqctz2bU/oYeKd9/z5BL+PVg==}
++-@@ -5476,7 +5483,7 @@ snapshots:
++-     dependencies:
++-       '@types/http-cache-semantics': 4.0.4
++-       '@types/keyv': 3.1.4
++--      '@types/node': 22.0.0
++-+      '@types/node': 24.10.9
++-       '@types/responselike': 1.0.3
++- 
++-   '@types/chai@5.2.3':
++-@@ -5508,6 +5515,11 @@ snapshots:
++- 
++-   '@types/d3-timer@3.0.2': {}
++- 
++-+  '@types/debug@4.1.12':
++-+    dependencies:
++-+      '@types/ms': 2.1.0
++-+    optional: true
++-+
++-   '@types/deep-eql@4.0.2': {}
++- 
++-   '@types/estree@1.0.8': {}
++-@@ -5520,7 +5532,10 @@ snapshots:
++- 
++-   '@types/keyv@3.1.4':
++-     dependencies:
++--      '@types/node': 22.0.0
++-+      '@types/node': 24.10.9
++-+
++-+  '@types/ms@2.1.0':
++-+    optional: true
++- 
++-   '@types/node@22.0.0':
++-     dependencies:
++-@@ -5540,13 +5555,13 @@ snapshots:
++- 
++-   '@types/responselike@1.0.3':
++-     dependencies:
++--      '@types/node': 22.0.0
++-+      '@types/node': 24.10.9
++- 
++-   '@types/use-sync-external-store@0.0.6': {}
++- 
++-   '@types/yauzl@2.10.3':
++-     dependencies:
++--      '@types/node': 22.0.0
++-+      '@types/node': 24.10.9
++-     optional: true
++- 
++-   '@typescript-eslint/eslint-plugin@8.48.1(@typescript-eslint/parser@8.48.1(eslint@9.39.1(jiti@2.6.1))(typescript@5.9.3))(eslint@9.39.1(jiti@2.6.1))(typescript@5.9.3)':
++-@@ -7987,7 +8002,7 @@ snapshots:
++-       jiti: 2.6.1
++-       lightningcss: 1.30.1
++- 
++--  vitest@3.2.4(@types/node@22.0.0)(jiti@2.6.1)(lightningcss@1.30.1):
++-+  vitest@3.2.4(@types/debug@4.1.12)(@types/node@22.0.0)(jiti@2.6.1)(lightningcss@1.30.1):
++-     dependencies:
++-       '@types/chai': 5.2.3
++-       '@vitest/expect': 3.2.4
++-@@ -8013,6 +8028,7 @@ snapshots:
++-       vite-node: 3.2.4(@types/node@22.0.0)(jiti@2.6.1)(lightningcss@1.30.1)
++-       why-is-node-running: 2.3.0
++-     optionalDependencies:
++-+      '@types/debug': 4.1.12
++-       '@types/node': 22.0.0
++-     transitivePeerDependencies:
++-       - jiti
++diff --git a/docs/merge-notes/current.md b/docs/merge-notes/current.md
++index 9d37115..5912128 100644
++--- a/docs/merge-notes/current.md
+++++ b/docs/merge-notes/current.md
++@@ -1,3 +1,37 @@
+++# Day 47 — Desktop Dev + QA Loops (Electron)
+ +
+ +**Branch:** `feature/day-47-desktop-repo-and-installer`  
+ +**Date:** January 23, 2026  
+ +**Status:** In progress
+ +
+++## Summary
+++
+++- Added a realtime dev mode for the desktop shell pointing at the local Next.js server.
+++- Added a packaged QA flow that runs the unpacked Windows executable.
+++- Documented all three desktop modes with exact commands.
+++
+++## Why
+++
+++- Eliminate reinstall loops during desktop development.
+++- Make QA possible directly from the unpacked build.
+++- Keep the public installer path stable.
+++
+ +## Notes
+ +
+-+- Windows download button points to `/downloads/pathos-setup.exe` served from `public/downloads/pathos-setup.exe`.
+-+- Verification: `curl -I http://localhost:3000/downloads/pathos-setup.exe` → `200`
+-diff --git a/pnpm-lock.yaml b/pnpm-lock.yaml
+-index a1694d5..0334f4d 100644
+---- a/pnpm-lock.yaml
+-+++ b/pnpm-lock.yaml
+-@@ -224,7 +224,7 @@ importers:
+-         version: 5.9.3
+-       vitest:
+-         specifier: ^3.2.3
+--        version: 3.2.4(@types/node@22.0.0)(jiti@2.6.1)(lightningcss@1.30.1)
+-+        version: 3.2.4(@types/debug@4.1.12)(@types/node@22.0.0)(jiti@2.6.1)(lightningcss@1.30.1)
+-       wait-on:
+-         specifier: ^9.0.3
+-         version: 9.0.3
+-@@ -1759,6 +1759,9 @@ packages:
+-   '@types/d3-timer@3.0.2':
+-     resolution: {integrity: sha512-Ps3T8E8dZDam6fUyNiMkekK3XUsaUEik+idO9/YjPtfj2qruF8tFBXS7XhtE4iIXBLxhmLjP3SXpLhVf21I9Lw==}
+- 
+-+  '@types/debug@4.1.12':
+-+    resolution: {integrity: sha512-vIChWdVG3LG1SMxEvI/AK+FWJthlrqlTu7fbrlywTkkaONwk/UAGaULXRlf8vkzFBLVm0zkMdCquhL5aOjhXPQ==}
+++- Installer download path remains `public/downloads/pathos-setup.exe`.
+ +
+-   '@types/deep-eql@4.0.2':
+-     resolution: {integrity: sha512-c9h9dVVMigMPc4bwTvC5dxqtqJZwQPePsWjPlpSOnojbor6pGqdk541lfA7AqFQr5pB1BRdq0juY9db81BwyFw==}
+- 
+-@@ -1777,6 +1780,9 @@ packages:
+-   '@types/keyv@3.1.4':
+-     resolution: {integrity: sha512-BQ5aZNSCpj7D6K2ksrRCTmKRLEpnPvWDiLPfoGyhZ++8YtiK9d/3DBKPJgry359X/P1PfruyYwvnvwFjuEiEIg==}
+- 
+-+  '@types/ms@2.1.0':
+-+    resolution: {integrity: sha512-GsCCIZDE/p3i96vtEqx+7dBUGXrc7zeSK3wwPHIaRThS+9OhWIXRqzs4d6k1SVU8g91DrNRWxWUGhp5KXQb2VA==}
+++## Files Touched
+ +
+-   '@types/node@22.0.0':
+-     resolution: {integrity: sha512-VT7KSYudcPOzP5Q0wfbowyNLaVR8QWUdw+088uFWwfvpY6uCWaXpqV6ieLAu9WBcnTa7H4Z5RLK8I5t2FuOcqw==}
+- 
+-@@ -3760,6 +3766,7 @@ packages:
+-   tar@7.5.2:
+-     resolution: {integrity: sha512-7NyxrTE4Anh8km8iEy7o0QYPs+0JKBTj5ZaqHg6B39erLg0qYXN3BijtShwbsNSvQ+LN75+KV+C4QR/f6Gwnpg==}
+-     engines: {node: '>=18'}
+-+    deprecated: Old versions of tar are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exhorbitant rates) by contacting i@izs.me
+- 
+-   tiny-invariant@1.3.3:
+-     resolution: {integrity: sha512-+FbBPE1o9QAYvviau/qC5SE3caw21q3xkvWKBtja5vgqOWIHHJ3ioaq1VPfn/Szqctz2bU/oYeKd9/z5BL+PVg==}
+-@@ -5476,7 +5483,7 @@ snapshots:
+-     dependencies:
+-       '@types/http-cache-semantics': 4.0.4
+-       '@types/keyv': 3.1.4
+--      '@types/node': 22.0.0
+-+      '@types/node': 24.10.9
+-       '@types/responselike': 1.0.3
+- 
+-   '@types/chai@5.2.3':
+-@@ -5508,6 +5515,11 @@ snapshots:
+- 
+-   '@types/d3-timer@3.0.2': {}
+- 
+-+  '@types/debug@4.1.12':
+-+    dependencies:
+-+      '@types/ms': 2.1.0
+-+    optional: true
+++- `pathos-desktop/src/main.js`
+++- `pathos-desktop/package.json`
+++- `package.json`
+++- `docs/dev-docs/desktop-workflows.md`
+++- `docs/change-briefs/day-47.md`
+++- `merge-notes.md`
+++- `README.md`
+ +
+-   '@types/deep-eql@4.0.2': {}
+- 
+-   '@types/estree@1.0.8': {}
+-@@ -5520,7 +5532,10 @@ snapshots:
+- 
+-   '@types/keyv@3.1.4':
+-     dependencies:
+--      '@types/node': 22.0.0
+-+      '@types/node': 24.10.9
+++---
+ +
+-+  '@types/ms@2.1.0':
+-+    optional: true
++ # Day 45 — Desktop Shell Spike v1 (Electron) for Job Seeker Mode
+  
+-   '@types/node@22.0.0':
+-     dependencies:
+-@@ -5540,13 +5555,13 @@ snapshots:
+- 
+-   '@types/responselike@1.0.3':
+-     dependencies:
+--      '@types/node': 22.0.0
+-+      '@types/node': 24.10.9
+- 
+-   '@types/use-sync-external-store@0.0.6': {}
+- 
+-   '@types/yauzl@2.10.3':
+-     dependencies:
+--      '@types/node': 22.0.0
+-+      '@types/node': 24.10.9
+-     optional: true
++ **Branch:** `feature/day-45-desktop-shell-electron-spike-v1`  
++diff --git a/merge-notes.md b/merge-notes.md
++index ea8f996..708f837 100644
++--- a/merge-notes.md
+++++ b/merge-notes.md
++@@ -520,7 +520,29 @@ Shows Day 39 changes vs develop baseline ✓
++ **Date:** January 23, 2026  
++ **Status:** In progress
+  
+-   '@typescript-eslint/eslint-plugin@8.48.1(@typescript-eslint/parser@8.48.1(eslint@9.39.1(jiti@2.6.1))(typescript@5.9.3))(eslint@9.39.1(jiti@2.6.1))(typescript@5.9.3)':
+-@@ -7987,7 +8002,7 @@ snapshots:
+-       jiti: 2.6.1
+-       lightningcss: 1.30.1
+++## Summary
+++
+++- Added a realtime desktop dev loop that loads the local Next.js server.
+++- Added a packaged QA flow for the unpacked Windows executable.
+++- Documented the three desktop modes with exact PowerShell commands.
+++
+++## Why
+++
+++- Remove reinstall loops during desktop development.
+++- Enable QA on the packaged app without installing.
+++- Keep the public installer path stable for downloads.
+++
++ ## Notes
+  
+--  vitest@3.2.4(@types/node@22.0.0)(jiti@2.6.1)(lightningcss@1.30.1):
+-+  vitest@3.2.4(@types/debug@4.1.12)(@types/node@22.0.0)(jiti@2.6.1)(lightningcss@1.30.1):
+-     dependencies:
+-       '@types/chai': 5.2.3
+-       '@vitest/expect': 3.2.4
+-@@ -8013,6 +8028,7 @@ snapshots:
+-       vite-node: 3.2.4(@types/node@22.0.0)(jiti@2.6.1)(lightningcss@1.30.1)
+-       why-is-node-running: 2.3.0
+-     optionalDependencies:
+-+      '@types/debug': 4.1.12
+-       '@types/node': 22.0.0
+-     transitivePeerDependencies:
+-       - jiti
++ - Windows download button points to `/downloads/pathos-setup.exe` served from `public/downloads/pathos-setup.exe`.
++ - Verification: `curl -I http://localhost:3000/downloads/pathos-setup.exe` → `200`
+++
+++## Files Touched
+++
+++- `pathos-desktop/src/main.js`
+++- `pathos-desktop/package.json`
+++- `package.json`
+++- `docs/dev-docs/desktop-workflows.md`
+++- `docs/change-briefs/day-47.md`
+++- `docs/merge-notes/current.md`
+++- `README.md`
++diff --git a/package.json b/package.json
++index 7c28ba9..47970e7 100644
++--- a/package.json
+++++ b/package.json
++@@ -7,7 +7,7 @@
++     "dev": "next dev",
++     "desktop:next": "next dev",
++     "desktop:electron": "wait-on tcp:3000 && TS_NODE_PROJECT=electron/tsconfig.json electron -r ts-node/register electron/main.ts",
++-    "desktop:dev": "concurrently \"pnpm desktop:next\" \"pnpm desktop:electron\"",
+++    "desktop:dev": "next dev -p 3000",
++     "format": "prettier --check .",
++     "format:fix": "prettier --write .",
++     "lint": "eslint .",
+diff --git a/docs/merge-notes/current.md b/docs/merge-notes/current.md
+index 9d37115..5912128 100644
+--- a/docs/merge-notes/current.md
++++ b/docs/merge-notes/current.md
+@@ -1,3 +1,37 @@
++# Day 47 — Desktop Dev + QA Loops (Electron)
++
++**Branch:** `feature/day-47-desktop-repo-and-installer`  
++**Date:** January 23, 2026  
++**Status:** In progress
++
++## Summary
++
++- Added a realtime dev mode for the desktop shell pointing at the local Next.js server.
++- Added a packaged QA flow that runs the unpacked Windows executable.
++- Documented all three desktop modes with exact commands.
++
++## Why
++
++- Eliminate reinstall loops during desktop development.
++- Make QA possible directly from the unpacked build.
++- Keep the public installer path stable.
++
++## Notes
++
++- Installer download path remains `public/downloads/pathos-setup.exe`.
++
++## Files Touched
++
++- `pathos-desktop/src/main.js`
++- `pathos-desktop/package.json`
++- `package.json`
++- `docs/dev-docs/desktop-workflows.md`
++- `docs/change-briefs/day-47.md`
++- `merge-notes.md`
++- `README.md`
++
++---
++
+ # Day 45 — Desktop Shell Spike v1 (Electron) for Job Seeker Mode
+ 
+ **Branch:** `feature/day-45-desktop-shell-electron-spike-v1`  
+diff --git a/merge-notes.md b/merge-notes.md
+index ea8f996..708f837 100644
+--- a/merge-notes.md
++++ b/merge-notes.md
+@@ -520,7 +520,29 @@ Shows Day 39 changes vs develop baseline ✓
+ **Date:** January 23, 2026  
+ **Status:** In progress
+ 
++## Summary
++
++- Added a realtime desktop dev loop that loads the local Next.js server.
++- Added a packaged QA flow for the unpacked Windows executable.
++- Documented the three desktop modes with exact PowerShell commands.
++
++## Why
++
++- Remove reinstall loops during desktop development.
++- Enable QA on the packaged app without installing.
++- Keep the public installer path stable for downloads.
++
+ ## Notes
+ 
+ - Windows download button points to `/downloads/pathos-setup.exe` served from `public/downloads/pathos-setup.exe`.
+ - Verification: `curl -I http://localhost:3000/downloads/pathos-setup.exe` → `200`
++
++## Files Touched
++
++- `pathos-desktop/src/main.js`
++- `pathos-desktop/package.json`
++- `package.json`
++- `docs/dev-docs/desktop-workflows.md`
++- `docs/change-briefs/day-47.md`
++- `docs/merge-notes/current.md`
++- `README.md`
+diff --git a/package.json b/package.json
+index 7c28ba9..47970e7 100644
+--- a/package.json
++++ b/package.json
+@@ -7,7 +7,7 @@
+     "dev": "next dev",
+     "desktop:next": "next dev",
+     "desktop:electron": "wait-on tcp:3000 && TS_NODE_PROJECT=electron/tsconfig.json electron -r ts-node/register electron/main.ts",
+-    "desktop:dev": "concurrently \"pnpm desktop:next\" \"pnpm desktop:electron\"",
++    "desktop:dev": "next dev -p 3000",
+     "format": "prettier --check .",
+     "format:fix": "prettier --write .",
+     "lint": "eslint .",
