@@ -13,10 +13,12 @@ import { useNav } from '@pathos/adapters';
 
 export interface CareerScreenProps {
   userName?: string;
+  legacyHref?: string;
 }
 
-export function CareerScreen(_props: CareerScreenProps) {
+export function CareerScreen(props: CareerScreenProps) {
   const nav = useNav();
+  const legacyHref = props.legacyHref ?? '/dashboard-legacy/career';
 
   return (
     <div className="p-4 lg:p-6 space-y-6">
@@ -25,6 +27,18 @@ export function CareerScreen(_props: CareerScreenProps) {
         <p className="text-sm mt-1" style={{ color: 'var(--p-text-muted)' }}>
           Track your career trajectory, resume strength, and next actions.
         </p>
+      </div>
+
+      <div
+        className="p-3 text-sm"
+        style={{
+          background: 'var(--p-surface2)',
+          border: '1px solid var(--p-border)',
+          borderRadius: 'var(--p-radius)',
+          color: 'var(--p-text-muted)',
+        }}
+      >
+        Shared Career & Resume migration is in progress. This page is the new shared surface for web and desktop parity.
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -37,13 +51,26 @@ export function CareerScreen(_props: CareerScreenProps) {
       <div className="flex gap-3">
         <button
           type="button"
-          onClick={function () { nav.push('/dashboard/resume-builder'); }}
-          className="px-4 py-2 text-sm font-medium transition-colors"
+          onClick={function () { nav.push(legacyHref); }}
+          className="px-4 py-2 text-sm font-semibold transition-colors"
           style={{
             background: 'var(--p-accent)',
             borderRadius: 'var(--p-radius)',
             color: 'var(--p-bg)',
             border: 'none',
+          }}
+        >
+          Open legacy version
+        </button>
+        <button
+          type="button"
+          onClick={function () { nav.push('/dashboard/resume-builder'); }}
+          className="px-4 py-2 text-sm font-medium transition-colors"
+          style={{
+            background: 'var(--p-surface2)',
+            border: '1px solid var(--p-border)',
+            borderRadius: 'var(--p-radius)',
+            color: 'var(--p-text)',
           }}
         >
           Open Resume Builder

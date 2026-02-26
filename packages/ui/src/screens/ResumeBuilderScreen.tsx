@@ -12,6 +12,7 @@
 
 import type React from 'react';
 import { useState, useEffect, useCallback } from 'react';
+import { useNav } from '@pathos/adapters';
 import {
   FileText,
   Save,
@@ -48,7 +49,9 @@ import type {
 // Props
 // ---------------------------------------------------------------------------
 
-export interface ResumeBuilderScreenProps {}
+export interface ResumeBuilderScreenProps {
+  legacyHref?: string;
+}
 
 // ---------------------------------------------------------------------------
 // Helper: generate IDs
@@ -261,6 +264,7 @@ function ResumePreview(props: { draft: ResumeDraft; hideSensitive: boolean }) {
 // ---------------------------------------------------------------------------
 
 export function ResumeBuilderScreen(_props: ResumeBuilderScreenProps) {
+  const nav = useNav();
   const [store, setStore] = useState<ResumeStore>({
     schemaVersion: 1,
     draft: createDefaultDraft(),
@@ -388,6 +392,7 @@ export function ResumeBuilderScreen(_props: ResumeBuilderScreenProps) {
   }
 
   const versions = listVersions(store);
+  const legacyHref = _props.legacyHref ?? '/dashboard-legacy/resume-builder';
 
   return (
     <div className="flex flex-col h-full" style={{ color: 'var(--p-text)' }}>
@@ -408,6 +413,20 @@ export function ResumeBuilderScreen(_props: ResumeBuilderScreenProps) {
           </span>
         </div>
         <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={function () { nav.push(legacyHref); }}
+            className="px-2.5 py-1.5 text-xs font-medium rounded transition-colors"
+            style={{
+              border: '1px solid var(--p-border)',
+              borderRadius: 'var(--p-radius)',
+              color: 'var(--p-text-muted)',
+              background: 'var(--p-surface2)',
+            }}
+            aria-label="Open legacy version"
+          >
+            Open legacy version
+          </button>
           <button
             type="button"
             onClick={function () { setHideSensitive(!hideSensitive); }}
@@ -438,6 +457,17 @@ export function ResumeBuilderScreen(_props: ResumeBuilderScreenProps) {
             Versions ({versions.length})
           </button>
         </div>
+      </div>
+
+      <div
+        className="px-4 py-2 text-xs"
+        style={{
+          borderBottom: '1px solid var(--p-border)',
+          background: 'var(--p-surface2)',
+          color: 'var(--p-text-muted)',
+        }}
+      >
+        Shared Resume Builder migration is in progress. Use this shared screen for parity testing, or open the legacy version for advanced workflows.
       </div>
 
       {/* Versions panel */}
