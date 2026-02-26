@@ -6,12 +6,14 @@
  * Loads available theme token sets and shared utility styles.
  * Token values are defined in:
  * - ./themes/theme-shared.css
+ * - ./themes/theme-mix.css
  * - ./themes/theme-legacy.css
  *
  * BOUNDARY RULE: No next/* or electron/* imports.
  */
 
 @import './themes/theme-shared.css';
+@import './themes/theme-mix.css';
 @import './themes/theme-legacy.css';
 
 /* ---- Interaction affordances (instrument panel) ---- */

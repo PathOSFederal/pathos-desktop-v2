@@ -15,7 +15,7 @@ import {
 const SIMULATED_REPLY =
   'Thanks for your question. This is a local-only preview—PathAdvisor will use your context when connected.';
 
-function SharedDashboardShell(props: { themeVariant: ThemeVariant }) {
+function SharedDashboardShell(props: { themeVariant?: ThemeVariant }) {
   const [advisorMessages, setAdvisorMessages] = useState<PathAdvisorMessage[]>([]);
 
   const handleAdvisorSend = useCallback(function (text: string) {
@@ -67,7 +67,10 @@ export default function DashboardPage() {
   const adapter = useNextNavAdapter();
   const searchParams = useSearchParams();
   const themeParam = searchParams.get('theme');
-  const themeVariant: ThemeVariant = themeParam === 'legacy' ? 'legacy' : 'shared';
+  let themeVariant: ThemeVariant | undefined = undefined;
+  if (themeParam === 'legacy' || themeParam === 'mix' || themeParam === 'shared') {
+    themeVariant = themeParam;
+  }
 
   return (
     <NavigationProvider adapter={adapter} linkComponent={NextNavLink}>

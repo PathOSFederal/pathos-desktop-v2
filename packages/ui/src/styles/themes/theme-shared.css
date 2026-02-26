@@ -6,8 +6,6 @@
  * Shared desktop/preview visual language.
  */
 
-:root,
-.pathos-theme,
 [data-theme='shared'] {
   /* ---- Background & surfaces (clear separation for instrument-panel hierarchy) ---- */
   --p-bg:           #0b0f1a;
@@ -31,11 +29,11 @@
   --p-font-size-body:       0.8125rem;   /* 13px, calm */
   --p-letter-spacing-section: 0.05em;
 
-  /* ---- Accent (amber/orange, restrained for sidebar/indicators) ---- */
-  --p-accent:       #b45309;
-  --p-accent-muted: #78350f;
-  --p-accent-bg:    rgba(180, 83, 9, 0.08);
-  --p-accent-text:  #f59e0b;
+  /* ---- Accent (blue) ---- */
+  --p-accent:       #2563eb;
+  --p-accent-muted: #1d4ed8;
+  --p-accent-bg:    rgba(37, 99, 235, 0.08);
+  --p-accent-text:  #60a5fa;
 
   /* ---- Semantics ---- */
   --p-success:      #22c55e;

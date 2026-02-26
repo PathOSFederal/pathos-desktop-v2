@@ -30,7 +30,7 @@ import '../styles/theme.css';
 // ---------------------------------------------------------------------------
 
 export type Platform = 'web' | 'desktop-preview' | 'desktop';
-export type ThemeVariant = 'shared' | 'legacy';
+export type ThemeVariant = 'legacy' | 'mix' | 'shared';
 
 export interface AppShellProps {
   children: React.ReactNode;
