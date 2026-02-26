@@ -108,3 +108,65 @@
 | Resume          | pathos:resume-store          | 1             |
 
 All stores use safe-reset on schema mismatch (returns defaults if version differs).
+
+---
+
+## Dashboard Benefits-Style Update (Verification)
+
+**Scope:** Desktop Dashboard screen and PathAdvisor rail aligned to web Explore Federal Benefits seriousness. Mock values only; no backend. No commit, no push.
+
+**Files modified:**
+- `packages/ui/src/screens/DashboardScreen.tsx` (primary)
+- `packages/ui/src/shell/PathAdvisorRail.tsx` (parity)
+- `packages/ui/src/styles/theme.css` not modified (theme tokens sufficient)
+
+### Verification commands and outputs
+
+**git status**
+```
+On branch feature/ui-serious-mode-v1
+Changes not staged for commit:
+  modified:   apps/desktop/src/globals.css
+  modified:   packages/ui/src/screens/DashboardScreen.tsx
+  modified:   packages/ui/src/shell/PathAdvisorRail.tsx
+no changes added to commit
+```
+
+**git diff --name-only**
+```
+apps/desktop/src/globals.css
+packages/ui/src/screens/DashboardScreen.tsx
+packages/ui/src/shell/PathAdvisorRail.tsx
+```
+
+**git diff --stat**
+```
+ apps/desktop/src/globals.css                |  21 +-
+ packages/ui/src/screens/DashboardScreen.tsx | 434 +++++++++++-----------------
+ packages/ui/src/shell/PathAdvisorRail.tsx   | 189 +++++++-----
+ 3 files changed, 304 insertions(+), 340 deletions(-)
+```
+
+**pnpm check:boundaries**
+```
+Boundary check PASSED: 0 violations across 3 packages.
+```
+
+**pnpm -r typecheck**
+```
+Scope: 4 of 5 workspace projects
+packages/adapters typecheck: Done
+packages/core typecheck: Done
+packages/ui typecheck: Done
+apps/desktop typecheck: Done
+```
+
+**pnpm -C apps/desktop build**
+```
+✓ 1614 modules transformed.
+dist/renderer/index.html                   0.40 kB
+dist/renderer/assets/index-CqywswcU.css   23.28 kB
+dist/renderer/assets/index-CByeRgiU.js   351.57 kB
+✓ built in 8.36s
+```
+(Full build: renderer + electron tsc completed successfully.)

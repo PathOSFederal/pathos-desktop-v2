@@ -1,125 +1,171 @@
 /**
  * ============================================================================
- * PATH ADVISOR RAIL -- Shared advisor side panel (Analyst Module)
+ * PATH ADVISOR RAIL -- Shared advisor side panel (PathAdvisor AI)
  * ============================================================================
  *
  * BOUNDARY RULE: This file MUST NOT import from next/* or electron/*.
  *
- * Framed as an analyst module: Context (Viewing, Privacy), recommended
- * next steps, and a guidance-strip input (not chatbot tone).
+ * Framed to match web PathAdvisor: header "PathAdvisor AI", context chips
+ * (Viewing, Privacy), calm advisor message block, suggested prompts as
+ * clickable rows, and input docked at bottom with subtle send button.
  */
 
 'use client';
 
 import type React from 'react';
-import { Compass, Eye, Shield } from 'lucide-react';
+import { useState } from 'react';
+import { Sparkles, Eye, Shield, Send } from 'lucide-react';
+import { ModuleCard } from '../components/ModuleCard';
 
 export interface PathAdvisorRailProps {
   dock?: 'left' | 'right';
+  /** Optional: chip label for current view (default "Dashboard") */
+  viewingLabel?: string;
+  /** Optional: privacy chip value (default "Local only") */
+  privacyLabel?: string;
 }
 
-/* Context chips: current view + privacy stance (system status) */
-const CONTEXT_CHIPS = [
-  { label: 'Viewing', icon: <Eye className="w-3 h-3" /> },
-  { label: 'Privacy', icon: <Shield className="w-3 h-3" /> },
+/* Suggested prompts: clickable rows, dashboard/decision workspace tone */
+const SUGGESTED_PROMPTS = [
+  'How does my expected salary compare to typical GS grades?',
+  'What benefits matter most if I only stay 3 to 5 years?',
+  'Explain the FERS pension estimate on my dashboard.',
+  'What should I update in my assumptions next?',
 ];
 
-/* Recommended next steps (action-oriented, not conversational) */
-const RECOMMENDED_NEXT_STEPS = [
-  'Review compensation vs. target grade',
-  'Update resume for current role focus',
-  'Check retirement timeline assumptions',
-  'Compare benefits options for next year',
-];
+export function PathAdvisorRail(props: PathAdvisorRailProps) {
+  const viewing = props.viewingLabel !== undefined ? props.viewingLabel : 'Dashboard';
+  const privacy = props.privacyLabel !== undefined ? props.privacyLabel : 'Local only';
+  const [inputValue, setInputValue] = useState('');
 
-export function PathAdvisorRail(_props: PathAdvisorRailProps) {
+  function handlePromptClick(prompt: string) {
+    setInputValue(prompt);
+  }
+
+  function handleSend() {
+    // Non-functional: mock rail only. In a full implementation this would submit to advisor.
+  }
+
   return (
-    <div className="h-full flex flex-col">
-      {/* Analyst Module header */}
+    <div className="h-full flex flex-col min-h-0">
+      {/* Header: PathAdvisor AI (matches web panel) */}
       <div
-        className="flex items-center gap-2 px-3 py-2"
+        className="flex items-center gap-2 px-3 py-2 flex-shrink-0"
         style={{ borderBottom: '1px solid var(--p-border)' }}
       >
-        <Compass className="w-4 h-4" style={{ color: 'var(--p-accent)' }} />
+        <Sparkles className="w-4 h-4 flex-shrink-0" style={{ color: 'var(--p-accent)' }} />
         <h2
           className="font-semibold"
           style={{ color: 'var(--p-text)', fontSize: 'var(--p-font-size-section)' }}
         >
-          Analyst Module
+          PathAdvisor AI
         </h2>
       </div>
 
-      {/* Context: Viewing, Privacy (system status chips) */}
-      <div className="px-3 pt-2 pb-2">
-        <p
-          className="font-semibold uppercase tracking-[var(--p-letter-spacing-section)] mb-1.5"
-          style={{ color: 'var(--p-text-dim)', fontSize: 'var(--p-font-size-section)' }}
-        >
-          Context
-        </p>
-        <div className="flex flex-wrap gap-1.5">
-          {CONTEXT_CHIPS.map(function (chip) {
-            return (
-              <span
-                key={chip.label}
-                className="flex items-center gap-1.5 px-2 py-1 text-[12px] font-medium"
-                style={{
-                  background: 'var(--p-surface2)',
-                  border: '1px solid var(--p-border)',
-                  borderRadius: 'var(--p-radius)',
-                  color: 'var(--p-text-muted)',
-                }}
-              >
-                {chip.icon}
-                {chip.label}
-              </span>
-            );
-          })}
-        </div>
+      {/* Context: status chips (Viewing, Privacy) in ModuleCard */}
+      <div className="px-3 pt-2 pb-2 flex-shrink-0">
+        <ModuleCard title="Context" variant="dense">
+          <div className="flex flex-wrap gap-1.5">
+            <span
+              className="pathos-context-chip flex items-center gap-1.5 px-2 py-1 text-[12px] font-medium"
+              style={{
+                background: 'var(--p-surface2)',
+                border: '1px solid var(--p-accent-muted)',
+                borderRadius: 'var(--p-radius)',
+                color: 'var(--p-text-muted)',
+              }}
+            >
+              <Eye className="w-3 h-3 flex-shrink-0" />
+              Viewing: {viewing}
+            </span>
+            <span
+              className="pathos-context-chip flex items-center gap-1.5 px-2 py-1 text-[12px] font-medium"
+              style={{
+                background: 'var(--p-surface2)',
+                border: '1px solid var(--p-accent-muted)',
+                borderRadius: 'var(--p-radius)',
+                color: 'var(--p-text-muted)',
+              }}
+            >
+              <Shield className="w-3 h-3 flex-shrink-0" />
+              Privacy: {privacy}
+            </span>
+          </div>
+        </ModuleCard>
       </div>
 
-      {/* Recommended next steps (guidance tone) */}
-      <div className="px-3 pt-2 flex-1">
-        <p
-          className="font-semibold uppercase tracking-[var(--p-letter-spacing-section)] mb-1.5"
-          style={{ color: 'var(--p-text-dim)', fontSize: 'var(--p-font-size-section)' }}
-        >
-          Recommended next steps
-        </p>
-        <div className="space-y-1">
-          {RECOMMENDED_NEXT_STEPS.map(function (step) {
-            return (
-              <button
-                key={step}
-                type="button"
-                className="w-full text-left px-3 py-1.5 text-[12px] transition-colors"
-                style={{
-                  background: 'var(--p-surface2)',
-                  border: '1px solid transparent',
-                  borderRadius: 'var(--p-radius)',
-                  color: 'var(--p-text-muted)',
-                }}
-              >
-                {step}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Guidance strip (not chatbot) */}
-      <div className="p-2" style={{ borderTop: '1px solid var(--p-border)' }}>
+      {/* Advisor message block: calm, professional */}
+      <div className="px-3 flex-shrink-0">
         <div
-          className="flex items-center gap-2 px-3 py-2 text-[12px]"
+          className="rounded-[var(--p-radius-lg)] p-3 text-[13px]"
           style={{
             background: 'var(--p-surface2)',
             border: '1px solid var(--p-border)',
-            borderRadius: 'var(--p-radius)',
-            color: 'var(--p-text-dim)',
+            color: 'var(--p-text-muted)',
           }}
         >
-          <Compass className="w-3.5 h-3.5 flex-shrink-0" />
-          <span>Next step or guidance...</span>
+          <p>
+            Use this workspace to review your compensation estimates and decision drivers.
+            Ask for help comparing grades, understanding benefits, or adjusting assumptions.
+          </p>
+        </div>
+      </div>
+
+      {/* Suggested prompts: ModuleCard with action-like rows (hover/focus-visible) */}
+      <div className="px-3 pt-2 flex-1 min-h-0 overflow-y-auto">
+        <ModuleCard title="Suggested prompts" variant="dense" className="h-full flex flex-col min-h-0">
+          <div className="space-y-1 flex-1 min-h-0">
+            {SUGGESTED_PROMPTS.map(function (prompt) {
+              return (
+                <button
+                  key={prompt}
+                  type="button"
+                  onClick={function () { handlePromptClick(prompt); }}
+                  className="pathos-prompt-row w-full text-left px-3 py-2 text-[12px] rounded-[var(--p-radius)] transition-colors"
+                  style={{
+                    background: 'var(--p-surface2)',
+                    border: '1px solid var(--p-border)',
+                    color: 'var(--p-text)',
+                  }}
+                >
+                  {prompt}
+                </button>
+              );
+            })}
+          </div>
+        </ModuleCard>
+      </div>
+
+      {/* Input docked bottom with subtle send button */}
+      <div className="p-2 flex-shrink-0" style={{ borderTop: '1px solid var(--p-border)' }}>
+        <div className="flex items-center gap-2">
+          <input
+            type="text"
+            placeholder="Ask PathAdvisor..."
+            value={inputValue}
+            onChange={function (e) { setInputValue(e.target.value); }}
+            onKeyDown={function (e) {
+              if (e.key === 'Enter') handleSend();
+            }}
+            className="flex-1 min-w-0 px-3 py-2 text-[12px] rounded-[var(--p-radius)] outline-none"
+            style={{
+              background: 'var(--p-surface2)',
+              border: '1px solid var(--p-border)',
+              color: 'var(--p-text)',
+            }}
+          />
+          <button
+            type="button"
+            onClick={handleSend}
+            className="flex-shrink-0 h-8 w-8 flex items-center justify-center rounded-[var(--p-radius)] transition-colors"
+            style={{
+              background: 'var(--p-accent)',
+              color: 'var(--p-bg)',
+            }}
+            aria-label="Send"
+          >
+            <Send className="w-3.5 h-3.5" />
+          </button>
         </div>
       </div>
     </div>

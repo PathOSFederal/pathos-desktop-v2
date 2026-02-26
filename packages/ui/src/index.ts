@@ -5,6 +5,9 @@
  * Run `pnpm check:boundaries` to verify.
  */
 
+// Shared components
+export { ModuleCard, type ModuleCardProps } from './components/ModuleCard';
+
 // Shell components
 export { SharedAppShell, type AppShellProps, type Platform } from './shell/AppShell';
 export { Sidebar, type SidebarProps } from './shell/Sidebar';

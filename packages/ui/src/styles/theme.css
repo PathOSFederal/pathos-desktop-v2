@@ -19,15 +19,15 @@
 
 :root,
 .pathos-theme {
-  /* ---- Background & surfaces (subtle gradient for professional feel) ---- */
+  /* ---- Background & surfaces (clear separation for instrument-panel hierarchy) ---- */
   --p-bg:           #0b0f1a;
   --p-bg-gradient:  linear-gradient(180deg, #0b0f1a 0%, #0d1220 100%);
-  --p-surface:      #131929;
+  --p-surface:      #121829;
   --p-surface2:     #1a2236;
 
-  /* ---- Borders & separators (slightly stronger for professional cards) ---- */
+  /* ---- Borders & separators (consistent, not overly strong) ---- */
   --p-border:       #1e293b;
-  --p-border-strong: #252d3d;
+  --p-border-strong: #232d3f;
   --p-border-light: #2a3654;
 
   /* ---- Text ---- */
@@ -61,10 +61,22 @@
   --p-radius:       0.5rem;   /* 8px */
   --p-radius-lg:    0.625rem; /* 10px */
 
-  /* ---- Elevation (subtle, consistent) ---- */
-  --p-shadow:       0 1px 2px rgba(0, 0, 0, 0.25);
-  --p-shadow-lg:    0 2px 8px rgba(0, 0, 0, 0.3);
+  /* ---- Elevation (subtle, consistent; elevation-1 for cards/panels) ---- */
+  --p-shadow:               0 1px 2px rgba(0, 0, 0, 0.25);
+  --p-shadow-elevation-1:   0 1px 3px rgba(0, 0, 0, 0.22);
+  --p-shadow-lg:            0 2px 8px rgba(0, 0, 0, 0.3);
 
   /* ---- Focus ---- */
   --p-focus-ring:   0 0 0 2px var(--p-accent);
+}
+
+/* ---- Interaction affordances (instrument panel) ---- */
+/* Prompt rows: hover/focus-visible feel like actions */
+.pathos-prompt-row:hover {
+  background: var(--p-surface);
+  border-color: var(--p-accent-muted);
+}
+.pathos-prompt-row:focus-visible {
+  outline: none;
+  box-shadow: var(--p-focus-ring);
 }
