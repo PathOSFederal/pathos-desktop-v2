@@ -39,16 +39,16 @@ export function TopBar(props: TopBarProps) {
 
   return (
     <header
-      className="relative h-14 lg:h-16 px-3 lg:px-6 flex items-center justify-between gap-2"
+      className="relative h-12 lg:h-14 px-3 lg:px-4 flex items-center justify-between gap-2"
       style={{
         background: 'var(--p-surface)',
         borderBottom: '1px solid var(--p-border)',
       }}
     >
-      <div className="flex items-center gap-2 lg:gap-3">
+      <div className="flex items-center gap-2 lg:gap-3 min-w-0">
         {props.leading}
         <div
-          className="w-7 h-7 lg:w-8 lg:h-8 flex items-center justify-center font-bold text-xs lg:text-sm"
+          className="w-7 h-7 flex-shrink-0 flex items-center justify-center font-semibold text-xs"
           style={{
             background: 'var(--p-accent)',
             borderRadius: 'var(--p-radius)',
@@ -57,33 +57,36 @@ export function TopBar(props: TopBarProps) {
         >
           P
         </div>
-        <div className="hidden sm:flex items-center gap-2">
-          <h1 className="text-base lg:text-lg font-bold" style={{ color: 'var(--p-text)' }}>
+        <div className="hidden sm:flex items-center gap-2 flex-shrink-0">
+          <h1
+            className="font-semibold"
+            style={{ color: 'var(--p-text)', fontSize: 'var(--p-font-size-section)' }}
+          >
             PathOS
           </h1>
           {(props.platform === 'desktop' || props.platform === 'desktop-preview') && (
             <span
-              className="text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded"
+              className="text-[10px] font-medium uppercase tracking-[var(--p-letter-spacing-section)] px-1.5 py-0.5 rounded"
               style={{
-                color: 'var(--p-accent)',
-                background: 'var(--p-accent-bg)',
-                border: '1px solid color-mix(in srgb, var(--p-accent) 30%, transparent)',
+                color: 'var(--p-text-muted)',
+                background: 'var(--p-surface2)',
+                border: '1px solid var(--p-border)',
               }}
             >
               Desktop
             </span>
           )}
-          {/* Local-only badge with info toggle */}
+          {/* System status: Local only (badge aligned as status indicator) */}
           <button
             type="button"
             onClick={function () { setShowInfoPanel(!showInfoPanel); }}
             aria-label="Data privacy info: all data is stored locally"
             aria-expanded={showInfoPanel}
-            className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded cursor-pointer"
+            className="flex items-center gap-1 text-[10px] font-medium uppercase tracking-[var(--p-letter-spacing-section)] px-1.5 py-0.5 rounded cursor-pointer"
             style={{
               color: 'var(--p-success)',
-              background: 'color-mix(in srgb, var(--p-success) 12%, transparent)',
-              border: '1px solid color-mix(in srgb, var(--p-success) 30%, transparent)',
+              background: 'var(--p-surface2)',
+              border: '1px solid var(--p-border)',
             }}
           >
             <ShieldCheck className="w-3 h-3" />
@@ -139,29 +142,32 @@ export function TopBar(props: TopBarProps) {
         </div>
       )}
 
-      {/* Search bar */}
-      <div className="hidden md:block flex-1 max-w-md mx-4 lg:mx-8">
-        <div className="relative">
+      {/* Search bar: integrated into header (same surface, no floating look) */}
+      <div className="hidden md:flex flex-1 max-w-sm mx-3 lg:mx-4 min-w-0">
+        <div
+          className="relative flex-1 flex items-center rounded"
+          style={{
+            background: 'var(--p-surface2)',
+            border: '1px solid var(--p-border)',
+          }}
+        >
           <Search
-            className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4"
+            className="absolute left-2.5 top-1/2 transform -translate-y-1/2 w-3.5 h-3.5 flex-shrink-0"
             style={{ color: 'var(--p-text-dim)' }}
           />
           <input
             type="text"
             placeholder="Search paths, documents, scenarios..."
-            className="w-full pl-10 h-9 text-sm focus:outline-none"
+            className="flex-1 min-w-0 pl-8 pr-3 h-8 bg-transparent focus:outline-none"
             style={{
-              background: 'var(--p-surface2)',
-              border: '1px solid var(--p-border)',
-              borderRadius: 'var(--p-radius)',
               color: 'var(--p-text)',
-              boxShadow: 'none',
+              fontSize: 'var(--p-font-size-body)',
             }}
           />
         </div>
       </div>
 
-      <div className="flex items-center gap-1 lg:gap-3">
+      <div className="flex items-center gap-1 lg:gap-2 flex-shrink-0">
         {/* Mobile search */}
         <button
           type="button"
@@ -172,33 +178,38 @@ export function TopBar(props: TopBarProps) {
           <span className="sr-only">Search</span>
         </button>
 
-        {/* Persona toggle */}
+        {/* Persona (status-style) */}
         {props.onTogglePersona && (
           <button
             type="button"
             onClick={props.onTogglePersona}
             aria-label={'Switch persona, current: ' + (props.personaLabel ?? 'User')}
-            className="hidden md:flex h-8 lg:h-9 px-2 lg:px-3 items-center gap-1.5 text-xs"
+            className="hidden md:flex h-8 px-2 items-center gap-1.5"
             style={{
               color: 'var(--p-text-muted)',
               border: '1px solid var(--p-border)',
               borderRadius: 'var(--p-radius)',
-              background: 'transparent',
+              background: 'var(--p-surface2)',
+              fontSize: 'var(--p-font-size-section)',
             }}
           >
-            <Users className="w-4 h-4" />
+            <Users className="w-3.5 h-3.5" />
             <span className="hidden lg:inline">{props.personaLabel ?? 'User'}</span>
           </button>
         )}
 
-        {/* Privacy toggle */}
+        {/* Privacy toggle (status indicator) */}
         {props.onToggleSensitive && (
           <button
             type="button"
             onClick={props.onToggleSensitive}
             aria-label={props.isSensitiveHidden ? 'Show sensitive data' : 'Hide sensitive data'}
-            className="h-8 lg:h-9 px-2 flex items-center gap-1.5 text-xs"
-            style={{ color: 'var(--p-text-muted)', borderRadius: 'var(--p-radius)' }}
+            className="h-8 px-2 flex items-center gap-1.5"
+            style={{
+              color: 'var(--p-text-muted)',
+              borderRadius: 'var(--p-radius)',
+              fontSize: 'var(--p-font-size-section)',
+            }}
           >
             {props.isSensitiveHidden ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
             <span className="hidden lg:inline">{props.isSensitiveHidden ? 'Hidden' : 'Visible'}</span>

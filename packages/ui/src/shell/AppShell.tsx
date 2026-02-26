@@ -30,12 +30,15 @@ import '../styles/theme.css';
 // ---------------------------------------------------------------------------
 
 export type Platform = 'web' | 'desktop-preview' | 'desktop';
+export type ThemeVariant = 'legacy' | 'mix' | 'shared';
 
 export interface AppShellProps {
   children: React.ReactNode;
 
   /** Platform flag for tiny visual toggles (not component forks) */
   platform?: Platform;
+  /** Token set variant for side-by-side visual comparison. */
+  themeVariant?: ThemeVariant;
 
   /** Sidebar configuration */
   sidebar?: Omit<SidebarProps, 'onNavigate'>;
@@ -64,6 +67,7 @@ export function SharedAppShell(props: AppShellProps) {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const dock = props.advisorDock ?? 'right';
   const platform = props.platform ?? 'web';
+  const themeVariant = props.themeVariant ?? 'shared';
 
   const hamburger = (
     <button
@@ -82,6 +86,7 @@ export function SharedAppShell(props: AppShellProps) {
       className="pathos-theme flex min-h-screen flex-col"
       style={{ background: 'var(--p-bg-gradient)', color: 'var(--p-text)' }}
       data-platform={platform}
+      data-theme={themeVariant}
     >
       <TopBar
         leading={hamburger}
@@ -132,7 +137,7 @@ export function SharedAppShell(props: AppShellProps) {
             className="hidden lg:block w-80 flex-shrink-0"
             style={{ borderRight: '1px solid var(--p-border)', background: 'var(--p-bg)' }}
           >
-            <div className="sticky top-8 h-[calc(100vh-5rem)] px-2">
+            <div className="sticky top-2 h-[calc(100vh-5rem)] px-3 pt-3 pb-3">
               {props.rightRail}
             </div>
           </aside>
@@ -149,7 +154,7 @@ export function SharedAppShell(props: AppShellProps) {
             className="hidden lg:block w-80 flex-shrink-0"
             style={{ borderLeft: '1px solid var(--p-border)', background: 'var(--p-surface)' }}
           >
-            <div className="sticky top-2 h-[calc(100vh-5rem)] px-4 pt-6 pb-4">
+            <div className="sticky top-2 h-[calc(100vh-5rem)] px-3 pt-3 pb-3">
               {props.rightRail}
             </div>
           </aside>

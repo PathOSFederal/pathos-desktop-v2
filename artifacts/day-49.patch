@@ -1,0 +1,1376 @@
+diff --git a/apps/desktop/src/globals.css b/apps/desktop/src/globals.css
+index 675448d..e2ef50f 100644
+--- a/apps/desktop/src/globals.css
++++ b/apps/desktop/src/globals.css
+@@ -1,11 +1,22 @@
+ @import 'tailwindcss';
+ 
+ /*
+- * Desktop renderer base styles.
+- * Theme tokens come from packages/ui/src/styles/theme.css
+- * which is imported by SharedAppShell automatically.
++ * Tailwind must scan the shared UI package so layout/utility classes used
++ * by AppShell, Sidebar, TopBar, and screens are generated. Without this,
++ * flex, grid, padding, etc. are missing and the UI has no structure.
++ */
++@source "../../../packages/ui/src";
++
++/*
++ * PathOS theme MUST load first so --p-* variables are available everywhere.
++ * Import from the shared UI package (single source of truth).
+  */
++@import '../../../packages/ui/src/styles/theme.css';
+ 
++/*
++ * Desktop renderer base styles.
++ * Uses theme vars so shell and screens render correctly.
++ */
+ html,
+ body,
+ #root {
+@@ -14,8 +25,8 @@ body,
+   height: 100%;
+   width: 100%;
+   overflow: hidden;
+-  background: #0b0f14;
+-  color: #e2e8f0;
++  background: var(--p-bg);
++  color: var(--p-text);
+   font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+   -webkit-font-smoothing: antialiased;
+   -moz-osx-font-smoothing: grayscale;
+diff --git a/docs/merge-notes.md b/docs/merge-notes.md
+index 5c46774..6c261f5 100644
+--- a/docs/merge-notes.md
++++ b/docs/merge-notes.md
+@@ -108,3 +108,65 @@
+ | Resume          | pathos:resume-store          | 1             |
+ 
+ All stores use safe-reset on schema mismatch (returns defaults if version differs).
++
++---
++
++## Dashboard Benefits-Style Update (Verification)
++
++**Scope:** Desktop Dashboard screen and PathAdvisor rail aligned to web Explore Federal Benefits seriousness. Mock values only; no backend. No commit, no push.
++
++**Files modified:**
++- `packages/ui/src/screens/DashboardScreen.tsx` (primary)
++- `packages/ui/src/shell/PathAdvisorRail.tsx` (parity)
++- `packages/ui/src/styles/theme.css` not modified (theme tokens sufficient)
++
++### Verification commands and outputs
++
++**git status**
++```
++On branch feature/ui-serious-mode-v1
++Changes not staged for commit:
++  modified:   apps/desktop/src/globals.css
++  modified:   packages/ui/src/screens/DashboardScreen.tsx
++  modified:   packages/ui/src/shell/PathAdvisorRail.tsx
++no changes added to commit
++```
++
++**git diff --name-only**
++```
++apps/desktop/src/globals.css
++packages/ui/src/screens/DashboardScreen.tsx
++packages/ui/src/shell/PathAdvisorRail.tsx
++```
++
++**git diff --stat**
++```
++ apps/desktop/src/globals.css                |  21 +-
++ packages/ui/src/screens/DashboardScreen.tsx | 434 +++++++++++-----------------
++ packages/ui/src/shell/PathAdvisorRail.tsx   | 189 +++++++-----
++ 3 files changed, 304 insertions(+), 340 deletions(-)
++```
++
++**pnpm check:boundaries**
++```
++Boundary check PASSED: 0 violations across 3 packages.
++```
++
++**pnpm -r typecheck**
++```
++Scope: 4 of 5 workspace projects
++packages/adapters typecheck: Done
++packages/core typecheck: Done
++packages/ui typecheck: Done
++apps/desktop typecheck: Done
++```
++
++**pnpm -C apps/desktop build**
++```
++Γ£ô 1614 modules transformed.
++dist/renderer/index.html                   0.40 kB
++dist/renderer/assets/index-CqywswcU.css   23.28 kB
++dist/renderer/assets/index-CByeRgiU.js   351.57 kB
++Γ£ô built in 8.36s
++```
++(Full build: renderer + electron tsc completed successfully.)
+diff --git a/packages/ui/src/components/ModuleCard.test.tsx b/packages/ui/src/components/ModuleCard.test.tsx
+new file mode 100644
+index 0000000..8e2549a
+--- /dev/null
++++ b/packages/ui/src/components/ModuleCard.test.tsx
+@@ -0,0 +1,47 @@
++/**
++ * ============================================================================
++ * MODULE CARD SMOKE TEST
++ * ============================================================================
++ *
++ * Basic render test to ensure ModuleCard renders without throwing and
++ * outputs the expected title (and optional subtitle) in the markup.
++ * No platform-specific imports; pure React SSR for test environment.
++ */
++
++import React from 'react';
++import { describe, it, expect } from 'vitest';
++import { renderToString } from 'react-dom/server';
++import { ModuleCard } from './ModuleCard';
++
++describe('ModuleCard', function () {
++  it('should render title and children', function () {
++    const output = renderToString(
++      <ModuleCard title="Test Module">
++        <p>Body content</p>
++      </ModuleCard>
++    );
++    expect(output).toContain('Test Module');
++    expect(output).toContain('Body content');
++  });
++
++  it('should render subtitle when provided', function () {
++    const output = renderToString(
++      <ModuleCard title="Section" subtitle="Optional description">
++        <span>Content</span>
++      </ModuleCard>
++    );
++    expect(output).toContain('Section');
++    expect(output).toContain('Optional description');
++    expect(output).toContain('Content');
++  });
++
++  it('should render with dense variant without throwing', function () {
++    const output = renderToString(
++      <ModuleCard title="Dense" variant="dense">
++        <div>Dense body</div>
++      </ModuleCard>
++    );
++    expect(output).toContain('Dense');
++    expect(output).toContain('Dense body');
++  });
++});
+diff --git a/packages/ui/src/components/ModuleCard.tsx b/packages/ui/src/components/ModuleCard.tsx
+new file mode 100644
+index 0000000..90e83fd
+--- /dev/null
++++ b/packages/ui/src/components/ModuleCard.tsx
+@@ -0,0 +1,93 @@
++/**
++ * ============================================================================
++ * MODULE CARD ΓÇö Reusable instrument-panel card for Dashboard and PathAdvisor
++ * ============================================================================
++ *
++ * Provides consistent surface hierarchy: header row (icon + title + optional
++ * action), subtle top accent highlight, and elevation. Used to replace
++ * ad-hoc card blocks so the UI reads as a serious instrument panel.
++ *
++ * BOUNDARY RULE: No next/* or electron/* imports.
++ */
++
++'use client';
++
++import type React from 'react';
++
++export interface ModuleCardProps {
++  /** Optional icon element (e.g. Lucide icon) shown before title */
++  icon?: React.ReactNode;
++  /** Header title; required for consistent card identity */
++  title: string;
++  /** Optional subtitle or description; rendered as small muted text below title in header */
++  subtitle?: string;
++  /** Optional slot for right-aligned action (e.g. Reset button); same as rightSlot for API clarity */
++  action?: React.ReactNode;
++  /** Card body content */
++  children: React.ReactNode;
++  /** Visual density: default (standard padding) or dense (tighter) */
++  variant?: 'default' | 'dense';
++  /** Optional className for the root element (e.g. grid placement) */
++  className?: string;
++}
++
++/**
++ * Single source of card chrome: 1px top highlight (accent-muted), surface
++ * background, consistent border/radius, elevation-1 shadow. Header row
++ * aligns icon + title + action; body uses theme spacing.
++ */
++export function ModuleCard(props: ModuleCardProps) {
++  const variant = props.variant !== undefined ? props.variant : 'default';
++  const isDense = variant === 'dense';
++  const paddingClass = isDense ? 'p-3' : 'p-4';
++  const headerGap = 'gap-2';
++  const hasAction = props.action !== null && props.action !== undefined;
++
++  return (
++    <div
++      className={paddingClass + (props.className ? ' ' + props.className : '')}
++      style={{
++        background: 'var(--p-surface)',
++        border: '1px solid var(--p-border)',
++        borderRadius: 'var(--p-radius-lg)',
++        boxShadow: 'var(--p-shadow-elev-1)',
++        borderTop: '1px solid var(--p-accent-muted)',
++      }}
++    >
++      {/* Header row: icon + title + optional action; optional subtitle below */}
++      <div className={isDense ? ' mb-2' : ' mb-3'}>
++        <div className={'flex items-center flex-wrap ' + headerGap}>
++          {props.icon !== null && props.icon !== undefined ? (
++            <span className="flex-shrink-0" style={{ color: 'var(--p-accent)' }}>
++              {props.icon}
++            </span>
++          ) : null}
++          <h3
++            className="flex-1 min-w-0 font-semibold uppercase tracking-[var(--p-letter-spacing-section)]"
++            style={{
++              color: 'var(--p-text-dim)',
++              fontSize: 'var(--p-font-size-section)',
++            }}
++          >
++            {props.title}
++          </h3>
++          {hasAction ? (
++            <div className="flex-shrink-0">{props.action}</div>
++          ) : null}
++        </div>
++        {props.subtitle !== undefined && props.subtitle !== '' ? (
++          <p
++            className="mt-1"
++            style={{
++              color: 'var(--p-text-muted)',
++              fontSize: '0.75rem',
++            }}
++          >
++            {props.subtitle}
++          </p>
++        ) : null}
++      </div>
++      {props.children}
++    </div>
++  );
++}
+diff --git a/packages/ui/src/index.ts b/packages/ui/src/index.ts
+index 8831f13..f324c68 100644
+--- a/packages/ui/src/index.ts
++++ b/packages/ui/src/index.ts
+@@ -5,6 +5,9 @@
+  * Run `pnpm check:boundaries` to verify.
+  */
+ 
++// Shared components
++export { ModuleCard, type ModuleCardProps } from './components/ModuleCard';
++
+ // Shell components
+ export { SharedAppShell, type AppShellProps, type Platform } from './shell/AppShell';
+ export { Sidebar, type SidebarProps } from './shell/Sidebar';
+diff --git a/packages/ui/src/screens/DashboardScreen.tsx b/packages/ui/src/screens/DashboardScreen.tsx
+index 619c49a..78b0e1b 100644
+--- a/packages/ui/src/screens/DashboardScreen.tsx
++++ b/packages/ui/src/screens/DashboardScreen.tsx
+@@ -5,38 +5,16 @@
+  *
+  * BOUNDARY RULE: This file MUST NOT import from next/* or electron/*.
+  *
+- * Phase 7: Added "Today" checklist section and quick-action links to
+- * Saved Jobs, Resume Builder, and Guided Apply.
++ * LAYOUT: Benefits-style decision workspace. Numbers-first with hero value
++ * cards, assumptions module, and top decision drivers. Mock values only;
++ * no backend logic. Designed empty states only (no generic placeholders).
+  */
+ 
+ 'use client';
+ 
+ import type React from 'react';
+-import { useState, useEffect, useCallback } from 'react';
+-import {
+-  CheckCircle2,
+-  Circle,
+-  Plus,
+-  Trash2,
+-  Bookmark,
+-  FileText,
+-  ClipboardList,
+-  Search,
+-  Briefcase,
+-} from 'lucide-react';
+-import { useNav } from '@pathos/adapters';
+-import {
+-  loadTodayStore,
+-  saveTodayStore,
+-  seedTodayIfEmpty,
+-  addTodayItem,
+-  toggleTodayItem,
+-  removeTodayItem,
+-  clearCompletedItems,
+-  loadSavedJobsStore,
+-  loadGuidedApplyStore,
+-} from '@pathos/core';
+-import type { TodayStore } from '@pathos/core';
++import { RotateCcw } from 'lucide-react';
++import { ModuleCard } from '../components/ModuleCard';
+ 
+ export interface DashboardScreenProps {
+   isEmployee?: boolean;
+@@ -44,287 +22,193 @@ export interface DashboardScreenProps {
+ }
+ 
+ // ---------------------------------------------------------------------------
+-// Today checklist sub-component
++// Mock data (display only; no persistence or API)
+ // ---------------------------------------------------------------------------
+ 
+-function TodayChecklist(props: {
+-  store: TodayStore;
+-  onToggle: (id: string) => void;
+-  onRemove: (id: string) => void;
+-  onAdd: (title: string) => void;
+-  onClearCompleted: () => void;
+-}) {
+-  const [newTitle, setNewTitle] = useState('');
+-
+-  const handleAdd = function () {
+-    if (!newTitle.trim()) return;
+-    props.onAdd(newTitle.trim());
+-    setNewTitle('');
+-  };
++const MOCK_ANNUAL_VALUE_MIN = 23280;
++const MOCK_ANNUAL_VALUE_MAX = 31496;
++const MOCK_LONG_TERM_VALUE = 8000;
++const MOCK_EXPECTED_SALARY = 80000;
++const MOCK_HEALTH_COVERAGE = 'Self Only';
++const MOCK_TENURE_LABEL = '3-5 years';
+ 
+-  const doneCount = props.store.items.filter(function (i) { return i.done; }).length;
++const MOCK_DECISION_DRIVERS = [
++  { title: 'Paid Leave', value: '$13,538/year', subtitle: 'Annual leave and sick leave value' },
++  { title: 'FERS Pension', value: '$8,000/year at retirement', subtitle: 'Estimated from high-3 and tenure' },
++  { title: 'Health Insurance (FEHB)', value: '$7,200/year', subtitle: 'Employer contribution estimate' },
++];
+ 
+-  return (
+-    <div
+-      className="p-5"
+-      style={{
+-        background: 'var(--p-surface)',
+-        border: '1px solid var(--p-border)',
+-        borderRadius: 'var(--p-radius-lg)',
+-        boxShadow: 'var(--p-shadow)',
+-      }}
+-    >
+-      <div className="flex items-center justify-between mb-3">
+-        <h3 className="text-sm font-semibold" style={{ color: 'var(--p-text)' }}>Today</h3>
+-        {doneCount > 0 && (
+-          <button
+-            type="button"
+-            onClick={props.onClearCompleted}
+-            className="text-[11px] font-medium px-2 py-1 rounded transition-colors"
+-            style={{
+-              color: 'var(--p-text-dim)',
+-              background: 'var(--p-surface2)',
+-            }}
+-          >
+-            Clear {doneCount} done
+-          </button>
+-        )}
+-      </div>
++// ---------------------------------------------------------------------------
++// Hero value card (Annual or Long-term) ΓÇö ModuleCard with value/subtitle/footnote
++// ---------------------------------------------------------------------------
+ 
+-      <div className="space-y-1">
+-        {props.store.items.length === 0 && (
+-          <p className="text-xs py-2" style={{ color: 'var(--p-text-dim)' }}>
+-            No tasks for today. Add one below.
+-          </p>
+-        )}
+-        {props.store.items.map(function (item) {
+-          return (
+-            <div key={item.id} className="flex items-center gap-2 group py-1">
+-              <button
+-                type="button"
+-                onClick={function () { props.onToggle(item.id); }}
+-                className="flex-shrink-0"
+-                style={{ color: item.done ? 'var(--p-success)' : 'var(--p-text-dim)' }}
+-                aria-label={item.done ? 'Mark as incomplete' : 'Mark as complete'}
+-              >
+-                {item.done ? <CheckCircle2 className="w-4 h-4" /> : <Circle className="w-4 h-4" />}
+-              </button>
+-              <span
+-                className="flex-1 text-sm"
+-                style={{
+-                  color: item.done ? 'var(--p-text-dim)' : 'var(--p-text)',
+-                  textDecoration: item.done ? 'line-through' : 'none',
+-                }}
+-              >
+-                {item.title}
+-              </span>
+-              <button
+-                type="button"
+-                onClick={function () { props.onRemove(item.id); }}
+-                className="opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
+-                style={{ color: 'var(--p-text-dim)' }}
+-                aria-label={'Remove ' + item.title}
+-              >
+-                <Trash2 className="w-3.5 h-3.5" />
+-              </button>
+-            </div>
+-          );
+-        })}
+-      </div>
++function HeroValueCard(props: {
++  title: string;
++  value: string;
++  subtitle: string;
++  footnote: string;
++  accent: 'orange' | 'cool';
++}) {
++  const isOrange = props.accent === 'orange';
++  const valueColor = isOrange ? 'var(--p-accent-text)' : 'var(--p-info)';
+ 
+-      <div className="flex items-center gap-2 mt-3 pt-3" style={{ borderTop: '1px solid var(--p-border)' }}>
+-        <input
+-          type="text"
+-          placeholder="Add a task..."
+-          value={newTitle}
+-          onChange={function (e) { setNewTitle(e.target.value); }}
+-          onKeyDown={function (e) { if (e.key === 'Enter') handleAdd(); }}
+-          className="flex-1 bg-transparent text-sm outline-none placeholder:opacity-50"
+-          style={{ color: 'var(--p-text)' }}
+-        />
+-        <button
+-          type="button"
+-          onClick={handleAdd}
+-          disabled={!newTitle.trim()}
+-          className="flex-shrink-0 h-7 w-7 flex items-center justify-center rounded transition-colors disabled:opacity-30"
+-          style={{ background: 'var(--p-accent)', color: 'var(--p-bg)' }}
+-          aria-label="Add task"
+-        >
+-          <Plus className="w-3.5 h-3.5" />
+-        </button>
+-      </div>
+-    </div>
++  return (
++    <ModuleCard title={props.title}>
++      <p
++        className="mt-1 font-semibold"
++        style={{ color: valueColor, fontSize: '1.25rem' }}
++      >
++        {props.value}
++      </p>
++      <p className="mt-0.5" style={{ color: 'var(--p-text-muted)', fontSize: 'var(--p-font-size-body)' }}>
++        {props.subtitle}
++      </p>
++      <p className="mt-2 text-[11px]" style={{ color: 'var(--p-text-dim)' }}>
++        {props.footnote}
++      </p>
++    </ModuleCard>
+   );
+ }
+ 
+ // ---------------------------------------------------------------------------
+-// Quick action card sub-component
++// Assumptions module ΓÇö ModuleCard with grid and header action
+ // ---------------------------------------------------------------------------
+ 
+-function QuickAction(props: {
+-  icon: React.ReactNode;
+-  label: string;
+-  detail: string;
+-  onClick: () => void;
+-}) {
+-  return (
++function AssumptionsModule() {
++  function handleReset() {
++    // Non-functional per spec; no-op.
++  }
++
++  const resetAction = (
+     <button
+       type="button"
+-      onClick={props.onClick}
+-      className="flex items-start gap-3 p-4 text-left transition-colors w-full"
+-      style={{
+-        background: 'var(--p-surface)',
+-        border: '1px solid var(--p-border)',
+-        borderRadius: 'var(--p-radius-lg)',
+-        boxShadow: 'var(--p-shadow)',
+-      }}
++      onClick={handleReset}
++      className="flex items-center gap-2 text-sm font-medium transition-colors hover:opacity-90"
++      style={{ color: 'var(--p-accent)' }}
+     >
+-      <span className="flex-shrink-0 mt-0.5" style={{ color: 'var(--p-accent)' }}>{props.icon}</span>
+-      <div className="min-w-0">
+-        <p className="text-sm font-medium" style={{ color: 'var(--p-text)' }}>{props.label}</p>
+-        <p className="text-xs mt-0.5" style={{ color: 'var(--p-text-dim)' }}>{props.detail}</p>
+-      </div>
++      <RotateCcw className="w-3.5 h-3.5" />
++      Reset assumptions
+     </button>
+   );
++
++  return (
++    <ModuleCard title="Assumptions" action={resetAction}>
++      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
++        <div>
++          <p className="text-[11px] font-medium uppercase tracking-wide" style={{ color: 'var(--p-text-dim)' }}>
++            Expected Salary
++          </p>
++          <p className="mt-0.5 font-medium" style={{ color: 'var(--p-text)', fontSize: 'var(--p-font-size-body)' }}>
++            {MOCK_EXPECTED_SALARY.toLocaleString()}
++          </p>
++        </div>
++        <div>
++          <p className="text-[11px] font-medium uppercase tracking-wide" style={{ color: 'var(--p-text-dim)' }}>
++            Health Coverage
++          </p>
++          <p className="mt-0.5 font-medium" style={{ color: 'var(--p-text)', fontSize: 'var(--p-font-size-body)' }}>
++            {MOCK_HEALTH_COVERAGE}
++          </p>
++        </div>
++        <div>
++          <p className="text-[11px] font-medium uppercase tracking-wide" style={{ color: 'var(--p-text-dim)' }}>
++            Expected Tenure
++          </p>
++          <p className="mt-0.5 font-medium" style={{ color: 'var(--p-text)', fontSize: 'var(--p-font-size-body)' }}>
++            {MOCK_TENURE_LABEL}
++          </p>
++        </div>
++      </div>
++    </ModuleCard>
++  );
+ }
+ 
+ // ---------------------------------------------------------------------------
+-// Main dashboard screen
++// Decision driver card ΓÇö ModuleCard dense variant
+ // ---------------------------------------------------------------------------
+ 
+-export function DashboardScreen(props: DashboardScreenProps) {
+-  const nav = useNav();
+-  const isEmployee = props.isEmployee ?? false;
+-  const greeting = props.userName ? 'Welcome back, ' + props.userName : 'Welcome back';
+-
+-  const [todayStore, setTodayStore] = useState<TodayStore>({
+-    schemaVersion: 1,
+-    items: [],
+-    lastViewedJobId: null,
+-  });
+-  const [savedCount, setSavedCount] = useState(0);
+-  const [sessionCount, setSessionCount] = useState(0);
+-  const [mounted, setMounted] = useState(false);
+-
+-  useEffect(function () {
+-    let today = loadTodayStore();
+-    today = seedTodayIfEmpty(today);
+-    setTodayStore(today);
+-    saveTodayStore(today);
+-
+-    const saved = loadSavedJobsStore();
+-    setSavedCount(saved.jobs.length);
+-
+-    const ga = loadGuidedApplyStore();
+-    setSessionCount(ga.sessions.length);
++function DecisionDriverCard(props: { title: string; value: string; subtitle: string }) {
++  return (
++    <ModuleCard title={props.title} variant="dense">
++      <p className="mt-1 font-medium" style={{ color: 'var(--p-accent-text)', fontSize: 'var(--p-font-size-body)' }}>
++        {props.value}
++      </p>
++      <p className="mt-0.5" style={{ color: 'var(--p-text-dim)', fontSize: '0.75rem' }}>
++        {props.subtitle}
++      </p>
++    </ModuleCard>
++  );
++}
+ 
+-    setMounted(true);
+-  }, []);
++// ---------------------------------------------------------------------------
++// Main dashboard screen
++// ---------------------------------------------------------------------------
+ 
+-  const persistToday = useCallback(function (next: TodayStore) {
+-    setTodayStore(next);
+-    saveTodayStore(next);
+-  }, []);
++export function DashboardScreen(_props: DashboardScreenProps) {
++  const annualRange =
++    '$' + MOCK_ANNUAL_VALUE_MIN.toLocaleString() + ' - $' + MOCK_ANNUAL_VALUE_MAX.toLocaleString();
++  const longTermLabel = '$' + MOCK_LONG_TERM_VALUE.toLocaleString() + '/year';
+ 
+   return (
+-    <div className="p-4 lg:p-6 space-y-6">
++    <div className="p-4 lg:p-5 space-y-5">
++      {/* Header: title + subtitle */}
+       <div>
+-        <h1 className="text-2xl font-bold" style={{ color: 'var(--p-text)' }}>{greeting}</h1>
+-        <p className="text-sm mt-1" style={{ color: 'var(--p-text-muted)' }}>
+-          {isEmployee
+-            ? 'Your federal career intelligence at a glance.'
+-            : 'Your federal job search intelligence at a glance.'}
++        <h1
++          className="font-semibold"
++          style={{ color: 'var(--p-text)', fontSize: 'var(--p-font-size-page-title)' }}
++        >
++          Dashboard
++        </h1>
++        <p
++          className="mt-0.5"
++          style={{ color: 'var(--p-text-muted)', fontSize: 'var(--p-font-size-body)' }}
++        >
++          Decision workspace for federal job search.
+         </p>
+       </div>
+ 
+-      <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6">
+-        {/* Left column: Today checklist + quick actions */}
+-        <div className="space-y-6">
+-          {mounted && (
+-            <TodayChecklist
+-              store={todayStore}
+-              onToggle={function (id) { persistToday(toggleTodayItem(todayStore, id)); }}
+-              onRemove={function (id) { persistToday(removeTodayItem(todayStore, id)); }}
+-              onAdd={function (title) { persistToday(addTodayItem(todayStore, title)); }}
+-              onClearCompleted={function () { persistToday(clearCompletedItems(todayStore)); }}
+-            />
+-          )}
++      {/* Two hero cards: Annual Value (orange), Long-term Value (cool) */}
++      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
++        <HeroValueCard
++          title="Annual Value (Today)"
++          value={annualRange}
++          subtitle="Estimated total compensation value this year"
++          footnote="Based on current assumptions. Adjust assumptions to refine."
++          accent="orange"
++        />
++        <HeroValueCard
++          title="Long-term Value (Retirement)"
++          value={longTermLabel}
++          subtitle="Estimated annual value at retirement"
++          footnote="FERS pension and TSP growth. Assumes 3-5 year tenure."
++          accent="cool"
++        />
++      </div>
++
++      {/* Assumptions module (single wide card) */}
++      <AssumptionsModule />
+ 
+-          <div>
+-            <h3 className="text-xs font-semibold uppercase tracking-wider mb-3 px-1" style={{ color: 'var(--p-text-dim)' }}>
+-              Quick Actions
+-            </h3>
+-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+-              <QuickAction
+-                icon={<Search className="w-4 h-4" />}
+-                label="Search Jobs"
+-                detail="Browse federal job listings"
+-                onClick={function () { nav.push('/dashboard/job-search'); }}
+-              />
+-              <QuickAction
+-                icon={<Bookmark className="w-4 h-4" />}
+-                label="Saved Jobs"
+-                detail={savedCount > 0 ? savedCount + ' job' + (savedCount !== 1 ? 's' : '') + ' saved' : 'No saved jobs yet'}
+-                onClick={function () { nav.push('/dashboard/saved-jobs'); }}
+-              />
+-              <QuickAction
+-                icon={<ClipboardList className="w-4 h-4" />}
+-                label="Guided Apply"
+-                detail={sessionCount > 0 ? sessionCount + ' active session' + (sessionCount !== 1 ? 's' : '') : 'Start a new session'}
+-                onClick={function () { nav.push('/guided-apply'); }}
+-              />
+-              <QuickAction
+-                icon={<FileText className="w-4 h-4" />}
+-                label="Resume Builder"
+-                detail="Build your federal resume"
+-                onClick={function () { nav.push('/dashboard/resume-builder'); }}
++      {/* Top Decision Drivers (3 cards) */}
++      <div>
++        <h2
++          className="font-semibold uppercase tracking-[var(--p-letter-spacing-section)] mb-3"
++          style={{ color: 'var(--p-text-dim)', fontSize: 'var(--p-font-size-section)' }}
++        >
++          Top Decision Drivers
++        </h2>
++        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
++          {MOCK_DECISION_DRIVERS.map(function (driver) {
++            return (
++              <DecisionDriverCard
++                key={driver.title}
++                title={driver.title}
++                value={driver.value}
++                subtitle={driver.subtitle}
+               />
+-            </div>
+-          </div>
+-        </div>
+-
+-        {/* Right column: summary cards */}
+-        <div className="space-y-4">
+-          <DashboardCard
+-            title="Total Compensation"
+-            description={isEmployee ? 'Your current total compensation package' : 'Estimated federal compensation'}
+-          />
+-          <DashboardCard
+-            title={isEmployee ? 'Retirement Readiness' : 'Market Position'}
+-            description={isEmployee ? 'FERS and TSP projections' : 'Your fit and mobility heuristics'}
+-          />
+-          <DashboardCard
+-            title={isEmployee ? 'Leave Benefits' : 'Next Best Moves'}
+-            description={isEmployee ? 'Annual and sick leave balances' : 'Actionable career recommendations'}
+-          />
++            );
++          })}
+         </div>
+       </div>
+     </div>
+   );
+ }
+-
+-function DashboardCard(props: { title: string; description: string }) {
+-  return (
+-    <div
+-      className="p-5"
+-      style={{
+-        background: 'var(--p-surface)',
+-        border: '1px solid var(--p-border)',
+-        borderRadius: 'var(--p-radius-lg)',
+-        boxShadow: 'var(--p-shadow)',
+-      }}
+-    >
+-      <h3 className="text-sm font-semibold" style={{ color: 'var(--p-text)' }}>{props.title}</h3>
+-      <p className="text-xs mt-1" style={{ color: 'var(--p-text-dim)' }}>{props.description}</p>
+-      <div
+-        className="mt-4 h-20 flex items-center justify-center"
+-        style={{
+-          background: 'var(--p-surface2)',
+-          borderRadius: 'var(--p-radius)',
+-        }}
+-      >
+-        <span className="text-xs" style={{ color: 'var(--p-text-dim)' }}>Card data loading</span>
+-      </div>
+-    </div>
+-  );
+-}
+diff --git a/packages/ui/src/shell/AppShell.tsx b/packages/ui/src/shell/AppShell.tsx
+index e41e1b4..1152073 100644
+--- a/packages/ui/src/shell/AppShell.tsx
++++ b/packages/ui/src/shell/AppShell.tsx
+@@ -132,7 +132,7 @@ export function SharedAppShell(props: AppShellProps) {
+             className="hidden lg:block w-80 flex-shrink-0"
+             style={{ borderRight: '1px solid var(--p-border)', background: 'var(--p-bg)' }}
+           >
+-            <div className="sticky top-8 h-[calc(100vh-5rem)] px-2">
++            <div className="sticky top-2 h-[calc(100vh-5rem)] px-3 pt-3 pb-3">
+               {props.rightRail}
+             </div>
+           </aside>
+@@ -149,7 +149,7 @@ export function SharedAppShell(props: AppShellProps) {
+             className="hidden lg:block w-80 flex-shrink-0"
+             style={{ borderLeft: '1px solid var(--p-border)', background: 'var(--p-surface)' }}
+           >
+-            <div className="sticky top-2 h-[calc(100vh-5rem)] px-4 pt-6 pb-4">
++            <div className="sticky top-2 h-[calc(100vh-5rem)] px-3 pt-3 pb-3">
+               {props.rightRail}
+             </div>
+           </aside>
+diff --git a/packages/ui/src/shell/PathAdvisorRail.tsx b/packages/ui/src/shell/PathAdvisorRail.tsx
+index c3fb900..c0f0095 100644
+--- a/packages/ui/src/shell/PathAdvisorRail.tsx
++++ b/packages/ui/src/shell/PathAdvisorRail.tsx
+@@ -1,116 +1,167 @@
+ /**
+  * ============================================================================
+- * PATH ADVISOR RAIL -- Shared advisor side panel
++ * PATH ADVISOR RAIL -- Shared advisor side panel (PathAdvisor AI)
+  * ============================================================================
+  *
+  * BOUNDARY RULE: This file MUST NOT import from next/* or electron/*.
+  *
+- * Styled placeholder for the PathAdvisor panel. Phase 2 version adds
+- * module chips, suggested prompts, and themed surfaces.
++ * Framed to match web PathAdvisor: header "PathAdvisor AI", context chips
++ * (Viewing, Privacy), calm advisor message block, suggested prompts as
++ * clickable rows, and input docked at bottom with subtle send button.
+  */
+ 
+ 'use client';
+ 
+ import type React from 'react';
+-import { MessageSquare, Sparkles, Briefcase, DollarSign, Shield, FileText } from 'lucide-react';
++import { useState } from 'react';
++import { Sparkles, Eye, Shield, Send } from 'lucide-react';
++import { ModuleCard } from '../components/ModuleCard';
+ 
+ export interface PathAdvisorRailProps {
+   dock?: 'left' | 'right';
++  /** Optional: chip label for current view (default "Dashboard") */
++  viewingLabel?: string;
++  /** Optional: privacy chip value (default "Local only") */
++  privacyLabel?: string;
+ }
+ 
+-const MODULE_CHIPS = [
+-  { label: 'Career', icon: <Briefcase className="w-3 h-3" /> },
+-  { label: 'Compensation', icon: <DollarSign className="w-3 h-3" /> },
+-  { label: 'Benefits', icon: <Shield className="w-3 h-3" /> },
+-  { label: 'Resume', icon: <FileText className="w-3 h-3" /> },
+-];
+-
++/* Suggested prompts: clickable rows, dashboard/decision workspace tone */
+ const SUGGESTED_PROMPTS = [
+-  'What GS grade should I target next?',
+-  'Compare my FEHB plan options',
+-  'How strong is my resume for GS-13?',
+-  'Estimate my retirement timeline',
++  'How does my expected salary compare to typical GS grades?',
++  'What benefits matter most if I only stay 3 to 5 years?',
++  'Explain the FERS pension estimate on my dashboard.',
++  'What should I update in my assumptions next?',
+ ];
+ 
+-export function PathAdvisorRail(_props: PathAdvisorRailProps) {
++export function PathAdvisorRail(props: PathAdvisorRailProps) {
++  const viewing = props.viewingLabel !== undefined ? props.viewingLabel : 'Dashboard';
++  const privacy = props.privacyLabel !== undefined ? props.privacyLabel : 'Local only';
++  const [inputValue, setInputValue] = useState('');
++
++  function handlePromptClick(prompt: string) {
++    setInputValue(prompt);
++  }
++
++  function handleSend() {
++    // Non-functional: mock rail only. In a full implementation this would submit to advisor.
++  }
++
+   return (
+-    <div className="h-full flex flex-col">
+-      {/* Header */}
++    <div className="h-full flex flex-col min-h-0">
++      {/* Header: PathAdvisor AI (matches web panel) */}
+       <div
+-        className="flex items-center gap-2 px-3 py-3"
++        className="flex items-center gap-2 px-3 py-2 flex-shrink-0"
+         style={{ borderBottom: '1px solid var(--p-border)' }}
+       >
+-        <Sparkles className="w-4 h-4" style={{ color: 'var(--p-accent)' }} />
+-        <h2 className="text-sm font-semibold" style={{ color: 'var(--p-text)' }}>
+-          PathAdvisor
++        <Sparkles className="w-4 h-4 flex-shrink-0" style={{ color: 'var(--p-accent)' }} />
++        <h2
++          className="font-semibold"
++          style={{ color: 'var(--p-text)', fontSize: 'var(--p-font-size-section)' }}
++        >
++          PathAdvisor AI
+         </h2>
+       </div>
+ 
+-      {/* Module chips */}
+-      <div className="px-3 pt-3 pb-2">
+-        <p className="text-xs font-medium mb-2" style={{ color: 'var(--p-text-dim)' }}>
+-          MODULES
+-        </p>
+-        <div className="flex flex-wrap gap-1.5">
+-          {MODULE_CHIPS.map(function (chip) {
+-            return (
+-              <button
+-                key={chip.label}
+-                type="button"
+-                className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium transition-colors"
+-                style={{
+-                  background: 'var(--p-surface2)',
+-                  border: '1px solid var(--p-border)',
+-                  borderRadius: 'var(--p-radius)',
+-                  color: 'var(--p-text-muted)',
+-                }}
+-              >
+-                {chip.icon}
+-                {chip.label}
+-              </button>
+-            );
+-          })}
+-        </div>
++      {/* Context: status chips (Viewing, Privacy) in ModuleCard */}
++      <div className="px-3 pt-2 pb-2 flex-shrink-0">
++        <ModuleCard title="Context" variant="dense">
++          <div className="flex flex-wrap gap-1.5">
++            <span
++              className="pathos-context-chip flex items-center gap-1.5 px-2 py-1 text-[12px] font-medium"
++              style={{
++                background: 'var(--p-surface2)',
++                border: '1px solid var(--p-accent-muted)',
++                borderRadius: 'var(--p-radius)',
++                color: 'var(--p-text-muted)',
++              }}
++            >
++              <Eye className="w-3 h-3 flex-shrink-0" />
++              Viewing: {viewing}
++            </span>
++            <span
++              className="pathos-context-chip flex items-center gap-1.5 px-2 py-1 text-[12px] font-medium"
++              style={{
++                background: 'var(--p-surface2)',
++                border: '1px solid var(--p-accent-muted)',
++                borderRadius: 'var(--p-radius)',
++                color: 'var(--p-text-muted)',
++              }}
++            >
++              <Shield className="w-3 h-3 flex-shrink-0" />
++              Privacy: {privacy}
++            </span>
++          </div>
++        </ModuleCard>
+       </div>
+ 
+-      {/* Suggested prompts */}
+-      <div className="px-3 pt-2 flex-1">
+-        <p className="text-xs font-medium mb-2" style={{ color: 'var(--p-text-dim)' }}>
+-          SUGGESTED QUESTIONS
+-        </p>
+-        <div className="space-y-1.5">
+-          {SUGGESTED_PROMPTS.map(function (prompt) {
+-            return (
+-              <button
+-                key={prompt}
+-                type="button"
+-                className="w-full text-left px-3 py-2 text-xs transition-colors"
+-                style={{
+-                  background: 'var(--p-surface2)',
+-                  borderRadius: 'var(--p-radius)',
+-                  color: 'var(--p-text-muted)',
+-                }}
+-              >
+-                {prompt}
+-              </button>
+-            );
+-          })}
+-        </div>
++      {/* Advisor message block: framed with ModuleCard (dense) for consistent rail hierarchy */}
++      <div className="px-3 pt-2 flex-shrink-0">
++        <ModuleCard title="PathAdvisor" variant="dense">
++          <p
++            className="text-[13px]"
++            style={{ color: 'var(--p-text-muted)' }}
++          >
++            Use this workspace to review your compensation estimates and decision drivers.
++            Ask for help comparing grades, understanding benefits, or adjusting assumptions.
++          </p>
++        </ModuleCard>
+       </div>
+ 
+-      {/* Input placeholder */}
+-      <div className="p-3" style={{ borderTop: '1px solid var(--p-border)' }}>
+-        <div
+-          className="flex items-center gap-2 px-3 py-2 text-xs"
+-          style={{
+-            background: 'var(--p-surface2)',
+-            border: '1px solid var(--p-border)',
+-            borderRadius: 'var(--p-radius)',
+-            color: 'var(--p-text-dim)',
+-          }}
+-        >
+-          <MessageSquare className="w-3.5 h-3.5 flex-shrink-0" />
+-          <span>Ask PathAdvisor...</span>
++      {/* Suggested prompts: ModuleCard with action-like rows (hover/focus-visible) */}
++      <div className="px-3 pt-2 flex-1 min-h-0 overflow-y-auto">
++        <ModuleCard title="Suggested prompts" variant="dense" className="h-full flex flex-col min-h-0">
++          <div className="flex flex-col gap-1 flex-1 min-h-0">
++            {SUGGESTED_PROMPTS.map(function (prompt) {
++              return (
++                <button
++                  key={prompt}
++                  type="button"
++                  onClick={function () { handlePromptClick(prompt); }}
++                  className="pathos-prompt-row w-full text-left px-3 py-2 text-[12px] rounded-[var(--p-radius)] transition-colors border"
++                  style={{
++                    background: 'var(--p-surface2)',
++                    borderColor: 'var(--p-border)',
++                    color: 'var(--p-text)',
++                  }}
++                >
++                  {prompt}
++                </button>
++              );
++            })}
++          </div>
++        </ModuleCard>
++      </div>
++
++      {/* Input docked bottom with subtle send button */}
++      <div className="p-2 flex-shrink-0" style={{ borderTop: '1px solid var(--p-border)' }}>
++        <div className="flex items-center gap-2">
++          <input
++            type="text"
++            placeholder="Ask PathAdvisor..."
++            value={inputValue}
++            onChange={function (e) { setInputValue(e.target.value); }}
++            onKeyDown={function (e) {
++              if (e.key === 'Enter') handleSend();
++            }}
++            className="flex-1 min-w-0 px-3 py-2 text-[12px] rounded-[var(--p-radius)] outline-none"
++            style={{
++              background: 'var(--p-surface2)',
++              border: '1px solid var(--p-border)',
++              color: 'var(--p-text)',
++            }}
++          />
++          <button
++            type="button"
++            onClick={handleSend}
++            className="flex-shrink-0 h-8 w-8 flex items-center justify-center rounded-[var(--p-radius)] transition-colors"
++            style={{
++              background: 'var(--p-accent)',
++              color: 'var(--p-bg)',
++            }}
++            aria-label="Send"
++          >
++            <Send className="w-3.5 h-3.5" />
++          </button>
+         </div>
+       </div>
+     </div>
+diff --git a/packages/ui/src/shell/Sidebar.tsx b/packages/ui/src/shell/Sidebar.tsx
+index b45bbd2..ee3ee30 100644
+--- a/packages/ui/src/shell/Sidebar.tsx
++++ b/packages/ui/src/shell/Sidebar.tsx
+@@ -164,25 +164,25 @@ function NavItemRow(props: {
+         onClick={handleClick}
+         data-tour={props.dataTourId}
+         className={cn(
+-          'flex items-center gap-3 px-3 py-2.5 text-sm transition-colors relative group',
++          'flex items-center gap-2.5 px-3 py-2 text-[13px] transition-colors relative group',
+           props.isActive ? 'font-medium' : '',
+         )}
+       >
+-        {/* Active indicator bar */}
++        {/* Active indicator bar (restrained accent) */}
+         {props.isActive && (
+           <div
+-            className="absolute left-0 top-1 bottom-1 w-[3px] rounded-r"
++            className="absolute left-0 top-1 bottom-1 w-[2px] rounded-r"
+             style={{ background: 'var(--p-accent)' }}
+           />
+         )}
+         {/* Row background */}
+         <div
+-          className="absolute inset-0 rounded-lg transition-colors"
++          className="absolute inset-0 rounded-md transition-colors"
+           style={{
+-            background: props.isActive ? 'var(--p-surface2)' : 'transparent',
++            background: props.isActive ? 'var(--p-accent-bg)' : 'transparent',
+           }}
+         />
+-        <span className="flex-shrink-0 relative z-10" style={{ color: props.isActive ? 'var(--p-accent-text)' : 'var(--p-text-dim)' }}>{props.item.icon}</span>
++        <span className="flex-shrink-0 relative z-10" style={{ color: props.isActive ? 'var(--p-accent)' : 'var(--p-text-dim)' }}>{props.item.icon}</span>
+         <span className="flex-1 relative z-10" style={{ color: props.isActive ? 'var(--p-text)' : 'var(--p-text-muted)' }}>{props.item.label}</span>
+         {hasBadge && (
+           <span
+@@ -281,25 +281,25 @@ export function Sidebar(props: SidebarProps) {
+       aria-label="Main sidebar navigation"
+       style={{ background: 'var(--p-surface)', borderRight: '1px solid var(--p-border)' }}
+     >
+-      <div className="p-4" style={{ borderBottom: '1px solid var(--p-border)' }}>
+-        <h2 className="text-lg font-bold" style={{ color: 'var(--p-text)' }}>PathOS</h2>
+-        <p className="text-xs font-medium mt-0.5" style={{ color: 'var(--p-accent)' }}>Career Intelligence Dashboard</p>
+-        <p className="text-xs mt-1" style={{ color: 'var(--p-text-dim)' }}>
++      <div className="px-3 py-3" style={{ borderBottom: '1px solid var(--p-border)' }}>
++        <h2 className="text-base font-semibold" style={{ color: 'var(--p-text)' }}>PathOS</h2>
++        <p className="text-[11px] font-medium mt-0.5" style={{ color: 'var(--p-accent-muted)' }}>Career Intelligence Dashboard</p>
++        <p className="text-[11px] mt-0.5" style={{ color: 'var(--p-text-dim)' }}>
+           {isEmployee ? 'For federal employees' : 'For federal job seekers'}
+         </p>
+       </div>
+ 
+-      <nav className="flex-1 px-3 py-4 space-y-6 overflow-y-auto">
++      <nav className="flex-1 px-3 py-3 space-y-4 overflow-y-auto">
+         {visibleSections.map(function (section) {
+           return (
+             <div key={section.title}>
+               <h3
+-                className="text-xs font-semibold uppercase tracking-wider px-3 mb-2"
+-                style={{ color: 'var(--p-accent-muted)' }}
++                className="text-[11px] font-semibold uppercase tracking-[var(--p-letter-spacing-section)] px-3 mb-1"
++                style={{ color: 'var(--p-text-dim)' }}
+               >
+                 {section.title}
+               </h3>
+-              <div className="space-y-1">
++              <div className="space-y-0.5">
+                 {section.items.map(function (item) {
+                   return (
+                     <NavItemRow
+@@ -317,10 +317,10 @@ export function Sidebar(props: SidebarProps) {
+         })}
+       </nav>
+ 
+-      <div className="p-4" style={{ borderTop: '1px solid var(--p-border)' }}>
++      <div className="px-3 py-2" style={{ borderTop: '1px solid var(--p-border)' }}>
+         <div
+-          className="flex items-center gap-3 px-3 py-2"
+-          style={{ background: 'var(--p-surface2)', borderRadius: 'var(--p-radius-lg)' }}
++          className="flex items-center gap-2.5 px-3 py-2"
++          style={{ background: 'var(--p-surface2)', borderRadius: 'var(--p-radius)' }}
+         >
+           <div
+             className="w-9 h-9 rounded-full flex items-center justify-center"
+diff --git a/packages/ui/src/shell/TopBar.tsx b/packages/ui/src/shell/TopBar.tsx
+index d861c5b..aae430e 100644
+--- a/packages/ui/src/shell/TopBar.tsx
++++ b/packages/ui/src/shell/TopBar.tsx
+@@ -39,16 +39,16 @@ export function TopBar(props: TopBarProps) {
+ 
+   return (
+     <header
+-      className="relative h-14 lg:h-16 px-3 lg:px-6 flex items-center justify-between gap-2"
++      className="relative h-12 lg:h-14 px-3 lg:px-4 flex items-center justify-between gap-2"
+       style={{
+         background: 'var(--p-surface)',
+         borderBottom: '1px solid var(--p-border)',
+       }}
+     >
+-      <div className="flex items-center gap-2 lg:gap-3">
++      <div className="flex items-center gap-2 lg:gap-3 min-w-0">
+         {props.leading}
+         <div
+-          className="w-7 h-7 lg:w-8 lg:h-8 flex items-center justify-center font-bold text-xs lg:text-sm"
++          className="w-7 h-7 flex-shrink-0 flex items-center justify-center font-semibold text-xs"
+           style={{
+             background: 'var(--p-accent)',
+             borderRadius: 'var(--p-radius)',
+@@ -57,33 +57,36 @@ export function TopBar(props: TopBarProps) {
+         >
+           P
+         </div>
+-        <div className="hidden sm:flex items-center gap-2">
+-          <h1 className="text-base lg:text-lg font-bold" style={{ color: 'var(--p-text)' }}>
++        <div className="hidden sm:flex items-center gap-2 flex-shrink-0">
++          <h1
++            className="font-semibold"
++            style={{ color: 'var(--p-text)', fontSize: 'var(--p-font-size-section)' }}
++          >
+             PathOS
+           </h1>
+           {(props.platform === 'desktop' || props.platform === 'desktop-preview') && (
+             <span
+-              className="text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded"
++              className="text-[10px] font-medium uppercase tracking-[var(--p-letter-spacing-section)] px-1.5 py-0.5 rounded"
+               style={{
+-                color: 'var(--p-accent)',
+-                background: 'var(--p-accent-bg)',
+-                border: '1px solid color-mix(in srgb, var(--p-accent) 30%, transparent)',
++                color: 'var(--p-text-muted)',
++                background: 'var(--p-surface2)',
++                border: '1px solid var(--p-border)',
+               }}
+             >
+               Desktop
+             </span>
+           )}
+-          {/* Local-only badge with info toggle */}
++          {/* System status: Local only (badge aligned as status indicator) */}
+           <button
+             type="button"
+             onClick={function () { setShowInfoPanel(!showInfoPanel); }}
+             aria-label="Data privacy info: all data is stored locally"
+             aria-expanded={showInfoPanel}
+-            className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded cursor-pointer"
++            className="flex items-center gap-1 text-[10px] font-medium uppercase tracking-[var(--p-letter-spacing-section)] px-1.5 py-0.5 rounded cursor-pointer"
+             style={{
+               color: 'var(--p-success)',
+-              background: 'color-mix(in srgb, var(--p-success) 12%, transparent)',
+-              border: '1px solid color-mix(in srgb, var(--p-success) 30%, transparent)',
++              background: 'var(--p-surface2)',
++              border: '1px solid var(--p-border)',
+             }}
+           >
+             <ShieldCheck className="w-3 h-3" />
+@@ -139,29 +142,32 @@ export function TopBar(props: TopBarProps) {
+         </div>
+       )}
+ 
+-      {/* Search bar */}
+-      <div className="hidden md:block flex-1 max-w-md mx-4 lg:mx-8">
+-        <div className="relative">
++      {/* Search bar: integrated into header (same surface, no floating look) */}
++      <div className="hidden md:flex flex-1 max-w-sm mx-3 lg:mx-4 min-w-0">
++        <div
++          className="relative flex-1 flex items-center rounded"
++          style={{
++            background: 'var(--p-surface2)',
++            border: '1px solid var(--p-border)',
++          }}
++        >
+           <Search
+-            className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4"
++            className="absolute left-2.5 top-1/2 transform -translate-y-1/2 w-3.5 h-3.5 flex-shrink-0"
+             style={{ color: 'var(--p-text-dim)' }}
+           />
+           <input
+             type="text"
+             placeholder="Search paths, documents, scenarios..."
+-            className="w-full pl-10 h-9 text-sm focus:outline-none"
++            className="flex-1 min-w-0 pl-8 pr-3 h-8 bg-transparent focus:outline-none"
+             style={{
+-              background: 'var(--p-surface2)',
+-              border: '1px solid var(--p-border)',
+-              borderRadius: 'var(--p-radius)',
+               color: 'var(--p-text)',
+-              boxShadow: 'none',
++              fontSize: 'var(--p-font-size-body)',
+             }}
+           />
+         </div>
+       </div>
+ 
+-      <div className="flex items-center gap-1 lg:gap-3">
++      <div className="flex items-center gap-1 lg:gap-2 flex-shrink-0">
+         {/* Mobile search */}
+         <button
+           type="button"
+@@ -172,33 +178,38 @@ export function TopBar(props: TopBarProps) {
+           <span className="sr-only">Search</span>
+         </button>
+ 
+-        {/* Persona toggle */}
++        {/* Persona (status-style) */}
+         {props.onTogglePersona && (
+           <button
+             type="button"
+             onClick={props.onTogglePersona}
+             aria-label={'Switch persona, current: ' + (props.personaLabel ?? 'User')}
+-            className="hidden md:flex h-8 lg:h-9 px-2 lg:px-3 items-center gap-1.5 text-xs"
++            className="hidden md:flex h-8 px-2 items-center gap-1.5"
+             style={{
+               color: 'var(--p-text-muted)',
+               border: '1px solid var(--p-border)',
+               borderRadius: 'var(--p-radius)',
+-              background: 'transparent',
++              background: 'var(--p-surface2)',
++              fontSize: 'var(--p-font-size-section)',
+             }}
+           >
+-            <Users className="w-4 h-4" />
++            <Users className="w-3.5 h-3.5" />
+             <span className="hidden lg:inline">{props.personaLabel ?? 'User'}</span>
+           </button>
+         )}
+ 
+-        {/* Privacy toggle */}
++        {/* Privacy toggle (status indicator) */}
+         {props.onToggleSensitive && (
+           <button
+             type="button"
+             onClick={props.onToggleSensitive}
+             aria-label={props.isSensitiveHidden ? 'Show sensitive data' : 'Hide sensitive data'}
+-            className="h-8 lg:h-9 px-2 flex items-center gap-1.5 text-xs"
+-            style={{ color: 'var(--p-text-muted)', borderRadius: 'var(--p-radius)' }}
++            className="h-8 px-2 flex items-center gap-1.5"
++            style={{
++              color: 'var(--p-text-muted)',
++              borderRadius: 'var(--p-radius)',
++              fontSize: 'var(--p-font-size-section)',
++            }}
+           >
+             {props.isSensitiveHidden ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+             <span className="hidden lg:inline">{props.isSensitiveHidden ? 'Hidden' : 'Visible'}</span>
+diff --git a/packages/ui/src/styles/theme.css b/packages/ui/src/styles/theme.css
+index 66839a1..f2dc14d 100644
+--- a/packages/ui/src/styles/theme.css
++++ b/packages/ui/src/styles/theme.css
+@@ -19,14 +19,16 @@
+ 
+ :root,
+ .pathos-theme {
+-  /* ---- Background & surfaces ---- */
++  /* ---- Background & surfaces (clear separation for instrument-panel hierarchy) ---- */
++  /* Tuned so app background, card surface, and input/chip level read as distinct layers. */
+   --p-bg:           #0b0f1a;
+-  --p-bg-gradient:  linear-gradient(168deg, #0b0f1a 0%, #0f1629 50%, #0b0f1a 100%);
+-  --p-surface:      #131929;
++  --p-bg-gradient:  linear-gradient(180deg, #0b0f1a 0%, #0d1220 100%);
++  --p-surface:      #121829;
+   --p-surface2:     #1a2236;
+ 
+-  /* ---- Borders & separators ---- */
++  /* ---- Borders & separators (consistent, not overly strong) ---- */
+   --p-border:       #1e293b;
++  --p-border-strong: #232d3f;
+   --p-border-light: #2a3654;
+ 
+   /* ---- Text ---- */
+@@ -34,11 +36,17 @@
+   --p-text-muted:   #94a3b8;
+   --p-text-dim:     #64748b;
+ 
+-  /* ---- Accent (amber/orange) ---- */
+-  --p-accent:       #d97706;
+-  --p-accent-muted: #92400e;
+-  --p-accent-bg:    rgba(217, 119, 6, 0.10);
+-  --p-accent-text:  #fbbf24;
++  /* ---- Typography (professional workspace) ---- */
++  --p-font-size-page-title: 1.5rem;      /* 24px */
++  --p-font-size-section:    0.8125rem;   /* 13px */
++  --p-font-size-body:       0.8125rem;  /* 13px, calm */
++  --p-letter-spacing-section: 0.05em;
++
++  /* ---- Accent (amber/orange, restrained for sidebar/indicators) ---- */
++  --p-accent:       #b45309;
++  --p-accent-muted: #78350f;
++  --p-accent-bg:    rgba(180, 83, 9, 0.08);
++  --p-accent-text:  #f59e0b;
+ 
+   /* ---- Semantics ---- */
+   --p-success:      #22c55e;
+@@ -50,14 +58,34 @@
+   --p-info:         #3b82f6;
+   --p-info-bg:      rgba(59, 130, 246, 0.10);
+ 
+-  /* ---- Geometry ---- */
+-  --p-radius:       0.5rem;
+-  --p-radius-lg:    0.75rem;
++  /* ---- Geometry (cards 8ΓÇô10px radius, professional) ---- */
++  --p-radius:       0.5rem;   /* 8px */
++  --p-radius-lg:    0.625rem; /* 10px */
+ 
+-  /* ---- Elevation ---- */
+-  --p-shadow:       0 1px 3px rgba(0, 0, 0, 0.3), 0 1px 2px rgba(0, 0, 0, 0.2);
+-  --p-shadow-lg:    0 4px 12px rgba(0, 0, 0, 0.4), 0 2px 4px rgba(0, 0, 0, 0.3);
++  /* ---- Elevation (subtle, consistent; elevation-1 for cards/panels) ---- */
++  /* ModuleCard and other panels use --p-shadow-elevation-1 or --p-shadow-elev-1. */
++  --p-shadow:               0 1px 2px rgba(0, 0, 0, 0.25);
++  --p-shadow-elevation-1:   0 1px 3px rgba(0, 0, 0, 0.22);
++  --p-shadow-elev-1:        var(--p-shadow-elevation-1);
++  --p-shadow-lg:            0 2px 8px rgba(0, 0, 0, 0.3);
+ 
+   /* ---- Focus ---- */
+   --p-focus-ring:   0 0 0 2px var(--p-accent);
+ }
++
++/* ---- Interaction affordances (instrument panel) ---- */
++/* Prompt rows: default surface2; hover lifts to surface for clear hierarchy. */
++.pathos-prompt-row {
++  min-height: 2.25rem;
++}
++.pathos-prompt-row:hover {
++  background: var(--p-surface);
++  border-color: var(--p-accent-muted);
++}
++.pathos-prompt-row:focus-visible {
++  outline: none;
++  box-shadow: var(--p-focus-ring);
++}
++.pathos-prompt-row + .pathos-prompt-row {
++  margin-top: 0.25rem;
++}

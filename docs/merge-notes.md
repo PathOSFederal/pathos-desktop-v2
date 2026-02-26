@@ -108,3 +108,204 @@
 | Resume          | pathos:resume-store          | 1             |
 
 All stores use safe-reset on schema mismatch (returns defaults if version differs).
+
+---
+
+## Dashboard Benefits-Style Update (Verification)
+
+**Scope:** Desktop Dashboard screen and PathAdvisor rail aligned to web Explore Federal Benefits seriousness. Mock values only; no backend. No commit, no push.
+
+**Files modified:**
+- `packages/ui/src/screens/DashboardScreen.tsx` (primary)
+- `packages/ui/src/shell/PathAdvisorRail.tsx` (parity)
+- `packages/ui/src/styles/theme.css` not modified (theme tokens sufficient)
+
+### Verification commands and outputs
+
+**git status**
+```
+On branch feature/ui-serious-mode-v1
+Changes not staged for commit:
+  modified:   apps/desktop/src/globals.css
+  modified:   packages/ui/src/screens/DashboardScreen.tsx
+  modified:   packages/ui/src/shell/PathAdvisorRail.tsx
+no changes added to commit
+```
+
+**git diff --name-only**
+```
+apps/desktop/src/globals.css
+packages/ui/src/screens/DashboardScreen.tsx
+packages/ui/src/shell/PathAdvisorRail.tsx
+```
+
+**git diff --stat**
+```
+ apps/desktop/src/globals.css                |  21 +-
+ packages/ui/src/screens/DashboardScreen.tsx | 434 +++++++++++-----------------
+ packages/ui/src/shell/PathAdvisorRail.tsx   | 189 +++++++-----
+ 3 files changed, 304 insertions(+), 340 deletions(-)
+```
+
+**pnpm check:boundaries**
+```
+Boundary check PASSED: 0 violations across 3 packages.
+```
+
+**pnpm -r typecheck**
+```
+Scope: 4 of 5 workspace projects
+packages/adapters typecheck: Done
+packages/core typecheck: Done
+packages/ui typecheck: Done
+apps/desktop typecheck: Done
+```
+
+**pnpm -C apps/desktop build**
+```
+✓ 1614 modules transformed.
+dist/renderer/index.html                   0.40 kB
+dist/renderer/assets/index-CqywswcU.css   23.28 kB
+dist/renderer/assets/index-CByeRgiU.js   351.57 kB
+✓ built in 8.36s
+```
+(Full build: renderer + electron tsc completed successfully.)
+
+---
+
+## ModuleCard and Analyst Workspace Polish (Day 49)
+
+**Branch:** feature/ui-serious-mode-v1  
+**Scope:** Reusable ModuleCard wrapper, theme token tuning, Dashboard and PathAdvisor rail framing. No commit or push.
+
+### Merge-notes logging (required)
+
+**git status**
+```
+On branch feature/ui-serious-mode-v1
+Your branch is up to date with 'origin/feature/ui-serious-mode-v1'.
+
+Changes not staged for commit:
+  modified:   packages/ui/src/components/ModuleCard.tsx
+  modified:   packages/ui/src/shell/PathAdvisorRail.tsx
+  modified:   packages/ui/src/styles/theme.css
+
+Untracked files:
+  packages/ui/src/components/ModuleCard.test.tsx
+```
+
+**git branch --show-current**
+```
+feature/ui-serious-mode-v1
+```
+
+**git diff --name-status develop...HEAD**  
+(develop branch not present in this repo; use main as reference.)
+
+**git diff --name-status main...HEAD**
+```
+M	apps/desktop/src/globals.css
+M	docs/merge-notes.md
+A	packages/ui/src/components/ModuleCard.tsx
+M	packages/ui/src/index.ts
+M	packages/ui/src/screens/DashboardScreen.tsx
+M	packages/ui/src/shell/AppShell.tsx
+M	packages/ui/src/shell/PathAdvisorRail.tsx
+M	packages/ui/src/shell/Sidebar.tsx
+M	packages/ui/src/shell/TopBar.tsx
+M	packages/ui/src/styles/theme.css
+```
+
+**git diff --stat main...HEAD**
+```
+ apps/desktop/src/globals.css                |  21 +-
+ docs/merge-notes.md                         |  62 ++++
+ packages/ui/src/components/ModuleCard.tsx   |  84 ++++++
+ packages/ui/src/index.ts                    |   3 +
+ packages/ui/src/screens/DashboardScreen.tsx | 432 ++++++++++------------------
+ packages/ui/src/shell/AppShell.tsx          |   4 +-
+ packages/ui/src/shell/PathAdvisorRail.tsx   | 213 +++++++++-----
+ packages/ui/src/shell/Sidebar.tsx           |  34 +--
+ packages/ui/src/shell/TopBar.tsx            |  71 +++--
+ packages/ui/src/styles/theme.css           |  49 +++-
+ 10 files changed, 551 insertions(+), 422 deletions(-)
+```
+
+### Patch artifacts
+
+**Cumulative (main to working tree):** `artifacts/day-49.patch`  
+**Incremental (this run):** `artifacts/day-49-this-run.patch`
+
+**Get-Item artifacts/day-49.patch,artifacts/day-49-this-run.patch | Format-List Name,Length,LastWriteTime**
+```
+Name          : day-49.patch
+Length        : 55645
+LastWriteTime : 2/26/2026 10:34:01 AM
+
+Name          : day-49-this-run.patch
+Length        : 9276
+LastWriteTime : 2/26/2026 10:34:03 AM
+```
+
+**ls -lh artifacts (day-49 artifacts only)**
+```
+day-49-this-run.patch     9,276 bytes     2/26/2026 10:34:03 AM
+day-49.patch              55,645 bytes    2/26/2026 10:34:01 AM
+```
+
+(Patch contents not pasted; full diff excluded from merge-notes per house rules.)
+
+### Quality gates
+
+**pnpm check:boundaries**
+```
+Boundary check PASSED: 0 violations across 3 packages.
+```
+
+**pnpm -r typecheck**
+```
+Scope: 4 of 5 workspace projects
+packages/adapters typecheck: Done
+packages/core typecheck: Done
+packages/ui typecheck: Done
+apps/desktop typecheck: Done
+```
+
+**pnpm test --run**  
+Full suite: 52 test files run. ModuleCard.test.tsx (3 tests) passes. Forty-four failures are pre-existing in `packages/core/src/__tests__/job-storage.test.ts` (and symlinked copies) due to `localStorage` not defined in Node test environment. No new failures introduced by this run.
+
+### Human Simulation Gate
+
+| Item | Value |
+|------|-------|
+| Required | No |
+| Triggers hit | none |
+| Why | UI-only: ModuleCard, theme tokens, Dashboard/PathAdvisor layout. No store logic, persistence, or create/save/delete actions. |
+
+### AI Acceptance Checklist
+
+| Item | Value |
+|------|-------|
+| Flow | N/A (presentation only). |
+| Store(s) | None. |
+| Storage key(s) | None. |
+| Failure mode | Cards or rail would render without ModuleCard styling; no data loss. |
+| How tested | Manual: desktop-preview and desktop renderer; Vitest smoke test for ModuleCard. |
+
+### Patch Artifacts (FINAL)
+
+**Commands used (develop not present; main used for cumulative):**  
+- `git add -N .`  
+- Cumulative: `git diff --binary main -- .` written to `artifacts/day-49.patch` (UTF-8).  
+- Incremental: `git diff --binary HEAD -- .` written to `artifacts/day-49-this-run.patch` (UTF-8).  
+
+**Get-Item output (authoritative):**
+```
+Name          : day-49.patch
+Length        : 55645
+LastWriteTime : 2/26/2026 10:34:01 AM
+
+Name          : day-49-this-run.patch
+Length        : 9276
+LastWriteTime : 2/26/2026 10:34:03 AM
+```

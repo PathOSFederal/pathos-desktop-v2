@@ -1,63 +1,34 @@
 /**
  * ============================================================================
- * PATHOS SHARED THEME -- Single source of truth for desktop + preview
+ * PATHOS SHARED THEME -- Theme token loader + shared interaction affordances
  * ============================================================================
  *
- * These tokens are consumed by packages/ui components via CSS custom
- * properties. Both apps/web (desktop-preview) and apps/desktop import
- * this file once from their root shell.
- *
- * Surface hierarchy:
- *   --p-bg        Deep navy/near-black (app background)
- *   --p-surface   Slightly lighter (cards, panels)
- *   --p-surface2  Input/chip level
- *
- * Accent: warm amber/orange for active indicators and CTAs.
+ * Loads available theme token sets and shared utility styles.
+ * Token values are defined in:
+ * - ./themes/theme-shared.css
+ * - ./themes/theme-mix.css
+ * - ./themes/theme-legacy.css
  *
  * BOUNDARY RULE: No next/* or electron/* imports.
  */
 
-:root,
-.pathos-theme {
-  /* ---- Background & surfaces ---- */
-  --p-bg:           #0b0f1a;
-  --p-bg-gradient:  linear-gradient(168deg, #0b0f1a 0%, #0f1629 50%, #0b0f1a 100%);
-  --p-surface:      #131929;
-  --p-surface2:     #1a2236;
+@import './themes/theme-shared.css';
+@import './themes/theme-mix.css';
+@import './themes/theme-legacy.css';
 
-  /* ---- Borders & separators ---- */
-  --p-border:       #1e293b;
-  --p-border-light: #2a3654;
-
-  /* ---- Text ---- */
-  --p-text:         #e2e8f0;
-  --p-text-muted:   #94a3b8;
-  --p-text-dim:     #64748b;
-
-  /* ---- Accent (amber/orange) ---- */
-  --p-accent:       #d97706;
-  --p-accent-muted: #92400e;
-  --p-accent-bg:    rgba(217, 119, 6, 0.10);
-  --p-accent-text:  #fbbf24;
-
-  /* ---- Semantics ---- */
-  --p-success:      #22c55e;
-  --p-success-bg:   rgba(34, 197, 94, 0.10);
-  --p-warning:      #eab308;
-  --p-warning-bg:   rgba(234, 179, 8, 0.10);
-  --p-danger:       #ef4444;
-  --p-danger-bg:    rgba(239, 68, 68, 0.10);
-  --p-info:         #3b82f6;
-  --p-info-bg:      rgba(59, 130, 246, 0.10);
-
-  /* ---- Geometry ---- */
-  --p-radius:       0.5rem;
-  --p-radius-lg:    0.75rem;
-
-  /* ---- Elevation ---- */
-  --p-shadow:       0 1px 3px rgba(0, 0, 0, 0.3), 0 1px 2px rgba(0, 0, 0, 0.2);
-  --p-shadow-lg:    0 4px 12px rgba(0, 0, 0, 0.4), 0 2px 4px rgba(0, 0, 0, 0.3);
-
-  /* ---- Focus ---- */
-  --p-focus-ring:   0 0 0 2px var(--p-accent);
+/* ---- Interaction affordances (instrument panel) ---- */
+/* Prompt rows: default surface2; hover lifts to surface for clear hierarchy. */
+.pathos-prompt-row {
+  min-height: 2.25rem;
+}
+.pathos-prompt-row:hover {
+  background: var(--p-surface);
+  border-color: var(--p-accent-muted);
+}
+.pathos-prompt-row:focus-visible {
+  outline: none;
+  box-shadow: var(--p-focus-ring);
+}
+.pathos-prompt-row + .pathos-prompt-row {
+  margin-top: 0.25rem;
 }

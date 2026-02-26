@@ -156,6 +156,22 @@ Every prompt must include these sections (in order):
 
 ---
 
+## Tooltip Standard (Global UX Requirement)
+
+Apply this standard across the app for all new UI work and when touching existing UI:
+
+- Add tooltips for non-obvious controls, icon buttons, badges, toggles, and compact UI elements.
+- Each tooltip must include:
+  1. Name (short label)
+  2. 1-2 sentence description that explains what the control does and why it matters
+  3. Keyboard shortcut when available, using a consistent format such as `Ctrl+K` or `Cmd+K`
+- Tooltips must appear on hover and on keyboard focus (not hover-only).
+- Tooltips must not reveal sensitive or private user data.
+- Default placement is top or right; implement collision handling so the tooltip repositions when space is limited.
+- Keep tooltip language aligned with PathOS trust-first rules: objective, structured, and no em dashes.
+
+---
+
 ## Compact Header (For Simple Tasks)
 
 ```

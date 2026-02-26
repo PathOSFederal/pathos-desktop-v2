@@ -5,10 +5,14 @@
  * Run `pnpm check:boundaries` to verify.
  */
 
+// Shared components
+export { ModuleCard, type ModuleCardProps } from './components/ModuleCard';
+
 // Shell components
-export { SharedAppShell, type AppShellProps, type Platform } from './shell/AppShell';
+export { SharedAppShell, type AppShellProps, type Platform, type ThemeVariant } from './shell/AppShell';
 export { Sidebar, type SidebarProps } from './shell/Sidebar';
 export { TopBar, type TopBarProps } from './shell/TopBar';
+export { PathAdvisorCard, type PathAdvisorCardProps, type PathAdvisorMessage } from './shell/PathAdvisorCard';
 export { PathAdvisorRail, type PathAdvisorRailProps } from './shell/PathAdvisorRail';
 
 // Screens

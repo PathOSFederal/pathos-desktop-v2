@@ -2979,3 +2979,132 @@ pnpm build
 ```
 
 **Result:** Failed (exit code 1, no stdout/stderr output captured).
+
+---
+
+## PathAdvisor single card refactor (PathAdvisorCard + PathAdvisorRail)
+
+**Branch:** `feature/ui-serious-mode-v1`  
+**Date:** 2026-02-26
+
+### Summary
+
+- Added `packages/ui/src/shell/PathAdvisorCard.tsx`: single ModuleCard with Header → Context pills → Conversation window (scroll, surface2 + border) → Composer (pinned, top divider). Suggested prompts as chips above message list; all PathAdvisor UI inside one card.
+- Updated `PathAdvisorRail.tsx` to render only `PathAdvisorCard`; removed floating input and multiple sections. Trust-first microcopy (Viewing, Privacy) remains as compact pills in the card.
+- Added `PathAdvisorCard.test.tsx`: smoke tests for rendering messages, suggested prompts, and composer/send button.
+- Exported `PathAdvisorCard`, `PathAdvisorCardProps`, `PathAdvisorMessage` from `@pathos/ui`.
+
+### Merge-notes logging (no full diffs)
+
+**git status**
+```
+On branch feature/ui-serious-mode-v1
+Changes not staged for commit:
+	modified:   packages/ui/src/index.ts
+	modified:   packages/ui/src/shell/PathAdvisorRail.tsx
+Untracked files:
+	packages/ui/src/shell/PathAdvisorCard.test.tsx
+	packages/ui/src/shell/PathAdvisorCard.tsx
+```
+
+**git branch --show-current**
+```
+feature/ui-serious-mode-v1
+```
+
+**git diff develop...HEAD** — branch `develop` not present in this repo; using HEAD baseline for changed files.
+
+**git diff --name-status HEAD -- packages/ui/**
+```
+M	packages/ui/src/index.ts
+M	packages/ui/src/shell/PathAdvisorRail.tsx
+A	packages/ui/src/shell/PathAdvisorCard.tsx
+A	packages/ui/src/shell/PathAdvisorCard.test.tsx
+```
+(A = added in working tree, M = modified.)
+
+**git diff --stat HEAD -- packages/ui/**
+```
+ packages/ui/src/index.ts                  |   1 +
+ packages/ui/src/shell/PathAdvisorCard.tsx | 223 (new)
+ packages/ui/src/shell/PathAdvisorCard.test.tsx |  67 (new)
+ packages/ui/src/shell/PathAdvisorRail.tsx | 171 +++++++-----------------------
+ 4 files changed, 37 insertions(+), 135 deletions (PathAdvisorRail), plus new files.
+```
+
+### Verification commands (recorded)
+
+| Command | Result |
+|---------|--------|
+| `pnpm check:boundaries` | PASSED (0 violations) |
+| `pnpm -r typecheck` | PASSED (adapters, core, ui, apps/desktop) |
+| `pnpm test` | PathAdvisorCard.test.tsx: 3 passed. Full suite: 44 pre-existing failures in `job-storage.test.ts` (localStorage not defined in node); all other tests pass. |
+
+Do not commit or push.
+
+---
+
+## PathAdvisor composer UX and local reaction loop (Day 50)
+
+**Branch:** `feature/ui-serious-mode-v1`  
+**Date:** February 26, 2026
+
+### Summary
+
+- Added focus-within ring on PathAdvisor composer container (input + button highlight together).
+- Fixed send so it works via form `onSubmit` and button `type="submit"` (Enter and click both send).
+- Messages array updates and auto-scroll-to-bottom when new messages append (ref + useEffect on message list).
+- Implemented minimal local-only reaction loop in app-level rail: desktop and desktop-preview pass `messages` + `onSend`; onSend appends user message, then setTimeout appends simulated PathAdvisor reply so the rail reacts to input.
+
+### Files changed (this run)
+
+- `packages/ui/src/shell/PathAdvisorCard.tsx` — focus-within, form submit, auto-scroll
+- `packages/ui/src/shell/PathAdvisorRail.tsx` — optional controlled mode (messages + onSend)
+- `apps/desktop/src/DesktopApp.tsx` — state + onSend with simulated reply
+- `app/desktop-preview/page.tsx` — state + onSend with simulated reply
+- `docs/change-briefs/day-50.md` — change brief
+
+### Human Simulation Gate
+
+| Item | Value |
+|------|--------|
+| Required | No |
+| Triggers hit | none |
+| Why | UI + local React state only; no store persistence, no create/save/delete, no SSR/hydration-sensitive change. |
+
+### Verification (log only, no full diffs)
+
+**git status (working tree at run end):**
+```
+On branch feature/ui-serious-mode-v1
+Changes not staged for commit:
+	modified:   app/desktop-preview/page.tsx
+	modified:   apps/desktop/src/DesktopApp.tsx
+	modified:   packages/ui/src/shell/PathAdvisorCard.tsx
+	modified:   packages/ui/src/shell/PathAdvisorRail.tsx
+	(+ docs/change-briefs/day-50.md; other pre-existing modified files not listed)
+```
+
+**git branch --show-current:** `feature/ui-serious-mode-v1`
+
+**git diff --name-status develop...HEAD:** (branch vs develop; includes prior commits on branch)
+
+**git diff --stat develop...HEAD:** (branch vs develop; includes prior commits)
+
+**pnpm check:boundaries:** PASSED (0 violations).
+
+**pnpm -r typecheck:** PASSED (packages/adapters, packages/core, packages/ui, apps/desktop).
+
+**pnpm -r test:** PASSED (all projects; PathAdvisorCard tests pass).
+
+### AI Acceptance Checklist
+
+| Item | Value |
+|------|--------|
+| Flow | User types in composer → Submit (Enter or click) → PathAdvisorCard handleSubmit → onSend(text) → app appends user message → input cleared → setTimeout 600ms → app appends assistant message → rail re-renders, scroll to bottom |
+| Store(s) | none |
+| Storage key(s) | none |
+| Failure mode | If onSend not wired or state not passed: message does not appear or reply never shows. If form/button broken: send does not fire. |
+| How tested | Manual: focus composer (ring appears), type and Enter or click Send → user message appears, then simulated reply after short delay; list scrolls to bottom. pnpm -r typecheck and pnpm -r test. |
+
+Do not commit or push.

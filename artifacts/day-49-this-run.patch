@@ -1,0 +1,230 @@
+diff --git a/packages/ui/src/components/ModuleCard.test.tsx b/packages/ui/src/components/ModuleCard.test.tsx
+new file mode 100644
+index 0000000..8e2549a
+--- /dev/null
++++ b/packages/ui/src/components/ModuleCard.test.tsx
+@@ -0,0 +1,47 @@
++/**
++ * ============================================================================
++ * MODULE CARD SMOKE TEST
++ * ============================================================================
++ *
++ * Basic render test to ensure ModuleCard renders without throwing and
++ * outputs the expected title (and optional subtitle) in the markup.
++ * No platform-specific imports; pure React SSR for test environment.
++ */
++
++import React from 'react';
++import { describe, it, expect } from 'vitest';
++import { renderToString } from 'react-dom/server';
++import { ModuleCard } from './ModuleCard';
++
++describe('ModuleCard', function () {
++  it('should render title and children', function () {
++    const output = renderToString(
++      <ModuleCard title="Test Module">
++        <p>Body content</p>
++      </ModuleCard>
++    );
++    expect(output).toContain('Test Module');
++    expect(output).toContain('Body content');
++  });
++
++  it('should render subtitle when provided', function () {
++    const output = renderToString(
++      <ModuleCard title="Section" subtitle="Optional description">
++        <span>Content</span>
++      </ModuleCard>
++    );
++    expect(output).toContain('Section');
++    expect(output).toContain('Optional description');
++    expect(output).toContain('Content');
++  });
++
++  it('should render with dense variant without throwing', function () {
++    const output = renderToString(
++      <ModuleCard title="Dense" variant="dense">
++        <div>Dense body</div>
++      </ModuleCard>
++    );
++    expect(output).toContain('Dense');
++    expect(output).toContain('Dense body');
++  });
++});
+diff --git a/packages/ui/src/components/ModuleCard.tsx b/packages/ui/src/components/ModuleCard.tsx
+index 0f435f4..90e83fd 100644
+--- a/packages/ui/src/components/ModuleCard.tsx
++++ b/packages/ui/src/components/ModuleCard.tsx
+@@ -19,7 +19,9 @@ export interface ModuleCardProps {
+   icon?: React.ReactNode;
+   /** Header title; required for consistent card identity */
+   title: string;
+-  /** Optional slot for right-aligned action (e.g. Reset button) */
++  /** Optional subtitle or description; rendered as small muted text below title in header */
++  subtitle?: string;
++  /** Optional slot for right-aligned action (e.g. Reset button); same as rightSlot for API clarity */
+   action?: React.ReactNode;
+   /** Card body content */
+   children: React.ReactNode;
+@@ -48,34 +50,41 @@ export function ModuleCard(props: ModuleCardProps) {
+         background: 'var(--p-surface)',
+         border: '1px solid var(--p-border)',
+         borderRadius: 'var(--p-radius-lg)',
+-        boxShadow: 'var(--p-shadow-elevation-1)',
++        boxShadow: 'var(--p-shadow-elev-1)',
+         borderTop: '1px solid var(--p-accent-muted)',
+       }}
+     >
+-      {/* Header row: icon + title + optional action */}
+-      <div
+-        className={
+-          'flex items-center flex-wrap ' +
+-          headerGap +
+-          (isDense ? ' mb-2' : ' mb-3')
+-        }
+-      >
+-        {props.icon !== null && props.icon !== undefined ? (
+-          <span className="flex-shrink-0" style={{ color: 'var(--p-accent)' }}>
+-            {props.icon}
+-          </span>
+-        ) : null}
+-        <h3
+-          className="flex-1 min-w-0 font-semibold uppercase tracking-[var(--p-letter-spacing-section)]"
+-          style={{
+-            color: 'var(--p-text-dim)',
+-            fontSize: 'var(--p-font-size-section)',
+-          }}
+-        >
+-          {props.title}
+-        </h3>
+-        {hasAction ? (
+-          <div className="flex-shrink-0">{props.action}</div>
++      {/* Header row: icon + title + optional action; optional subtitle below */}
++      <div className={isDense ? ' mb-2' : ' mb-3'}>
++        <div className={'flex items-center flex-wrap ' + headerGap}>
++          {props.icon !== null && props.icon !== undefined ? (
++            <span className="flex-shrink-0" style={{ color: 'var(--p-accent)' }}>
++              {props.icon}
++            </span>
++          ) : null}
++          <h3
++            className="flex-1 min-w-0 font-semibold uppercase tracking-[var(--p-letter-spacing-section)]"
++            style={{
++              color: 'var(--p-text-dim)',
++              fontSize: 'var(--p-font-size-section)',
++            }}
++          >
++            {props.title}
++          </h3>
++          {hasAction ? (
++            <div className="flex-shrink-0">{props.action}</div>
++          ) : null}
++        </div>
++        {props.subtitle !== undefined && props.subtitle !== '' ? (
++          <p
++            className="mt-1"
++            style={{
++              color: 'var(--p-text-muted)',
++              fontSize: '0.75rem',
++            }}
++          >
++            {props.subtitle}
++          </p>
+         ) : null}
+       </div>
+       {props.children}
+diff --git a/packages/ui/src/shell/PathAdvisorRail.tsx b/packages/ui/src/shell/PathAdvisorRail.tsx
+index d45633c..c0f0095 100644
+--- a/packages/ui/src/shell/PathAdvisorRail.tsx
++++ b/packages/ui/src/shell/PathAdvisorRail.tsx
+@@ -94,37 +94,33 @@ export function PathAdvisorRail(props: PathAdvisorRailProps) {
+         </ModuleCard>
+       </div>
+ 
+-      {/* Advisor message block: calm, professional */}
+-      <div className="px-3 flex-shrink-0">
+-        <div
+-          className="rounded-[var(--p-radius-lg)] p-3 text-[13px]"
+-          style={{
+-            background: 'var(--p-surface2)',
+-            border: '1px solid var(--p-border)',
+-            color: 'var(--p-text-muted)',
+-          }}
+-        >
+-          <p>
++      {/* Advisor message block: framed with ModuleCard (dense) for consistent rail hierarchy */}
++      <div className="px-3 pt-2 flex-shrink-0">
++        <ModuleCard title="PathAdvisor" variant="dense">
++          <p
++            className="text-[13px]"
++            style={{ color: 'var(--p-text-muted)' }}
++          >
+             Use this workspace to review your compensation estimates and decision drivers.
+             Ask for help comparing grades, understanding benefits, or adjusting assumptions.
+           </p>
+-        </div>
++        </ModuleCard>
+       </div>
+ 
+       {/* Suggested prompts: ModuleCard with action-like rows (hover/focus-visible) */}
+       <div className="px-3 pt-2 flex-1 min-h-0 overflow-y-auto">
+         <ModuleCard title="Suggested prompts" variant="dense" className="h-full flex flex-col min-h-0">
+-          <div className="space-y-1 flex-1 min-h-0">
++          <div className="flex flex-col gap-1 flex-1 min-h-0">
+             {SUGGESTED_PROMPTS.map(function (prompt) {
+               return (
+                 <button
+                   key={prompt}
+                   type="button"
+                   onClick={function () { handlePromptClick(prompt); }}
+-                  className="pathos-prompt-row w-full text-left px-3 py-2 text-[12px] rounded-[var(--p-radius)] transition-colors"
++                  className="pathos-prompt-row w-full text-left px-3 py-2 text-[12px] rounded-[var(--p-radius)] transition-colors border"
+                   style={{
+                     background: 'var(--p-surface2)',
+-                    border: '1px solid var(--p-border)',
++                    borderColor: 'var(--p-border)',
+                     color: 'var(--p-text)',
+                   }}
+                 >
+diff --git a/packages/ui/src/styles/theme.css b/packages/ui/src/styles/theme.css
+index 833ba56..f2dc14d 100644
+--- a/packages/ui/src/styles/theme.css
++++ b/packages/ui/src/styles/theme.css
+@@ -20,6 +20,7 @@
+ :root,
+ .pathos-theme {
+   /* ---- Background & surfaces (clear separation for instrument-panel hierarchy) ---- */
++  /* Tuned so app background, card surface, and input/chip level read as distinct layers. */
+   --p-bg:           #0b0f1a;
+   --p-bg-gradient:  linear-gradient(180deg, #0b0f1a 0%, #0d1220 100%);
+   --p-surface:      #121829;
+@@ -62,8 +63,10 @@
+   --p-radius-lg:    0.625rem; /* 10px */
+ 
+   /* ---- Elevation (subtle, consistent; elevation-1 for cards/panels) ---- */
++  /* ModuleCard and other panels use --p-shadow-elevation-1 or --p-shadow-elev-1. */
+   --p-shadow:               0 1px 2px rgba(0, 0, 0, 0.25);
+   --p-shadow-elevation-1:   0 1px 3px rgba(0, 0, 0, 0.22);
++  --p-shadow-elev-1:        var(--p-shadow-elevation-1);
+   --p-shadow-lg:            0 2px 8px rgba(0, 0, 0, 0.3);
+ 
+   /* ---- Focus ---- */
+@@ -71,7 +74,10 @@
+ }
+ 
+ /* ---- Interaction affordances (instrument panel) ---- */
+-/* Prompt rows: hover/focus-visible feel like actions */
++/* Prompt rows: default surface2; hover lifts to surface for clear hierarchy. */
++.pathos-prompt-row {
++  min-height: 2.25rem;
++}
+ .pathos-prompt-row:hover {
+   background: var(--p-surface);
+   border-color: var(--p-accent-muted);
+@@ -80,3 +86,6 @@
+   outline: none;
+   box-shadow: var(--p-focus-ring);
+ }
++.pathos-prompt-row + .pathos-prompt-row {
++  margin-top: 0.25rem;
++}

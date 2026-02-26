@@ -80,6 +80,7 @@ export function AppShell(props: { children: React.ReactNode }) {
   // and should not show the separate PathAdvisorPanel to avoid "two advisors" confusion
   const pathname = usePathname();
   const isDashboardPage = pathname === '/dashboard';
+  const isSharedDashboardRoute = pathname === '/dashboard';
   const isDesktopShellRoute = pathname === '/desktop/usajobs-guided';
   const isPublicRoute = pathname === '/' || pathname === '/download';
   
@@ -134,6 +135,16 @@ export function AppShell(props: { children: React.ReactNode }) {
   // the standard AppShell chrome (sidebar, PathAdvisor panel, top bar) so the
   // Electron BrowserView can align with a clean, full-bleed layout.
   if (isDesktopShellRoute) {
+    return (
+      <div className="min-h-screen bg-background">
+        <RouteTransition>{children}</RouteTransition>
+      </div>
+    );
+  }
+
+  // Shared /dashboard now renders its own SharedAppShell + rails.
+  // Return page content directly here to avoid nested app shells.
+  if (isSharedDashboardRoute) {
     return (
       <div className="min-h-screen bg-background">
         <RouteTransition>{children}</RouteTransition>

@@ -288,6 +288,17 @@ Human simulation is **required** if a ticket/PR does any of the following:
 2. Repeat the same flow and refresh checks
 3. Console must be clean (no hydration mismatch)
 
+#### C) Tooltips QA Checklist
+
+When a change adds or updates UI tooltips, verify all of the following:
+
+- Hover shows the tooltip within approximately 250-400ms.
+- Keyboard focus (Tab navigation) shows the same tooltip content.
+- Tooltip includes name, description, and shortcut when a shortcut exists.
+- Tooltip does not block clicks or obscure the control it describes.
+- Tooltip does not expose sensitive or private user data.
+- Accessibility linkage is present via `aria-describedby` (or equivalent).
+
 ### Evidence Requirement
 
 Results must be recorded in `merge-notes.md` under a "Testing Evidence" section:

@@ -1,118 +1,87 @@
 /**
  * ============================================================================
- * PATH ADVISOR RAIL -- Shared advisor side panel
+ * PATH ADVISOR RAIL — Shared advisor side panel (PathAdvisor AI)
  * ============================================================================
  *
- * BOUNDARY RULE: This file MUST NOT import from next/* or electron/*.
+ * Renders a single PathAdvisorCard. All conversation UI (header, context pills,
+ * conversation window, suggested prompts, composer) lives inside that card.
+ * Trust-first microcopy (Viewing, Privacy) is shown as compact pills in the card.
  *
- * Styled placeholder for the PathAdvisor panel. Phase 2 version adds
- * module chips, suggested prompts, and themed surfaces.
+ * BOUNDARY RULE: This file MUST NOT import from next/* or electron/*.
  */
 
 'use client';
 
 import type React from 'react';
-import { MessageSquare, Sparkles, Briefcase, DollarSign, Shield, FileText } from 'lucide-react';
+import { useState, useCallback } from 'react';
+import {
+  PathAdvisorCard,
+  type PathAdvisorMessage,
+} from './PathAdvisorCard';
 
 export interface PathAdvisorRailProps {
   dock?: 'left' | 'right';
+  /** Optional: chip label for current view (default "Dashboard") */
+  viewingLabel?: string;
+  /** Optional: privacy chip value (default "Local only") */
+  privacyLabel?: string;
+  /**
+   * Optional controlled mode: when both messages and onSend are provided,
+   * the rail does not own message state; the app handles send (e.g. append user
+   * and schedule a simulated assistant reply).
+   */
+  messages?: PathAdvisorMessage[];
+  /** When provided with messages, app handles send (e.g. append user + simulated reply). */
+  onSend?: (text: string) => void;
 }
 
-const MODULE_CHIPS = [
-  { label: 'Career', icon: <Briefcase className="w-3 h-3" /> },
-  { label: 'Compensation', icon: <DollarSign className="w-3 h-3" /> },
-  { label: 'Benefits', icon: <Shield className="w-3 h-3" /> },
-  { label: 'Resume', icon: <FileText className="w-3 h-3" /> },
-];
-
+/** Suggested prompts: dashboard/decision workspace tone; rendered as chips in the card. */
 const SUGGESTED_PROMPTS = [
-  'What GS grade should I target next?',
-  'Compare my FEHB plan options',
-  'How strong is my resume for GS-13?',
-  'Estimate my retirement timeline',
+  'How does my expected salary compare to typical GS grades?',
+  'What benefits matter most if I only stay 3 to 5 years?',
+  'Explain the FERS pension estimate on my dashboard.',
+  'What should I update in my assumptions next?',
 ];
 
-export function PathAdvisorRail(_props: PathAdvisorRailProps) {
+/**
+ * Rail wrapper that renders only PathAdvisorCard. When messages and onSend
+ * are both provided (controlled mode), the app owns message state and send
+ * behavior. Otherwise the rail holds message state locally and only appends
+ * the user message (no assistant reply).
+ */
+export function PathAdvisorRail(props: PathAdvisorRailProps) {
+  const [internalMessages, setInternalMessages] = useState<PathAdvisorMessage[]>([]);
+
+  const hasMessages = props.messages !== undefined && props.messages !== null;
+  const hasOnSend = props.onSend !== undefined && props.onSend !== null;
+  const isControlled = hasMessages && hasOnSend;
+
+  const handleSendInternal = useCallback(function (text: string) {
+    const userMessage: PathAdvisorMessage = { role: 'user', content: text };
+    setInternalMessages(function (prev) {
+      const next = [];
+      for (let i = 0; i < prev.length; i++) {
+        next.push(prev[i]);
+      }
+      next.push(userMessage);
+      return next;
+    });
+  }, []);
+
+  const messages: PathAdvisorMessage[] =
+    isControlled && props.messages !== undefined ? props.messages : internalMessages;
+  const onSend: (text: string) => void =
+    isControlled && props.onSend !== undefined ? props.onSend : handleSendInternal;
+
   return (
-    <div className="h-full flex flex-col">
-      {/* Header */}
-      <div
-        className="flex items-center gap-2 px-3 py-3"
-        style={{ borderBottom: '1px solid var(--p-border)' }}
-      >
-        <Sparkles className="w-4 h-4" style={{ color: 'var(--p-accent)' }} />
-        <h2 className="text-sm font-semibold" style={{ color: 'var(--p-text)' }}>
-          PathAdvisor
-        </h2>
-      </div>
-
-      {/* Module chips */}
-      <div className="px-3 pt-3 pb-2">
-        <p className="text-xs font-medium mb-2" style={{ color: 'var(--p-text-dim)' }}>
-          MODULES
-        </p>
-        <div className="flex flex-wrap gap-1.5">
-          {MODULE_CHIPS.map(function (chip) {
-            return (
-              <button
-                key={chip.label}
-                type="button"
-                className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium transition-colors"
-                style={{
-                  background: 'var(--p-surface2)',
-                  border: '1px solid var(--p-border)',
-                  borderRadius: 'var(--p-radius)',
-                  color: 'var(--p-text-muted)',
-                }}
-              >
-                {chip.icon}
-                {chip.label}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Suggested prompts */}
-      <div className="px-3 pt-2 flex-1">
-        <p className="text-xs font-medium mb-2" style={{ color: 'var(--p-text-dim)' }}>
-          SUGGESTED QUESTIONS
-        </p>
-        <div className="space-y-1.5">
-          {SUGGESTED_PROMPTS.map(function (prompt) {
-            return (
-              <button
-                key={prompt}
-                type="button"
-                className="w-full text-left px-3 py-2 text-xs transition-colors"
-                style={{
-                  background: 'var(--p-surface2)',
-                  borderRadius: 'var(--p-radius)',
-                  color: 'var(--p-text-muted)',
-                }}
-              >
-                {prompt}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Input placeholder */}
-      <div className="p-3" style={{ borderTop: '1px solid var(--p-border)' }}>
-        <div
-          className="flex items-center gap-2 px-3 py-2 text-xs"
-          style={{
-            background: 'var(--p-surface2)',
-            border: '1px solid var(--p-border)',
-            borderRadius: 'var(--p-radius)',
-            color: 'var(--p-text-dim)',
-          }}
-        >
-          <MessageSquare className="w-3.5 h-3.5 flex-shrink-0" />
-          <span>Ask PathAdvisor...</span>
-        </div>
-      </div>
+    <div className="h-full flex flex-col min-h-0">
+      <PathAdvisorCard
+        messages={messages}
+        suggestedPrompts={SUGGESTED_PROMPTS}
+        onSend={onSend}
+        viewingLabel={props.viewingLabel}
+        privacyLabel={props.privacyLabel}
+      />
     </div>
   );
 }
