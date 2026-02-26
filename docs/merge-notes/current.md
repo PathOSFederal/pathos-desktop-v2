@@ -2979,3 +2979,65 @@ pnpm build
 ```
 
 **Result:** Failed (exit code 1, no stdout/stderr output captured).
+
+---
+
+## PathAdvisor single card refactor (PathAdvisorCard + PathAdvisorRail)
+
+**Branch:** `feature/ui-serious-mode-v1`  
+**Date:** 2026-02-26
+
+### Summary
+
+- Added `packages/ui/src/shell/PathAdvisorCard.tsx`: single ModuleCard with Header → Context pills → Conversation window (scroll, surface2 + border) → Composer (pinned, top divider). Suggested prompts as chips above message list; all PathAdvisor UI inside one card.
+- Updated `PathAdvisorRail.tsx` to render only `PathAdvisorCard`; removed floating input and multiple sections. Trust-first microcopy (Viewing, Privacy) remains as compact pills in the card.
+- Added `PathAdvisorCard.test.tsx`: smoke tests for rendering messages, suggested prompts, and composer/send button.
+- Exported `PathAdvisorCard`, `PathAdvisorCardProps`, `PathAdvisorMessage` from `@pathos/ui`.
+
+### Merge-notes logging (no full diffs)
+
+**git status**
+```
+On branch feature/ui-serious-mode-v1
+Changes not staged for commit:
+	modified:   packages/ui/src/index.ts
+	modified:   packages/ui/src/shell/PathAdvisorRail.tsx
+Untracked files:
+	packages/ui/src/shell/PathAdvisorCard.test.tsx
+	packages/ui/src/shell/PathAdvisorCard.tsx
+```
+
+**git branch --show-current**
+```
+feature/ui-serious-mode-v1
+```
+
+**git diff develop...HEAD** — branch `develop` not present in this repo; using HEAD baseline for changed files.
+
+**git diff --name-status HEAD -- packages/ui/**
+```
+M	packages/ui/src/index.ts
+M	packages/ui/src/shell/PathAdvisorRail.tsx
+A	packages/ui/src/shell/PathAdvisorCard.tsx
+A	packages/ui/src/shell/PathAdvisorCard.test.tsx
+```
+(A = added in working tree, M = modified.)
+
+**git diff --stat HEAD -- packages/ui/**
+```
+ packages/ui/src/index.ts                  |   1 +
+ packages/ui/src/shell/PathAdvisorCard.tsx | 223 (new)
+ packages/ui/src/shell/PathAdvisorCard.test.tsx |  67 (new)
+ packages/ui/src/shell/PathAdvisorRail.tsx | 171 +++++++-----------------------
+ 4 files changed, 37 insertions(+), 135 deletions (PathAdvisorRail), plus new files.
+```
+
+### Verification commands (recorded)
+
+| Command | Result |
+|---------|--------|
+| `pnpm check:boundaries` | PASSED (0 violations) |
+| `pnpm -r typecheck` | PASSED (adapters, core, ui, apps/desktop) |
+| `pnpm test` | PathAdvisorCard.test.tsx: 3 passed. Full suite: 44 pre-existing failures in `job-storage.test.ts` (localStorage not defined in node); all other tests pass. |
+
+Do not commit or push.
