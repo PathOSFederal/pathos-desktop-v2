@@ -23,8 +23,11 @@ import {
   JobSearchScreen,
   SavedJobsScreen,
   ResumeBuilderScreen,
+  ApplicationConfidenceCenterScreen,
   PathAdvisorRail,
   type PathAdvisorMessage,
+  type PathAdvisorAnchorContext,
+  type ApplicationConfidenceAnchorContext,
 } from '@pathos/ui';
 import { useReactRouterNavAdapter } from './adapters/react-router-nav-adapter';
 import { RouterNavLink } from './adapters/RouterNavLink';
@@ -36,6 +39,18 @@ const SIMULATED_REPLY =
 export function DesktopApp() {
   const adapter = useReactRouterNavAdapter();
   const [advisorMessages, setAdvisorMessages] = useState<PathAdvisorMessage[]>([]);
+  const [pathAdvisorAnchorContext, setPathAdvisorAnchorContext] = useState<PathAdvisorAnchorContext | null>(null);
+
+  const handleAnchorContextChange = useCallback(function (context: ApplicationConfidenceAnchorContext | null) {
+    if (context === null) {
+      setPathAdvisorAnchorContext(null);
+      return;
+    }
+    setPathAdvisorAnchorContext({
+      viewingLabel: context.title ? 'Application: ' + context.title : 'Application Confidence Center',
+      applicationId: context.applicationId,
+    });
+  }, []);
 
   const handleAdvisorSend = useCallback(function (text: string) {
     const userMessage: PathAdvisorMessage = { role: 'user', content: text };
@@ -71,6 +86,7 @@ export function DesktopApp() {
           <PathAdvisorRail
             messages={advisorMessages}
             onSend={handleAdvisorSend}
+            anchorContext={pathAdvisorAnchorContext}
           />
         }
       >
@@ -83,6 +99,12 @@ export function DesktopApp() {
           <Route path="/dashboard/resume-builder" element={<ResumeBuilderScreen />} />
           <Route path="/settings" element={<SettingsScreen />} />
           <Route path="/guided-apply" element={<GuidedApplyScreen />} />
+          <Route
+            path="/application-confidence-center"
+            element={
+              <ApplicationConfidenceCenterScreen onAnchorContextChange={handleAnchorContextChange} />
+            }
+          />
         </Routes>
       </SharedAppShell>
     </NavigationProvider>

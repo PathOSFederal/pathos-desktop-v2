@@ -13,7 +13,7 @@ export { SharedAppShell, type AppShellProps, type Platform, type ThemeVariant } 
 export { Sidebar, type SidebarProps } from './shell/Sidebar';
 export { TopBar, type TopBarProps } from './shell/TopBar';
 export { PathAdvisorCard, type PathAdvisorCardProps, type PathAdvisorMessage } from './shell/PathAdvisorCard';
-export { PathAdvisorRail, type PathAdvisorRailProps } from './shell/PathAdvisorRail';
+export { PathAdvisorRail, type PathAdvisorRailProps, type PathAdvisorAnchorContext } from './shell/PathAdvisorRail';
 
 // Screens
 export { DashboardScreen, type DashboardScreenProps } from './screens/DashboardScreen';
@@ -23,3 +23,8 @@ export { GuidedApplyScreen, type GuidedApplyScreenProps } from './screens/Guided
 export { JobSearchScreen, type JobSearchScreenProps } from './screens/JobSearchScreen';
 export { SavedJobsScreen, type SavedJobsScreenProps } from './screens/SavedJobsScreen';
 export { ResumeBuilderScreen, type ResumeBuilderScreenProps } from './screens/ResumeBuilderScreen';
+export {
+  ApplicationConfidenceCenterScreen,
+  type ApplicationConfidenceCenterScreenProps,
+  type ApplicationConfidenceAnchorContext,
+} from './screens/ApplicationConfidenceCenterScreen';
