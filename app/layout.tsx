@@ -1,7 +1,6 @@
 import type React from 'react';
 import type { Metadata } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
-import { AppShell } from '@/components/app-shell';
 import { Toaster } from '@/components/ui/toaster';
 import { Providers } from './providers';
 import './globals.css';
@@ -59,7 +58,7 @@ export default function RootLayout(props: Readonly<{ children: React.ReactNode }
     <html lang="en" className={geistSans.variable + ' ' + geistMono.variable + ' dark'} suppressHydrationWarning>
       <body className="font-sans antialiased">
         <Providers>
-          <AppShell>{children}</AppShell>
+          {children}
           <Toaster />
         </Providers>
       </body>

@@ -48,7 +48,8 @@ import type {
 // Props
 // ---------------------------------------------------------------------------
 
-export interface ResumeBuilderScreenProps {}
+export interface ResumeBuilderScreenProps {
+}
 
 // ---------------------------------------------------------------------------
 // Helper: generate IDs
@@ -438,6 +439,17 @@ export function ResumeBuilderScreen(_props: ResumeBuilderScreenProps) {
             Versions ({versions.length})
           </button>
         </div>
+      </div>
+
+      <div
+        className="px-4 py-2 text-xs"
+        style={{
+          borderBottom: '1px solid var(--p-border)',
+          background: 'var(--p-surface2)',
+          color: 'var(--p-text-muted)',
+        }}
+      >
+        Shared Resume Builder modules are active in this route and continue to expand in shared UI.
       </div>
 
       {/* Versions panel */}
