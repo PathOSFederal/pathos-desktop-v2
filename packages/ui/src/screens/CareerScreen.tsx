@@ -27,6 +27,18 @@ export function CareerScreen(_props: CareerScreenProps) {
         </p>
       </div>
 
+      <div
+        className="p-3 text-sm"
+        style={{
+          background: 'var(--p-surface2)',
+          border: '1px solid var(--p-border)',
+          borderRadius: 'var(--p-radius)',
+          color: 'var(--p-text-muted)',
+        }}
+      >
+        Shared Career & Resume modules are active in this route and continue to expand in shared UI.
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <PlaceholderCard title="Resume Strength" />
         <PlaceholderCard title="Career Timeline" />
@@ -40,10 +52,10 @@ export function CareerScreen(_props: CareerScreenProps) {
           onClick={function () { nav.push('/dashboard/resume-builder'); }}
           className="px-4 py-2 text-sm font-medium transition-colors"
           style={{
-            background: 'var(--p-accent)',
+            background: 'var(--p-surface2)',
+            border: '1px solid var(--p-border)',
             borderRadius: 'var(--p-radius)',
-            color: 'var(--p-bg)',
-            border: 'none',
+            color: 'var(--p-text)',
           }}
         >
           Open Resume Builder

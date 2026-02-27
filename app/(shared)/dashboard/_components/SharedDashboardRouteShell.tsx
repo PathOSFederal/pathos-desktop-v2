@@ -1,13 +1,13 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import type React from 'react';
+import { useCallback, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { NavigationProvider } from '@pathos/adapters';
 import { parseThemeVariant } from '@pathos/core';
 import { useNextNavAdapter, NextNavLink } from '@/lib/adapters/next-nav-adapter';
 import {
   SharedAppShell,
-  DashboardScreen,
   PathAdvisorRail,
   type PathAdvisorMessage,
   type ThemeVariant,
@@ -16,7 +16,10 @@ import {
 const SIMULATED_REPLY =
   'Thanks for your question. This is a local-only preview—PathAdvisor will use your context when connected.';
 
-function SharedDashboardShell(props: { themeVariant?: ThemeVariant }) {
+export function SharedDashboardRouteShell(props: { children: React.ReactNode }) {
+  const adapter = useNextNavAdapter();
+  const searchParams = useSearchParams();
+  const themeVariant = parseThemeVariant(searchParams.get('theme')) ?? undefined;
   const [advisorMessages, setAdvisorMessages] = useState<PathAdvisorMessage[]>([]);
 
   const handleAdvisorSend = useCallback(function (text: string) {
@@ -47,31 +50,21 @@ function SharedDashboardShell(props: { themeVariant?: ThemeVariant }) {
   }, []);
 
   return (
-    <SharedAppShell
-      platform="web"
-      themeVariant={props.themeVariant}
-      rightRail={
-        <PathAdvisorRail
-          dock="right"
-          messages={advisorMessages}
-          onSend={handleAdvisorSend}
-        />
-      }
-      advisorDock="right"
-    >
-      <DashboardScreen />
-    </SharedAppShell>
-  );
-}
-
-export default function DashboardPage() {
-  const adapter = useNextNavAdapter();
-  const searchParams = useSearchParams();
-  const themeVariant = parseThemeVariant(searchParams.get('theme')) ?? undefined;
-
-  return (
     <NavigationProvider adapter={adapter} linkComponent={NextNavLink}>
-      <SharedDashboardShell themeVariant={themeVariant} />
+      <SharedAppShell
+        platform="web"
+        themeVariant={themeVariant}
+        rightRail={
+          <PathAdvisorRail
+            dock="right"
+            messages={advisorMessages}
+            onSend={handleAdvisorSend}
+          />
+        }
+        advisorDock="right"
+      >
+        {props.children}
+      </SharedAppShell>
     </NavigationProvider>
   );
 }
