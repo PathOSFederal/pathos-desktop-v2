@@ -13,12 +13,10 @@ import { useNav } from '@pathos/adapters';
 
 export interface CareerScreenProps {
   userName?: string;
-  legacyHref?: string;
 }
 
-export function CareerScreen(props: CareerScreenProps) {
+export function CareerScreen(_props: CareerScreenProps) {
   const nav = useNav();
-  const legacyHref = props.legacyHref ?? '/dashboard-legacy/career';
 
   return (
     <div className="p-4 lg:p-6 space-y-6">
@@ -38,7 +36,7 @@ export function CareerScreen(props: CareerScreenProps) {
           color: 'var(--p-text-muted)',
         }}
       >
-        Shared Career & Resume migration is in progress. This page is the new shared surface for web and desktop parity.
+        Shared Career & Resume modules are active in this route and continue to expand in shared UI.
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -49,19 +47,6 @@ export function CareerScreen(props: CareerScreenProps) {
       </div>
 
       <div className="flex gap-3">
-        <button
-          type="button"
-          onClick={function () { nav.push(legacyHref); }}
-          className="px-4 py-2 text-sm font-semibold transition-colors"
-          style={{
-            background: 'var(--p-accent)',
-            borderRadius: 'var(--p-radius)',
-            color: 'var(--p-bg)',
-            border: 'none',
-          }}
-        >
-          Open legacy version
-        </button>
         <button
           type="button"
           onClick={function () { nav.push('/dashboard/resume-builder'); }}

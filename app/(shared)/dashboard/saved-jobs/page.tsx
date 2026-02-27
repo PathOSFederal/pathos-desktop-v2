@@ -1,12 +1,12 @@
 'use client';
 
-import { ResumeBuilderScreen } from '@pathos/ui';
+import { SavedJobsScreen } from '@pathos/ui';
 import { SharedDashboardRouteShell } from '../_components/SharedDashboardRouteShell';
 
-export default function ResumeBuilderPage() {
+export default function SavedJobsPage() {
   return (
     <SharedDashboardRouteShell>
-      <ResumeBuilderScreen />
+      <SavedJobsScreen />
     </SharedDashboardRouteShell>
   );
 }
