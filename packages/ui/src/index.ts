@@ -40,3 +40,9 @@ export { GuidedApplyScreen, type GuidedApplyScreenProps } from './screens/Guided
 export { JobSearchScreen, type JobSearchScreenProps } from './screens/JobSearchScreen';
 export { SavedJobsScreen, type SavedJobsScreenProps } from './screens/SavedJobsScreen';
 export { ResumeBuilderScreen, type ResumeBuilderScreenProps } from './screens/ResumeBuilderScreen';
+export { PlaceholderScreen, type PlaceholderScreenProps } from './screens/PlaceholderScreen';
+export { mockDashboardData } from './screens/dashboard/mockDashboardData';
+export type { DashboardViewModel, FocusItem, ActiveTrack, SignalItem } from './screens/dashboard/dashboardModel';
+export { buildDashboardViewModel } from './screens/dashboard/buildDashboardViewModel';
+export { useDashboardSnapshot } from './screens/dashboard/useDashboardSnapshot';
+export type { DashboardChanges, DashboardSnapshot } from './screens/dashboard/useDashboardSnapshot';

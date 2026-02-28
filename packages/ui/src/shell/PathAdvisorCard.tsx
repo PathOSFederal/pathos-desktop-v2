@@ -18,6 +18,8 @@ import { useState, useRef, useEffect } from 'react';
 import { Sparkles, Eye, Shield, Send, Trash2, Settings2, X } from 'lucide-react';
 import { ModuleCard } from '../components/ModuleCard';
 import { usePathAdvisorBriefingStore } from '../stores/pathAdvisorBriefingStore';
+import { useDashboardHeroDoNowStore } from '../stores/dashboardHeroDoNowStore';
+import { useNav } from '@pathos/adapters';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -86,6 +88,10 @@ export function PathAdvisorCard(props: PathAdvisorCardProps) {
   const closeBriefing = usePathAdvisorBriefingStore(function (s) {
     return s.clearBriefing;
   });
+  const heroDoNow = useDashboardHeroDoNowStore(function (s) {
+    return s.action;
+  });
+  const nav = useNav();
 
   useEffect(
     function () {
@@ -360,10 +366,49 @@ export function PathAdvisorCard(props: PathAdvisorCardProps) {
         </span>
       </div>
 
+      {/* Do now: mirror of dashboard hero focus action; hide when invalid; label for clarity. */}
+      <div className="flex-shrink-0 mb-3">
+        <p className="text-[10px] uppercase tracking-wide mb-1" style={{ color: 'var(--p-text-dim)' }}>
+          From Today&apos;s Focus
+        </p>
+        {heroDoNow !== null && heroDoNow !== undefined && heroDoNow.route !== null && heroDoNow.route !== '' ? (
+          <button
+            type="button"
+            onClick={function () {
+              nav.push(heroDoNow.route);
+            }}
+            className="w-full rounded-[var(--p-radius)] px-3 py-2 text-[12px] font-medium transition-colors hover:opacity-90 flex items-center justify-center gap-1.5"
+            style={{
+              background: 'var(--p-accent-bg)',
+              border: '1px solid var(--p-accent-muted)',
+              color: 'var(--p-accent)',
+            }}
+            aria-label={heroDoNow.label !== null && heroDoNow.label !== '' ? 'Do now: ' + heroDoNow.label : 'Do now'}
+          >
+            Do now: {heroDoNow.label !== null && heroDoNow.label !== '' ? heroDoNow.label : 'Open'}
+          </button>
+        ) : (
+          <button
+            type="button"
+            disabled
+            className="w-full rounded-[var(--p-radius)] px-3 py-2 text-[12px] font-medium flex items-center justify-center gap-1.5 opacity-60 cursor-not-allowed"
+            style={{
+              background: 'var(--p-surface2)',
+              border: '1px solid var(--p-border)',
+              color: 'var(--p-text-muted)',
+            }}
+            title="No action selected"
+            aria-label="No action selected"
+          >
+            Do now
+          </button>
+        )}
+      </div>
+
       {/* Conversation window: surface2 + subtle border; scrollable; briefing (when open) then chips then messages. */}
       <div
         ref={scrollContainerRef}
-        className="flex-1 min-h-0 overflow-y-auto rounded-[var(--p-radius)] mb-3 flex flex-col gap-2"
+        className="pathos-scroll flex-1 min-h-0 overflow-y-auto rounded-[var(--p-radius)] mb-3 flex flex-col gap-2"
         style={{
           background: 'var(--p-surface2)',
           border: '1px solid var(--p-border)',

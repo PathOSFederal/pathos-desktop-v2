@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { DashboardScreen, type DashboardData } from '@pathos/ui';
+import { DashboardScreen } from '@pathos/ui';
 import { SharedDashboardRouteShell } from './_components/SharedDashboardRouteShell';
 import {
   Dialog,
@@ -13,8 +13,6 @@ import {
 } from '@/components/ui/dialog';
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
 import { useToast } from '@/hooks/use-toast';
-import { mockDashboardData } from '@/lib/dashboard/mockDashboardData';
-
 const RESUME_BUILDER_ROUTE = '/dashboard/resume-builder';
 const TRACKED_APPLICATIONS_ROUTE = '/import';
 const GUIDED_APPLY_ROUTE = '/desktop/usajobs-guided';
@@ -97,7 +95,6 @@ export default function DashboardPage() {
   const router = useRouter();
   const toast = useToast().toast;
   const [explainerOpen, setExplainerOpen] = useState(false);
-  const dashboardData: DashboardData = mockDashboardData;
 
   function goToRouteOrComingSoon(route: string) {
     if (!route) {
@@ -110,7 +107,6 @@ export default function DashboardPage() {
   return (
     <SharedDashboardRouteShell>
       <DashboardScreen
-        data={dashboardData}
         onOpenWeeklyBriefing={function () {
           setExplainerOpen(true);
         }}

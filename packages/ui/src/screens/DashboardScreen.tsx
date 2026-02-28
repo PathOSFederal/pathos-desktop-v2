@@ -14,7 +14,7 @@
 'use client';
 
 import type React from 'react';
-import { useCallback } from 'react';
+import { useCallback, useMemo, useEffect, useState } from 'react';
 import {
   FolderOpen,
   FileText,
@@ -32,6 +32,13 @@ import { ModuleCard } from '../components/ModuleCard';
 import { AskPathAdvisorButton } from '../components/AskPathAdvisorButton';
 import { CardRowList } from './_components/CardRowList';
 import { usePathAdvisorBriefingStore } from '../stores/pathAdvisorBriefingStore';
+import { useDashboardHeroDoNowStore } from '../stores/dashboardHeroDoNowStore';
+import { useNav } from '@pathos/adapters';
+import { mockDashboardData } from './dashboard/mockDashboardData';
+import { buildDashboardViewModel } from './dashboard/buildDashboardViewModel';
+import { useDashboardSnapshot } from './dashboard/useDashboardSnapshot';
+import type { FocusItem } from './dashboard/dashboardModel';
+import { JOB_SEARCH, IMPORT, RESUME_BUILDER } from '../routes/routes';
 
 /** Data shape for dashboard content; app passes mock or real data. */
 export interface DashboardData {
@@ -102,6 +109,50 @@ export interface DashboardScreenProps {
 }
 
 // ---------------------------------------------------------------------------
+// Snapshot "How this works" — opens PathAdvisor briefing for local snapshot logic
+// ---------------------------------------------------------------------------
+
+function SnapshotHowThisWorksLink() {
+  const openBriefing = usePathAdvisorBriefingStore(function (s) {
+    return s.openBriefing;
+  });
+  const handleClick = useCallback(
+    function () {
+      openBriefing({
+        id: 'snapshot-how',
+        title: 'How "since last visit" works',
+        sourceLabel: 'Briefing',
+        sections: [
+          {
+            heading: 'Local snapshot',
+            body: 'PathOS stores a small snapshot of your dashboard (focus and signal counts) in this browser. When you return, it compares the current view to that snapshot to show what changed.',
+          },
+          {
+            heading: 'Privacy',
+            body: 'The snapshot stays on your device. Only counts and ids are stored, not the content of your focus or signals.',
+          },
+          {
+            heading: 'Resetting',
+            body: 'Clearing site data or using a different browser or device will show no "since last visit" until a new snapshot is saved.',
+          },
+        ],
+      });
+    },
+    [openBriefing]
+  );
+  return (
+    <button
+      type="button"
+      onClick={handleClick}
+      className="text-[11px] underline hover:no-underline"
+      style={{ color: 'var(--p-text-dim)' }}
+    >
+      How this works
+    </button>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Section header with optional "Last updated" (hidden when no timestamp)
 // ---------------------------------------------------------------------------
 
@@ -127,6 +178,9 @@ function SectionHeader(props: { title: string; lastUpdated?: string }) {
 
 // ---------------------------------------------------------------------------
 // Briefing: 4 compact tiles with value and subtext
+// Base border matches ModuleCard (1px p-border, radius-lg); subtle left
+// accent bar (2px, accent-muted) distinguishes briefing tiles without
+// duplicating the hero's full accent treatment.
 // ---------------------------------------------------------------------------
 
 const BRIEFING_ICONS: Record<string, React.ReactNode> = {
@@ -145,33 +199,40 @@ function BriefingTile(props: {
   const icon = BRIEFING_ICONS[props.label];
   return (
     <div
-      className="rounded-[var(--p-radius-lg)] border p-3 flex flex-col gap-0.5"
+      className="rounded-[var(--p-radius-lg)] flex flex-col"
       style={{
         background: 'var(--p-surface)',
-        borderColor: 'var(--p-border)',
+        border: '1px solid var(--p-border)',
+        borderRadius: 'var(--p-radius-lg)',
         boxShadow: 'var(--p-shadow-elev-1)',
       }}
     >
-      <div className="flex items-start justify-between gap-2">
-        <span
-          className="text-[11px] uppercase tracking-wide"
-          style={{ color: 'var(--p-text-dim)' }}
-        >
-          {props.label}
-        </span>
-        {icon != null ? <span className="flex-shrink-0">{icon}</span> : null}
-      </div>
-      <p className="font-semibold" style={{ color: 'var(--p-text)', fontSize: '1rem' }}>
-        {props.value}
-      </p>
-      <p
-        className="text-[11px]"
-        style={{
-          color: props.subtextPositive ? 'var(--p-success)' : 'var(--p-text-muted)',
-        }}
+      {/* Inner content with 2px left accent bar (briefing signature; low emphasis). */}
+      <div
+        className="p-3 flex flex-col gap-0.5 pl-[calc(0.75rem+2px)]"
+        style={{ borderLeft: '2px solid var(--p-accent-muted)' }}
       >
-        {props.subtext}
-      </p>
+        <div className="flex items-start justify-between gap-2">
+          <span
+            className="text-[11px] uppercase tracking-wide"
+            style={{ color: 'var(--p-text-dim)' }}
+          >
+            {props.label}
+          </span>
+          {icon != null ? <span className="flex-shrink-0">{icon}</span> : null}
+        </div>
+        <p className="font-semibold" style={{ color: 'var(--p-text)', fontSize: '1rem' }}>
+          {props.value}
+        </p>
+        <p
+          className="text-[11px]"
+          style={{
+            color: props.subtextPositive ? 'var(--p-success)' : 'var(--p-text-muted)',
+          }}
+        >
+          {props.subtext}
+        </p>
+      </div>
     </div>
   );
 }
@@ -283,31 +344,172 @@ function FocusHeroCard(props: {
   );
 }
 
-function FocusSmallCard(props: {
-  title: string;
-  description: string;
-  ctaLabel: string;
-  onCtaClick?: () => void;
-  /** Optional tooltip for the CTA button (name + short description). */
-  ctaTooltip?: string;
+/** Hero focus card driven by view model FocusItem; optional dataHero for stepBadge and briefing. */
+function FocusHeroCardFromItem(props: {
+  item: FocusItem;
+  dataHero: DashboardData['focusHero'];
+  onCtaClick: () => void;
+  className?: string;
+}) {
+  const d = props.dataHero;
+  const stepBadge = d !== null && d !== undefined ? d.stepBadge : 'Step 1';
+  const explainKnow = d !== null && d !== undefined ? d.explainKnow : '';
+  const explainNotKnow = d !== null && d !== undefined ? d.explainNotKnow : '';
+  const explainWhy = d !== null && d !== undefined ? d.explainWhy : '';
+  const estimatedTime = d !== null && d !== undefined ? d.estimatedTime : undefined;
+  const whyItMatters = d !== null && d !== undefined ? d.whyItMatters : undefined;
+  const whatYoullDo = d !== null && d !== undefined ? d.whatYoullDo : undefined;
+  return (
+    <FocusHeroCard
+      title={props.item.title}
+      reason={props.item.reason}
+      ctaLabel={props.item.actionLabel}
+      stepBadge={stepBadge}
+      explainKnow={explainKnow}
+      explainNotKnow={explainNotKnow}
+      explainWhy={explainWhy}
+      estimatedTime={estimatedTime}
+      whyItMatters={whyItMatters}
+      whatYoullDo={whatYoullDo}
+      onCtaClick={props.onCtaClick}
+      className={props.className}
+    />
+  );
+}
+
+/** Small focus card from view model with optional dismiss (recognition over recall). */
+function FocusSmallCardFromItem(props: {
+  item: FocusItem;
+  onCtaClick: () => void;
+  onDismiss?: () => void;
 }) {
   return (
-    <ModuleCard title={props.title}>
+    <ModuleCard title={props.item.title}>
       <p className="mt-0.5" style={{ color: 'var(--p-text-muted)', fontSize: 'var(--p-font-size-body)' }}>
-        {props.description}
+        {props.item.reason}
+      </p>
+      <div className="mt-3 flex flex-wrap gap-2 items-center">
+        <button
+          type="button"
+          onClick={props.onCtaClick}
+          className="rounded-[var(--p-radius)] px-3 py-1.5 text-sm font-medium transition-colors hover:opacity-90"
+          style={{
+            background: 'var(--p-surface2)',
+            border: '1px solid var(--p-border)',
+            color: 'var(--p-text)',
+          }}
+        >
+          {props.item.actionLabel}
+        </button>
+        {props.onDismiss !== undefined ? (
+          <button
+            type="button"
+            onClick={props.onDismiss}
+            className="rounded-[var(--p-radius)] px-2 py-1 text-[11px] transition-colors hover:opacity-80"
+            style={{ color: 'var(--p-text-dim)' }}
+            aria-label="Dismiss"
+          >
+            Dismiss
+          </button>
+        ) : null}
+      </div>
+    </ModuleCard>
+  );
+}
+
+/** Dismissed focus items in subdued style when "Show dismissed" is expanded. */
+function DismissedFocusList(props: {
+  dismissedIds: string[];
+  allFocus: FocusItem[];
+  onUndo: (id: string) => void;
+}) {
+  const idToItem: Record<string, FocusItem> = {};
+  for (let i = 0; i < props.allFocus.length; i++) {
+    idToItem[props.allFocus[i].id] = props.allFocus[i];
+  }
+  const items: FocusItem[] = [];
+  for (let i = 0; i < props.dismissedIds.length; i++) {
+    const item = idToItem[props.dismissedIds[i]];
+    if (item !== undefined) {
+      items.push(item);
+    }
+  }
+  if (items.length === 0) {
+    return null;
+  }
+  return (
+    <div
+      className="mt-2 pt-2 border-t rounded-[var(--p-radius)] px-2 py-1"
+      style={{ borderColor: 'var(--p-border)', background: 'var(--p-surface2)', opacity: 0.9 }}
+    >
+      {items.map(function (item) {
+        return (
+          <div
+            key={item.id}
+            className="flex flex-wrap items-center justify-between gap-2 py-1 text-[11px]"
+            style={{ color: 'var(--p-text-muted)' }}
+          >
+            <span>{item.title}</span>
+            <button
+              type="button"
+              onClick={function () {
+                props.onUndo(item.id);
+              }}
+              className="underline hover:no-underline"
+              style={{ color: 'var(--p-text-dim)' }}
+            >
+              Undo
+            </button>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/** Calm empty state when no focus items; single CTA routes via shared route constant. */
+function DashboardEmptyFocus(props: { onNavigate: (path: string) => void }) {
+  return (
+    <ModuleCard title="Today's Focus">
+      <p className="mt-0.5" style={{ color: 'var(--p-text-muted)', fontSize: 'var(--p-font-size-body)' }}>
+        Nothing in focus right now. Explore job search or come back later.
       </p>
       <button
         type="button"
-        onClick={props.onCtaClick}
-        title={props.ctaTooltip}
+        onClick={function () {
+          props.onNavigate(JOB_SEARCH);
+        }}
         className="mt-3 rounded-[var(--p-radius)] px-3 py-1.5 text-sm font-medium transition-colors hover:opacity-90"
         style={{
-          background: 'var(--p-surface2)',
-          border: '1px solid var(--p-border)',
-          color: 'var(--p-text)',
+          background: 'var(--p-accent)',
+          color: 'var(--p-bg)',
         }}
       >
-        {props.ctaLabel}
+        Explore job search
+      </button>
+    </ModuleCard>
+  );
+}
+
+/** Calm empty state when no signals; single CTA to job search. */
+function DashboardEmptySignals(props: { onNavigate: (path: string) => void }) {
+  return (
+    <ModuleCard title="Signals" variant="dense">
+      <p className="mt-0.5" style={{ color: 'var(--p-text-muted)', fontSize: 'var(--p-font-size-body)' }}>
+        No updates or timeline signals yet. Save jobs or track applications to see activity here.
+      </p>
+      <button
+        type="button"
+        onClick={function () {
+          props.onNavigate(JOB_SEARCH);
+        }}
+        className="mt-3 rounded-[var(--p-radius)] px-3 py-1.5 text-sm font-medium transition-colors hover:opacity-90"
+        style={{
+          background: 'var(--p-accent)',
+          color: 'var(--p-bg)',
+        }}
+      >
+        Go to job search
       </button>
     </ModuleCard>
   );
@@ -476,7 +678,44 @@ const SIGNAL_ICONS: Record<string, React.ReactNode> = {
 
 function UpdatesSinceVisitCard(props: {
   items: Array<{ icon: string; text: string; timeAgo: string }>;
+  onNavigate?: (path: string) => void;
 }) {
+  const isEmpty = props.items.length === 0;
+  if (isEmpty && props.onNavigate !== undefined) {
+    return (
+      <ModuleCard title="UPDATES SINCE LAST VISIT" variant="dense">
+        <p className="text-[12px] mt-0" style={{ color: 'var(--p-text-muted)' }}>
+          No application or job updates yet.
+        </p>
+        <button
+          type="button"
+          onClick={function () {
+            const nav = props.onNavigate;
+            if (nav !== undefined) {
+              nav(IMPORT);
+            }
+          }}
+          className="mt-3 rounded-[var(--p-radius)] px-3 py-1.5 text-[12px] font-medium transition-colors hover:opacity-90"
+          style={{
+            background: 'var(--p-surface2)',
+            border: '1px solid var(--p-border)',
+            color: 'var(--p-text)',
+          }}
+        >
+          Track applications
+        </button>
+      </ModuleCard>
+    );
+  }
+  if (isEmpty) {
+    return (
+      <ModuleCard title="UPDATES SINCE LAST VISIT" variant="dense">
+        <p className="text-[12px] mt-0" style={{ color: 'var(--p-text-muted)' }}>
+          No application or job updates yet.
+        </p>
+      </ModuleCard>
+    );
+  }
   return (
     <ModuleCard title="UPDATES SINCE LAST VISIT" variant="dense">
       <CardRowList className="mt-0">
@@ -507,7 +746,44 @@ function ReadinessDeltasCard(props: {
     deltaNegative?: boolean;
     explanation: string;
   }>;
+  onNavigate?: (path: string) => void;
 }) {
+  const isEmpty = props.items.length === 0;
+  if (isEmpty && props.onNavigate !== undefined) {
+    return (
+      <ModuleCard title="READINESS DELTAS" variant="dense">
+        <p className="text-[12px] mt-0" style={{ color: 'var(--p-text-muted)' }}>
+          No readiness changes yet.
+        </p>
+        <button
+          type="button"
+          onClick={function () {
+            const nav = props.onNavigate;
+            if (nav !== undefined) {
+              nav(RESUME_BUILDER);
+            }
+          }}
+          className="mt-3 rounded-[var(--p-radius)] px-3 py-1.5 text-[12px] font-medium transition-colors hover:opacity-90"
+          style={{
+            background: 'var(--p-surface2)',
+            border: '1px solid var(--p-border)',
+            color: 'var(--p-text)',
+          }}
+        >
+          Open Resume Builder
+        </button>
+      </ModuleCard>
+    );
+  }
+  if (isEmpty) {
+    return (
+      <ModuleCard title="READINESS DELTAS" variant="dense">
+        <p className="text-[12px] mt-0" style={{ color: 'var(--p-text-muted)' }}>
+          No readiness changes yet.
+        </p>
+      </ModuleCard>
+    );
+  }
   return (
     <ModuleCard title="READINESS DELTAS" variant="dense">
       <CardRowList className="mt-0">
@@ -547,6 +823,7 @@ function TimelineEstimatesCard(props: {
   disclaimer: string;
   items: Array<{ label: string; range: string }>;
   methodology: string;
+  onNavigate?: (path: string) => void;
 }) {
   const openBriefing = usePathAdvisorBriefingStore(function (s) {
     return s.openBriefing;
@@ -577,6 +854,59 @@ function TimelineEstimatesCard(props: {
       ],
     });
   }, [openBriefing]);
+
+  const isEmpty = props.items.length === 0;
+  if (isEmpty && props.onNavigate !== undefined) {
+    return (
+      <ModuleCard title="TIMELINE ESTIMATES" variant="dense">
+        <p className="text-[12px] mt-0" style={{ color: 'var(--p-text-muted)' }}>
+          No timeline estimates yet.
+        </p>
+        <button
+          type="button"
+          onClick={function () {
+            const nav = props.onNavigate;
+            if (nav !== undefined) {
+              nav(RESUME_BUILDER);
+            }
+          }}
+          className="mt-3 rounded-[var(--p-radius)] px-3 py-1.5 text-[12px] font-medium transition-colors hover:opacity-90"
+          style={{
+            background: 'var(--p-surface2)',
+            border: '1px solid var(--p-border)',
+            color: 'var(--p-text)',
+          }}
+        >
+          Open Resume Builder
+        </button>
+        <div className="mt-2">
+          <AskPathAdvisorButton
+            onClick={handleAskPathAdvisor}
+            size="sm"
+            tooltipId="timeline-ask-pathadvisor-tooltip"
+            tooltipText="Opens PathAdvisor briefing explaining how timeline estimates are calculated."
+          />
+        </div>
+      </ModuleCard>
+    );
+  }
+  if (isEmpty) {
+    return (
+      <ModuleCard title="TIMELINE ESTIMATES" variant="dense">
+        <p className="text-[12px] mt-0" style={{ color: 'var(--p-text-muted)' }}>
+          No timeline estimates yet.
+        </p>
+        <div className="mt-2">
+          <AskPathAdvisorButton
+            onClick={handleAskPathAdvisor}
+            size="sm"
+            tooltipId="timeline-ask-pathadvisor-tooltip"
+            tooltipText="Opens PathAdvisor briefing explaining how timeline estimates are calculated."
+          />
+        </div>
+      </ModuleCard>
+    );
+  }
 
   return (
     <ModuleCard title="TIMELINE ESTIMATES" variant="dense">
@@ -614,38 +944,11 @@ function TimelineEstimatesCard(props: {
 // Placeholder fallbacks when no data (minimal; match prior scaffold)
 // ---------------------------------------------------------------------------
 
-function FocusPlaceholderCard(props: { title: string; reason: string }) {
-  return (
-    <ModuleCard title={props.title}>
-      <p className="mt-0.5" style={{ color: 'var(--p-text-muted)', fontSize: 'var(--p-font-size-body)' }}>
-        {props.reason}
-      </p>
-      <button
-        type="button"
-        className="mt-3 rounded-[var(--p-radius)] px-3 py-1.5 text-sm font-medium opacity-60 cursor-not-allowed"
-        style={{ background: 'var(--p-accent)', color: 'var(--p-bg)' }}
-      >
-        Do this
-      </button>
-    </ModuleCard>
-  );
-}
-
 function TrackPlaceholderCard(props: { title: string }) {
   return (
     <ModuleCard title={props.title} variant="dense">
       <p className="mt-0.5" style={{ color: 'var(--p-text-muted)', fontSize: 'var(--p-font-size-body)' }}>
         Placeholder. No real logic in Pass 1.
-      </p>
-    </ModuleCard>
-  );
-}
-
-function SignalPlaceholderCard(props: { title: string }) {
-  return (
-    <ModuleCard title={props.title} variant="dense">
-      <p className="mt-0.5" style={{ color: 'var(--p-text-muted)', fontSize: 'var(--p-font-size-body)' }}>
-        Stub. No real logic in Pass 1.
       </p>
     </ModuleCard>
   );
@@ -657,29 +960,66 @@ function SignalPlaceholderCard(props: { title: string }) {
 
 export function DashboardScreen(props: DashboardScreenProps) {
   const hasWeeklyBriefing = props.onOpenWeeklyBriefing !== undefined && props.onOpenWeeklyBriefing !== null;
-  const data = props.data;
-  const hasData = data !== undefined && data !== null;
-  const trackedAppsCount = hasData && data.applications ? data.applications.length : 0;
-  const hasGuidedApplyContext = props.hasGuidedApplyContext === true;
-  // State-aware right-side focus cards: no tracked apps -> "Track an application"; no guided-apply context -> "Start Guided Apply"
-  const firstRightCard =
-    hasData && data.focusSmall && data.focusSmall.length >= 1 && trackedAppsCount > 0
-      ? data.focusSmall[0]
-      : {
-          title: 'Track an application',
-          description:
-            'Add an application to track, then PathOS can translate updates and next steps.',
-          ctaLabel: 'Track',
-        };
-  const secondRightCard =
-    hasGuidedApplyContext && hasData && data.focusSmall && data.focusSmall.length >= 2
-      ? data.focusSmall[1]
-      : {
-          title: 'Start Guided Apply',
-          description:
-            'When you start an application, we will help align questionnaire responses to the announcement.',
-          ctaLabel: 'Start',
-        };
+  const data = props.data !== undefined && props.data !== null ? props.data : mockDashboardData;
+  const nav = useNav();
+  const setHeroDoNow = useDashboardHeroDoNowStore(function (s) {
+    return s.setAction;
+  });
+
+  const viewModel = useMemo(
+    function () {
+      return buildDashboardViewModel(data);
+    },
+    [data]
+  );
+
+  const {
+    changes,
+    dismissedFocusIds,
+    dismissFocusId,
+    undoDismissFocusId,
+  } = useDashboardSnapshot(viewModel);
+  const [showDismissedExpanded, setShowDismissedExpanded] = useState(false);
+
+  const visibleFocus = useMemo(
+    function () {
+      const dismissedSet: Record<string, boolean> = {};
+      for (let i = 0; i < dismissedFocusIds.length; i++) {
+        dismissedSet[dismissedFocusIds[i]] = true;
+      }
+      const out: FocusItem[] = [];
+      for (let i = 0; i < viewModel.focus.length; i++) {
+        if (!dismissedSet[viewModel.focus[i].id]) {
+          out.push(viewModel.focus[i]);
+        }
+      }
+      return out;
+    },
+    [viewModel.focus, dismissedFocusIds]
+  );
+
+  useEffect(
+    function () {
+      const hero = visibleFocus.length > 0 && visibleFocus[0].id === 'focus-hero'
+        ? visibleFocus[0]
+        : null;
+      if (hero !== null) {
+        setHeroDoNow({ label: hero.actionLabel, route: hero.actionRoute });
+      } else {
+        setHeroDoNow(null);
+      }
+    },
+    [visibleFocus, setHeroDoNow]
+  );
+
+  const handleDoNow = useCallback(
+    function (path: string) {
+      if (path !== null && path !== undefined && path !== '') {
+        nav.push(path);
+      }
+    },
+    [nav]
+  );
 
   return (
     <div className="p-4 lg:p-5 space-y-5">
@@ -716,10 +1056,18 @@ export function DashboardScreen(props: DashboardScreenProps) {
         ) : null}
       </div>
 
-      {/* A) Briefing row: 4 compact tiles */}
-      {hasData && data.briefing && data.briefing.length > 0 ? (
+      {/* A) Briefing row: 4 compact tiles; "since last visit" only when there are actual changes; How this works opens PathAdvisor. */}
+      {data.briefing && data.briefing.length > 0 ? (
         <div>
-          <SectionHeader title="Briefing" lastUpdated={data.lastUpdated} />
+          <SectionHeader title="Briefing" lastUpdated={viewModel.lastUpdated} />
+          {changes.hasPriorVisit && changes.summaryLine !== '' ? (
+            <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1 mb-2">
+              <p className="text-[11px]" style={{ color: 'var(--p-text-dim)' }}>
+                {changes.summaryLine}
+              </p>
+              <SnapshotHowThisWorksLink />
+            </div>
+          ) : null}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             {data.briefing.map(function (tile, i) {
               return (
@@ -736,125 +1084,146 @@ export function DashboardScreen(props: DashboardScreenProps) {
         </div>
       ) : null}
 
-      {/* B) Today's Focus: 3-col grid — hero left (col-span-2 row-span-2), Decode top-right, Tighten/Start bottom-right */}
+      {/* B) Today's Focus: view model driven; hero then secondary cards; dismiss (optional for hero) + undo. */}
       <div>
-        <SectionHeader title="Today's Focus" lastUpdated={hasData && data.lastUpdated ? data.lastUpdated : undefined} />
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {hasData && data.focusHero != null ? (
-            <FocusHeroCard
-              title={data.focusHero.title}
-              reason={data.focusHero.reason}
-              ctaLabel={data.focusHero.ctaLabel}
-              stepBadge={data.focusHero.stepBadge}
-              explainKnow={data.focusHero.explainKnow}
-              explainNotKnow={data.focusHero.explainNotKnow}
-              explainWhy={data.focusHero.explainWhy}
-              estimatedTime={data.focusHero.estimatedTime}
-              whyItMatters={data.focusHero.whyItMatters}
-              whatYoullDo={data.focusHero.whatYoullDo}
-              onCtaClick={props.onFixResumeGap}
-              className="md:col-span-2 md:row-span-2"
-            />
-          ) : (
-            <div className="md:col-span-2 md:row-span-2">
-              <FocusPlaceholderCard
-                title="Focus item 1"
-                reason="One-line reason placeholder."
+        <SectionHeader title="Today's Focus" lastUpdated={viewModel.lastUpdated} />
+        {visibleFocus.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {visibleFocus[0].id === 'focus-hero' ? (
+              <FocusHeroCardFromItem
+                item={visibleFocus[0]}
+                dataHero={data.focusHero}
+                onCtaClick={function () {
+                  handleDoNow(visibleFocus[0].actionRoute);
+                }}
+                className="md:col-span-2 md:row-span-2"
               />
-            </div>
-          )}
-          {hasData ? (
-            <>
+            ) : (
+              <div className="md:col-span-2 md:row-span-2" />
+            )}
+            {visibleFocus[0].id === 'focus-hero' && visibleFocus.length > 1 ? (
               <div className="md:col-start-3 md:row-start-1">
-                <FocusSmallCard
-                  title={firstRightCard.title}
-                  description={firstRightCard.description}
-                  ctaLabel={firstRightCard.ctaLabel}
-                  onCtaClick={props.onDecodeTrackedApp}
-                  ctaTooltip={
-                    trackedAppsCount === 0
-                      ? 'Track an application. Add an application to track, then PathOS can translate updates and next steps.'
-                      : 'Decode your latest status. Understand what your USAJOBS application status means.'
-                  }
+                <FocusSmallCardFromItem
+                  item={visibleFocus[1]}
+                  onCtaClick={function () {
+                    handleDoNow(visibleFocus[1].actionRoute);
+                  }}
+                  onDismiss={function () {
+                    dismissFocusId(visibleFocus[1].id);
+                  }}
                 />
               </div>
-              <div className="md:col-start-3 md:row-start-2">
-                <FocusSmallCard
-                  title={secondRightCard.title}
-                  description={secondRightCard.description}
-                  ctaLabel={secondRightCard.ctaLabel}
-                  onCtaClick={props.onReviewQuestionnaire}
-                  ctaTooltip={
-                    hasGuidedApplyContext
-                      ? 'Tighten questionnaire alignment. Review self-assessment responses against the announcement.'
-                      : 'Start Guided Apply. We will help align questionnaire responses to the announcement.'
-                  }
+            ) : visibleFocus.length > 0 ? (
+              <div className="md:col-start-3 md:row-start-1">
+                <FocusSmallCardFromItem
+                  item={visibleFocus[0]}
+                  onCtaClick={function () {
+                    handleDoNow(visibleFocus[0].actionRoute);
+                  }}
+                  onDismiss={function () {
+                    dismissFocusId(visibleFocus[0].id);
+                  }}
                 />
               </div>
-            </>
-          ) : (
-            <>
-              <div className="md:col-start-3 md:row-start-1">
-                <FocusPlaceholderCard title="Focus item 2" reason="One-line reason placeholder." />
-              </div>
+            ) : null}
+            {visibleFocus[0].id === 'focus-hero' && visibleFocus.length > 2 ? (
               <div className="md:col-start-3 md:row-start-2">
-                <FocusPlaceholderCard title="Focus item 3" reason="One-line reason placeholder." />
+                <FocusSmallCardFromItem
+                  item={visibleFocus[2]}
+                  onCtaClick={function () {
+                    handleDoNow(visibleFocus[2].actionRoute);
+                  }}
+                  onDismiss={function () {
+                    dismissFocusId(visibleFocus[2].id);
+                  }}
+                />
               </div>
-            </>
-          )}
-        </div>
+            ) : visibleFocus.length > 1 ? (
+              <div className="md:col-start-3 md:row-start-2">
+                <FocusSmallCardFromItem
+                  item={visibleFocus[1]}
+                  onCtaClick={function () {
+                    handleDoNow(visibleFocus[1].actionRoute);
+                  }}
+                  onDismiss={function () {
+                    dismissFocusId(visibleFocus[1].id);
+                  }}
+                />
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+        {dismissedFocusIds.length > 0 ? (
+          <div className="mt-2">
+            <button
+              type="button"
+              onClick={function () {
+                setShowDismissedExpanded(!showDismissedExpanded);
+              }}
+              className="text-[10px] underline hover:no-underline"
+              style={{ color: 'var(--p-text-dim)', opacity: 0.85 }}
+            >
+              {showDismissedExpanded ? 'Hide dismissed' : 'Show dismissed'}
+            </button>
+            {showDismissedExpanded ? (
+              <DismissedFocusList
+                dismissedIds={dismissedFocusIds}
+                allFocus={viewModel.focus}
+                onUndo={undoDismissFocusId}
+              />
+            ) : null}
+          </div>
+        ) : null}
+        {visibleFocus.length === 0 && dismissedFocusIds.length === 0 ? (
+          <DashboardEmptyFocus onNavigate={handleDoNow} />
+        ) : null}
       </div>
 
-      {/* C) Your Active Tracks: Saved Jobs, Applications, Resume */}
+      {/* C) Your Active Tracks: view model driven; top 3 items per track for preview. */}
       <div>
-        <SectionHeader title="Your Active Tracks" lastUpdated={hasData && data.lastUpdated ? data.lastUpdated : undefined} />
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {hasData && data.savedJobs && data.savedJobs.length > 0 ? (
-            <SavedJobsCard items={data.savedJobs} />
-          ) : (
-            <TrackPlaceholderCard title="Saved Jobs" />
-          )}
-          {hasData && data.applications && data.applications.length > 0 ? (
-            <ApplicationsCard items={data.applications} />
-          ) : (
-            <TrackPlaceholderCard title="Applications" />
-          )}
-          {hasData && data.resume ? (
-            <ResumeCard
-              progressPercent={data.resume.progressPercent}
-              checklist={data.resume.checklist}
-              openCtaLabel={data.resume.openCtaLabel}
-            />
-          ) : (
-            <TrackPlaceholderCard title="Resume" />
-          )}
-        </div>
+        <SectionHeader title="Your Active Tracks" lastUpdated={viewModel.lastUpdated} />
+        {viewModel.tracks.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {data.savedJobs && data.savedJobs.length > 0 ? (
+              <SavedJobsCard items={data.savedJobs.slice(0, 3)} />
+            ) : (
+              <TrackPlaceholderCard title="Saved Jobs" />
+            )}
+            {data.applications && data.applications.length > 0 ? (
+              <ApplicationsCard items={data.applications.slice(0, 3)} />
+            ) : (
+              <TrackPlaceholderCard title="Applications" />
+            )}
+            {data.resume ? (
+              <ResumeCard
+                progressPercent={data.resume.progressPercent}
+                checklist={data.resume.checklist}
+                openCtaLabel={data.resume.openCtaLabel}
+              />
+            ) : (
+              <TrackPlaceholderCard title="Resume" />
+            )}
+          </div>
+        ) : null}
       </div>
 
-      {/* D) Signals: Updates, Readiness deltas, Timeline estimates */}
+      {/* D) Signals: view model driven (updatesSinceVisit, readinessDeltas, timeline). */}
       <div>
-        <SectionHeader title="Signals" lastUpdated={hasData && data.lastUpdated ? data.lastUpdated : undefined} />
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          {hasData && data.updatesSinceVisit && data.updatesSinceVisit.length > 0 ? (
-            <UpdatesSinceVisitCard items={data.updatesSinceVisit} />
-          ) : (
-            <SignalPlaceholderCard title="Updates since last visit" />
-          )}
-          {hasData && data.readinessDeltas && data.readinessDeltas.length > 0 ? (
-            <ReadinessDeltasCard items={data.readinessDeltas} />
-          ) : (
-            <SignalPlaceholderCard title="Readiness deltas" />
-          )}
-          {hasData && data.timelineEstimates && data.timelineEstimates.length > 0 ? (
+        <SectionHeader title="Signals" lastUpdated={viewModel.lastUpdated} />
+        {viewModel.signals.length > 0 ? (
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <UpdatesSinceVisitCard items={viewModel.updatesSinceVisit} onNavigate={handleDoNow} />
+            <ReadinessDeltasCard items={viewModel.readinessDeltas} onNavigate={handleDoNow} />
             <TimelineEstimatesCard
-              disclaimer={data.timelineDisclaimer}
-              items={data.timelineEstimates}
-              methodology={data.timelineMethodology}
+              disclaimer={viewModel.timelineDisclaimer}
+              items={viewModel.timelineEstimates}
+              methodology={viewModel.timelineMethodology}
+              onNavigate={handleDoNow}
             />
-          ) : (
-            <SignalPlaceholderCard title="Timeline estimates" />
-          )}
-        </div>
+          </div>
+        ) : (
+          <DashboardEmptySignals onNavigate={handleDoNow} />
+        )}
       </div>
     </div>
   );

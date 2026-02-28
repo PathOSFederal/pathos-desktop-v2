@@ -33,6 +33,21 @@ import {
 } from 'lucide-react';
 import { cn } from '@pathos/core';
 import { useNav, useNavLink } from '@pathos/adapters';
+import {
+  DASHBOARD,
+  COMPENSATION,
+  BENEFITS,
+  RETIREMENT,
+  CAREER,
+  RESUME_BUILDER,
+  JOB_SEARCH,
+  SAVED_JOBS,
+  GUIDED_APPLY_CANON,
+  EXPLORE_BENEFITS,
+  ALERTS,
+  IMPORT,
+  SETTINGS,
+} from '../routes/routes';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -73,62 +88,62 @@ export interface SidebarProps {
 const navSections: NavSection[] = [
   {
     title: 'OVERVIEW',
-    items: [{ label: 'Dashboard', href: '/dashboard', icon: <Home className="w-4 h-4" /> }],
+    items: [{ label: 'Dashboard', href: DASHBOARD, icon: <Home className="w-4 h-4" /> }],
   },
   {
     title: 'MONEY & PAY',
     items: [
-      { label: 'Compensation', href: '/dashboard/compensation', icon: <DollarSign className="w-4 h-4" /> },
+      { label: 'Compensation', href: COMPENSATION, icon: <DollarSign className="w-4 h-4" /> },
     ],
     employeeOnly: true,
   },
   {
     title: 'BENEFITS',
     items: [
-      { label: 'Benefits', href: '/dashboard/benefits', icon: <Shield className="w-4 h-4" /> },
+      { label: 'Benefits', href: BENEFITS, icon: <Shield className="w-4 h-4" /> },
     ],
     employeeOnly: true,
   },
   {
     title: 'RETIREMENT',
     items: [
-      { label: 'Retirement', href: '/dashboard/retirement', icon: <TrendingUp className="w-4 h-4" /> },
+      { label: 'Retirement', href: RETIREMENT, icon: <TrendingUp className="w-4 h-4" /> },
     ],
     employeeOnly: true,
   },
   {
     title: 'CAREER & JOBS',
     items: [
-      { label: 'Career & Resume', href: '/dashboard/career', icon: <Briefcase className="w-4 h-4" /> },
-      { label: 'Resume Builder', href: '/dashboard/resume-builder', icon: <FileText className="w-4 h-4" /> },
-      { label: 'Job Search', href: '/dashboard/job-search', icon: <Search className="w-4 h-4" /> },
-      { label: 'Saved Jobs', href: '/dashboard/saved-jobs', icon: <Bookmark className="w-4 h-4" /> },
-      { label: 'Guided Apply', href: '/desktop/usajobs-guided', icon: <ClipboardList className="w-4 h-4" /> },
+      { label: 'Career & Resume', href: CAREER, icon: <Briefcase className="w-4 h-4" /> },
+      { label: 'Resume Builder', href: RESUME_BUILDER, icon: <FileText className="w-4 h-4" /> },
+      { label: 'Job Search', href: JOB_SEARCH, icon: <Search className="w-4 h-4" /> },
+      { label: 'Saved Jobs', href: SAVED_JOBS, icon: <Bookmark className="w-4 h-4" /> },
+      { label: 'Guided Apply', href: GUIDED_APPLY_CANON, icon: <ClipboardList className="w-4 h-4" /> },
     ],
   },
   {
     title: 'EXPLORE',
     items: [
-      { label: 'Explore Federal Benefits', href: '/explore/benefits', icon: <BookOpen className="w-4 h-4" /> },
+      { label: 'Explore Federal Benefits', href: EXPLORE_BENEFITS, icon: <BookOpen className="w-4 h-4" /> },
     ],
     jobSeekerOnly: true,
   },
   {
     title: 'ALERTS',
     items: [
-      { label: 'Alerts Center', href: '/alerts', icon: <Bell className="w-4 h-4" /> },
+      { label: 'Alerts Center', href: ALERTS, icon: <Bell className="w-4 h-4" /> },
     ],
   },
   {
     title: 'IMPORT',
     items: [
-      { label: 'Import Center', href: '/import', icon: <Inbox className="w-4 h-4" /> },
+      { label: 'Import Center', href: IMPORT, icon: <Inbox className="w-4 h-4" /> },
     ],
   },
   {
     title: 'SETTINGS',
     items: [
-      { label: 'Settings', href: '/settings', icon: <Settings className="w-4 h-4" /> },
+      { label: 'Settings', href: SETTINGS, icon: <Settings className="w-4 h-4" /> },
     ],
   },
 ];
@@ -239,7 +254,7 @@ export function Sidebar(props: SidebarProps) {
       const itemsWithBadge: NavItem[] = [];
       for (let j = 0; j < section.items.length; j++) {
         const item = section.items[j];
-        if (item.href === '/alerts') {
+        if (item.href === ALERTS) {
           itemsWithBadge.push(Object.assign({}, item, { badgeCount: alertBadgeCount }));
         } else {
           itemsWithBadge.push(item);
@@ -252,20 +267,20 @@ export function Sidebar(props: SidebarProps) {
   }
 
   const isItemActive = function (itemHref: string): boolean {
-    if (itemHref === '/dashboard') {
-      return pathname === '/dashboard';
+    if (itemHref === DASHBOARD) {
+      return pathname === DASHBOARD;
     }
     return pathname === itemHref || pathname.indexOf(itemHref + '/') === 0;
   };
 
-  // Tour data attributes
+  // Tour data attributes (hrefs from route constants)
   const tourMap: Record<string, string> = {
-    '/dashboard/career': 'nav-career-resume',
-    '/dashboard/resume-builder': 'nav-resume-builder',
-    '/dashboard/job-search': 'nav-job-search',
-    '/explore/benefits': 'nav-benefits',
-    '/alerts': 'nav-alerts',
-    '/import': 'nav-import',
+    [CAREER]: 'nav-career-resume',
+    [RESUME_BUILDER]: 'nav-resume-builder',
+    [JOB_SEARCH]: 'nav-job-search',
+    [EXPLORE_BENEFITS]: 'nav-benefits',
+    [ALERTS]: 'nav-alerts',
+    [IMPORT]: 'nav-import',
   };
 
   // User initials

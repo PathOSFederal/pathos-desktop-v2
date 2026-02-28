@@ -32,6 +32,7 @@ import { TopBar, type TopBarProps } from './TopBar';
 
 // Import shared theme tokens (single source of truth)
 import '../styles/theme.css';
+import { ScrollbarsStyle } from './ScrollbarsStyle';
 
 // ---------------------------------------------------------------------------
 // Props
@@ -126,6 +127,7 @@ export function SharedAppShell(props: AppShellProps) {
       data-platform={platform}
       data-theme={themeVariant}
     >
+      <ScrollbarsStyle />
       <TopBar
         leading={hamburger}
         isSensitiveHidden={props.topBar?.isSensitiveHidden}

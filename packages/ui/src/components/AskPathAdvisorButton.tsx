@@ -101,7 +101,9 @@ export function AskPathAdvisorButton(props: AskPathAdvisorButtonProps) {
         aria-label="Ask PathAdvisor"
         aria-describedby={tooltipId}
       >
-        <Sparkles className={iconSize + ' flex-shrink-0'} aria-hidden />
+        <span className="flex-shrink-0" style={{ color: 'var(--p-accent)' }}>
+          <Sparkles className={iconSize} aria-hidden />
+        </span>
         Ask PathAdvisor
       </button>
       <div

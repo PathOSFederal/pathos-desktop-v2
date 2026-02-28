@@ -23,6 +23,7 @@ import {
   JobSearchScreen,
   SavedJobsScreen,
   ResumeBuilderScreen,
+  PlaceholderScreen,
   PathAdvisorRail,
   type PathAdvisorMessage,
 } from '@pathos/ui';
@@ -78,11 +79,18 @@ export function DesktopApp() {
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
           <Route path="/dashboard" element={<DashboardScreen />} />
           <Route path="/dashboard/career" element={<CareerScreen />} />
+          <Route path="/dashboard/compensation" element={<PlaceholderScreen />} />
+          <Route path="/dashboard/benefits" element={<PlaceholderScreen />} />
+          <Route path="/dashboard/retirement" element={<PlaceholderScreen />} />
           <Route path="/dashboard/job-search" element={<JobSearchScreen />} />
           <Route path="/dashboard/saved-jobs" element={<SavedJobsScreen />} />
           <Route path="/dashboard/resume-builder" element={<ResumeBuilderScreen />} />
+          <Route path="/desktop/usajobs-guided" element={<GuidedApplyScreen />} />
+          <Route path="/guided-apply" element={<Navigate to="/desktop/usajobs-guided" replace />} />
+          <Route path="/explore/benefits" element={<PlaceholderScreen />} />
+          <Route path="/alerts" element={<PlaceholderScreen />} />
+          <Route path="/import" element={<PlaceholderScreen />} />
           <Route path="/settings" element={<SettingsScreen />} />
-          <Route path="/guided-apply" element={<GuidedApplyScreen />} />
         </Routes>
       </SharedAppShell>
     </NavigationProvider>
