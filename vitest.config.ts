@@ -57,7 +57,22 @@ export default defineConfig({
     /**
      * Exclude patterns - skip node_modules and build output.
      */
-    exclude: ['node_modules', '.next', 'dist', 'out'],
+    exclude: [
+      'node_modules',
+      '.next',
+      'dist',
+      'out',
+      '**/node_modules/**',
+      '**/.next/**',
+      '**/dist/**',
+      'artifacts/**',
+      '_local_artifacts/**',
+    ],
+
+    /**
+     * Shared setup loaded before tests execute.
+     */
+    setupFiles: ['./vitest.setup.ts'],
 
     /**
      * Coverage configuration (optional, for future use).
