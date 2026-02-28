@@ -121,7 +121,7 @@ export function SharedAppShell(props: AppShellProps) {
 
   return (
     <div
-      className="pathos-theme flex min-h-screen flex-col"
+      className="pathos-theme flex h-screen flex-col overflow-hidden"
       style={{ background: 'var(--p-bg-gradient)', color: 'var(--p-text)' }}
       data-platform={platform}
       data-theme={themeVariant}
@@ -155,8 +155,8 @@ export function SharedAppShell(props: AppShellProps) {
         </div>
       )}
 
-      {/* Main layout */}
-      <div className="flex flex-1 overflow-hidden">
+      {/* Main layout: flex-1 min-h-0 so content area can shrink and scroll (Scroll Invariant v1) */}
+      <div className="flex flex-1 min-h-0 overflow-hidden">
         {/* Desktop sidebar */}
         {!props.hideSidebar && (
           <div className="hidden lg:block">
@@ -181,8 +181,12 @@ export function SharedAppShell(props: AppShellProps) {
           </aside>
         )}
 
-        {/* Content area */}
-        <main className="flex-1 overflow-y-auto" style={{ background: 'var(--p-bg)' }}>
+        {/* Content area: single primary scroll container (Scroll Invariant v1) */}
+        <main
+          className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden"
+          style={{ background: 'var(--p-bg)' }}
+          data-scroll-container="main"
+        >
           {props.children}
         </main>
 

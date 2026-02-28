@@ -103,7 +103,7 @@ const navSections: NavSection[] = [
       { label: 'Resume Builder', href: '/dashboard/resume-builder', icon: <FileText className="w-4 h-4" /> },
       { label: 'Job Search', href: '/dashboard/job-search', icon: <Search className="w-4 h-4" /> },
       { label: 'Saved Jobs', href: '/dashboard/saved-jobs', icon: <Bookmark className="w-4 h-4" /> },
-      { label: 'Guided Apply', href: '/guided-apply', icon: <ClipboardList className="w-4 h-4" /> },
+      { label: 'Guided Apply', href: '/desktop/usajobs-guided', icon: <ClipboardList className="w-4 h-4" /> },
     ],
   },
   {

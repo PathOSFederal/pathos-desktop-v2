@@ -19,6 +19,13 @@ import {
   type PathAdvisorMessage,
 } from './PathAdvisorCard';
 
+/** Stub anchor context for rail: current selection or focus context. */
+export interface PathAdvisorAnchorContext {
+  anchorType: string;
+  anchorTitle: string;
+  anchorSummary: string;
+}
+
 export interface PathAdvisorRailProps {
   dock?: 'left' | 'right';
   /** Optional: chip label for current view (default "Dashboard") */
@@ -33,14 +40,15 @@ export interface PathAdvisorRailProps {
   messages?: PathAdvisorMessage[];
   /** When provided with messages, app handles send (e.g. append user + simulated reply). */
   onSend?: (text: string) => void;
+  /** Optional stub anchor context (e.g. placeholder selection) for rail header. */
+  anchorContext?: PathAdvisorAnchorContext;
 }
 
-/** Suggested prompts: dashboard/decision workspace tone; rendered as chips in the card. */
+/** Suggested prompts: dashboard-context quick questions; 3 items per mockup parity. */
 const SUGGESTED_PROMPTS = [
-  'How does my expected salary compare to typical GS grades?',
-  'What benefits matter most if I only stay 3 to 5 years?',
-  'Explain the FERS pension estimate on my dashboard.',
-  'What should I update in my assumptions next?',
+  'What should I focus on first today?',
+  'Why did my readiness score change?',
+  'When can I expect a referral decision?',
 ];
 
 /**
@@ -75,13 +83,15 @@ export function PathAdvisorRail(props: PathAdvisorRailProps) {
 
   return (
     <div className="h-full flex flex-col min-h-0">
-      <PathAdvisorCard
-        messages={messages}
-        suggestedPrompts={SUGGESTED_PROMPTS}
-        onSend={onSend}
-        viewingLabel={props.viewingLabel}
-        privacyLabel={props.privacyLabel}
-      />
+      <div className="flex-1 min-h-0 flex flex-col">
+        <PathAdvisorCard
+          messages={messages}
+          suggestedPrompts={SUGGESTED_PROMPTS}
+          onSend={onSend}
+          viewingLabel={props.viewingLabel}
+          privacyLabel={props.privacyLabel}
+        />
+      </div>
     </div>
   );
 }

@@ -7,16 +7,33 @@
 
 // Shared components
 export { ModuleCard, type ModuleCardProps } from './components/ModuleCard';
+export {
+  AskPathAdvisorButton,
+  type AskPathAdvisorButtonProps,
+} from './components/AskPathAdvisorButton';
 
 // Shell components
 export { SharedAppShell, type AppShellProps, type Platform, type ThemeVariant } from './shell/AppShell';
 export { Sidebar, type SidebarProps } from './shell/Sidebar';
 export { TopBar, type TopBarProps } from './shell/TopBar';
 export { PathAdvisorCard, type PathAdvisorCardProps, type PathAdvisorMessage } from './shell/PathAdvisorCard';
-export { PathAdvisorRail, type PathAdvisorRailProps } from './shell/PathAdvisorRail';
+export {
+  PathAdvisorRail,
+  type PathAdvisorRailProps,
+  type PathAdvisorAnchorContext,
+} from './shell/PathAdvisorRail';
+export {
+  usePathAdvisorBriefingStore,
+  type PathAdvisorBriefing,
+  type BriefingSection,
+} from './stores/pathAdvisorBriefingStore';
 
 // Screens
-export { DashboardScreen, type DashboardScreenProps } from './screens/DashboardScreen';
+export {
+  DashboardScreen,
+  type DashboardScreenProps,
+  type DashboardData,
+} from './screens/DashboardScreen';
 export { CareerScreen, type CareerScreenProps } from './screens/CareerScreen';
 export { SettingsScreen, type SettingsScreenProps } from './screens/SettingsScreen';
 export { GuidedApplyScreen, type GuidedApplyScreenProps } from './screens/GuidedApplyScreen';
