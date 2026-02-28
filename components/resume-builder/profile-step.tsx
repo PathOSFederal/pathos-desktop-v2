@@ -16,7 +16,7 @@ import {
   CardHiddenPlaceholder,
   useDashboardCardVisibility,
 } from '@/components/dashboard/dashboard-card-visibility-toggle';
-import type { ResumeData } from '@/app/dashboard/resume-builder/page';
+import type { ResumeData } from '@/components/resume-builder/resume-types';
 
 interface ProfileStepProps {
   data: ResumeData['profile'];

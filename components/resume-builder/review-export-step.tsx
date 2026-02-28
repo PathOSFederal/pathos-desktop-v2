@@ -14,7 +14,7 @@ import {
 } from '@/components/ui/dialog';
 import { SensitiveValue } from '@/components/sensitive-value';
 import { useDashboardCardVisibility } from '@/components/dashboard/dashboard-card-visibility-toggle';
-import type { ResumeData } from '@/app/dashboard/resume-builder/page';
+import type { ResumeData } from '@/components/resume-builder/resume-types';
 import {
   ResumeStrengthPanel,
   type ResumeStrengthData,

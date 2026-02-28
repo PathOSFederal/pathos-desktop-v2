@@ -5,7 +5,7 @@
  * Each test clears storage in beforeEach to guarantee isolation.
  */
 
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterAll } from 'vitest';
 import {
   loadJobSearchStore,
   saveJobSearchStore,
@@ -25,8 +25,24 @@ import { JOB_SEARCH_SCHEMA_VERSION } from '../job-types';
 // Setup
 // ---------------------------------------------------------------------------
 
+let createdWindowForTest = false;
+
 beforeEach(function () {
+  if (typeof window === 'undefined') {
+    Object.defineProperty(globalThis, 'window', {
+      value: globalThis,
+      writable: true,
+      configurable: true,
+    });
+    createdWindowForTest = true;
+  }
   localStorage.clear();
+});
+
+afterAll(function () {
+  if (createdWindowForTest) {
+    Reflect.deleteProperty(globalThis, 'window');
+  }
 });
 
 // ---------------------------------------------------------------------------

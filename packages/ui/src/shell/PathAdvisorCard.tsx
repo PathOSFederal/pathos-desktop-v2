@@ -15,8 +15,11 @@
 
 import type React from 'react';
 import { useState, useRef, useEffect } from 'react';
-import { Sparkles, Eye, Shield, Send, Trash2, Settings2 } from 'lucide-react';
+import { Sparkles, Eye, Shield, Send, Trash2, Settings2, X } from 'lucide-react';
 import { ModuleCard } from '../components/ModuleCard';
+import { usePathAdvisorBriefingStore } from '../stores/pathAdvisorBriefingStore';
+import { useDashboardHeroDoNowStore } from '../stores/dashboardHeroDoNowStore';
+import { useNav } from '@pathos/adapters';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -75,6 +78,20 @@ export function PathAdvisorCard(props: PathAdvisorCardProps) {
   );
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const headerActionsRef = useRef<HTMLDivElement>(null);
+
+  const briefing = usePathAdvisorBriefingStore(function (s) {
+    return s.briefing;
+  });
+  const isBriefingOpen = usePathAdvisorBriefingStore(function (s) {
+    return s.isOpen;
+  });
+  const closeBriefing = usePathAdvisorBriefingStore(function (s) {
+    return s.clearBriefing;
+  });
+  const heroDoNow = useDashboardHeroDoNowStore(function (s) {
+    return s.action;
+  });
+  const nav = useNav();
 
   useEffect(
     function () {
@@ -349,15 +366,132 @@ export function PathAdvisorCard(props: PathAdvisorCardProps) {
         </span>
       </div>
 
-      {/* Conversation window: surface2 + subtle border; scrollable; chips then messages. */}
+      {/* Do now: mirror of dashboard hero focus action; hide when invalid; label for clarity. */}
+      <div className="flex-shrink-0 mb-3">
+        <p className="text-[10px] uppercase tracking-wide mb-1" style={{ color: 'var(--p-text-dim)' }}>
+          From Today&apos;s Focus
+        </p>
+        {heroDoNow !== null && heroDoNow !== undefined && heroDoNow.route !== null && heroDoNow.route !== '' ? (
+          <button
+            type="button"
+            onClick={function () {
+              nav.push(heroDoNow.route);
+            }}
+            className="w-full rounded-[var(--p-radius)] px-3 py-2 text-[12px] font-medium transition-colors hover:opacity-90 flex items-center justify-center gap-1.5"
+            style={{
+              background: 'var(--p-accent-bg)',
+              border: '1px solid var(--p-accent-muted)',
+              color: 'var(--p-accent)',
+            }}
+            aria-label={heroDoNow.label !== null && heroDoNow.label !== '' ? 'Do now: ' + heroDoNow.label : 'Do now'}
+          >
+            Do now: {heroDoNow.label !== null && heroDoNow.label !== '' ? heroDoNow.label : 'Open'}
+          </button>
+        ) : (
+          <button
+            type="button"
+            disabled
+            className="w-full rounded-[var(--p-radius)] px-3 py-2 text-[12px] font-medium flex items-center justify-center gap-1.5 opacity-60 cursor-not-allowed"
+            style={{
+              background: 'var(--p-surface2)',
+              border: '1px solid var(--p-border)',
+              color: 'var(--p-text-muted)',
+            }}
+            title="No action selected"
+            aria-label="No action selected"
+          >
+            Do now
+          </button>
+        )}
+      </div>
+
+      {/* Conversation window: surface2 + subtle border; scrollable; briefing (when open) then chips then messages. */}
       <div
         ref={scrollContainerRef}
-        className="flex-1 min-h-0 overflow-y-auto rounded-[var(--p-radius)] mb-3 flex flex-col gap-2"
+        className="pathos-scroll flex-1 min-h-0 overflow-y-auto rounded-[var(--p-radius)] mb-3 flex flex-col gap-2"
         style={{
           background: 'var(--p-surface2)',
           border: '1px solid var(--p-border)',
         }}
       >
+        {/* PathAdvisor Briefing: deep explanation opened from Dashboard "Ask PathAdvisor"; above quick prompts. */}
+        {briefing !== null && isBriefingOpen ? (
+          <div className="flex-shrink-0 px-3 pt-2 pb-2">
+            <div
+              className="rounded-[var(--p-radius)] border p-3"
+              style={{
+                background: 'var(--p-surface)',
+                borderColor: 'var(--p-border)',
+              }}
+            >
+              <div className="flex items-start justify-between gap-2 mb-2">
+                <h3 className="font-semibold text-[13px]" style={{ color: 'var(--p-text)' }}>
+                  PathAdvisor Briefing
+                </h3>
+                <div className="relative group">
+                  <button
+                    type="button"
+                    onClick={closeBriefing}
+                    className="h-6 w-6 grid place-items-center rounded-[var(--p-radius)] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-[var(--p-accent)]"
+                    style={{
+                      background: 'var(--p-surface2)',
+                      border: '1px solid var(--p-border)',
+                      color: 'var(--p-text-muted)',
+                    }}
+                    aria-label="Close briefing"
+                    aria-describedby="pathadvisor-briefing-close-tooltip"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                  <div
+                    id="pathadvisor-briefing-close-tooltip"
+                    role="tooltip"
+                    className="pointer-events-none absolute right-0 top-full z-20 mt-1 w-48 rounded-[var(--p-radius)] border p-2 text-left text-[11px] opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
+                    style={{
+                      background: 'var(--p-surface)',
+                      borderColor: 'var(--p-border)',
+                      color: 'var(--p-text-muted)',
+                    }}
+                  >
+                    <p className="font-semibold" style={{ color: 'var(--p-text)' }}>Close briefing</p>
+                    <p>Close this briefing and return to the default PathAdvisor view.</p>
+                  </div>
+                </div>
+              </div>
+              {briefing.sourceLabel !== undefined && briefing.sourceLabel !== '' ? (
+                <p className="text-[11px] mb-2" style={{ color: 'var(--p-text-dim)' }}>
+                  From: {briefing.sourceLabel}
+                </p>
+              ) : null}
+              {briefing.sections.length > 0
+                ? briefing.sections.map(function (sec, idx) {
+                    const isFirst = idx === 0;
+                    return (
+                      <div key={idx} className={isFirst ? 'pt-0 pb-2' : 'pt-2 pb-2'}>
+                        {isFirst ? null : (
+                          <div
+                            className="mx-4 mb-2 h-px"
+                            style={{ background: 'var(--p-border)', opacity: 0.6 }}
+                          />
+                        )}
+                        <p className="text-[11px] font-medium mb-0.5" style={{ color: 'var(--p-text-muted)' }}>
+                          {sec.heading}
+                        </p>
+                        <p className="text-[11px] mt-0" style={{ color: 'var(--p-text-dim)' }}>
+                          {sec.body}
+                        </p>
+                      </div>
+                    );
+                  })
+                : null}
+            </div>
+            <div
+              className="mt-2 mx-0 h-px flex-shrink-0"
+              style={{ background: 'var(--p-border)', opacity: 0.7 }}
+            />
+          </div>
+        ) : null}
+
         {/* Suggested prompts as chips above the message list. */}
         {promptList.length > 0 ? (
           <div className="p-2 flex flex-wrap gap-1.5 flex-shrink-0">

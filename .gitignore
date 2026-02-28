@@ -77,3 +77,6 @@ artifacts/**/*.tgz
 artifacts/**/*.tar.bz2
 artifacts/**/*.tbz2
 artifacts/**/*.bin
+_local_artifacts/
+artifacts/**/*.patch
+artifacts/verify-shared-parity-*/

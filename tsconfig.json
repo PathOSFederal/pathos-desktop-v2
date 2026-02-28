@@ -36,5 +36,10 @@
     ".next/dev/types/**/*.ts",
     "**/*.mts"
   ],
-  "exclude": ["node_modules"]
+  "exclude": [
+    "node_modules",
+    "apps/desktop/electron/experiments/**",
+    "artifacts/**",
+    "_local_artifacts/**"
+  ]
 }

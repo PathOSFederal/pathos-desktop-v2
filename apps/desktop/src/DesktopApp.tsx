@@ -5,7 +5,8 @@
  * @pathos/ui with the reactRouterNavAdapter from @pathos/adapters.
  *
  * Route table matches the screens verified in /desktop-preview:
- *   /dashboard, /dashboard/career, /settings, /guided-apply
+ *   /dashboard, /dashboard/career, /dashboard/job-search, /dashboard/saved-jobs,
+ *   /dashboard/resume-builder, /desktop/usajobs-guided, /application-confidence-center, /settings
  *
  * PathAdvisor rail uses local-only reaction loop: onSend appends user message,
  * then schedules a simulated assistant reply so the rail reacts to input.
@@ -23,6 +24,7 @@ import {
   JobSearchScreen,
   SavedJobsScreen,
   ResumeBuilderScreen,
+  PlaceholderScreen,
   ApplicationConfidenceCenterScreen,
   PathAdvisorRail,
   type PathAdvisorMessage,
@@ -94,11 +96,18 @@ export function DesktopApp() {
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
           <Route path="/dashboard" element={<DashboardScreen />} />
           <Route path="/dashboard/career" element={<CareerScreen />} />
+          <Route path="/dashboard/compensation" element={<PlaceholderScreen />} />
+          <Route path="/dashboard/benefits" element={<PlaceholderScreen />} />
+          <Route path="/dashboard/retirement" element={<PlaceholderScreen />} />
           <Route path="/dashboard/job-search" element={<JobSearchScreen />} />
           <Route path="/dashboard/saved-jobs" element={<SavedJobsScreen />} />
           <Route path="/dashboard/resume-builder" element={<ResumeBuilderScreen />} />
+          <Route path="/desktop/usajobs-guided" element={<GuidedApplyScreen />} />
+          <Route path="/guided-apply" element={<Navigate to="/desktop/usajobs-guided" replace />} />
+          <Route path="/explore/benefits" element={<PlaceholderScreen />} />
+          <Route path="/alerts" element={<PlaceholderScreen />} />
+          <Route path="/import" element={<PlaceholderScreen />} />
           <Route path="/settings" element={<SettingsScreen />} />
-          <Route path="/guided-apply" element={<GuidedApplyScreen />} />
           <Route
             path="/application-confidence-center"
             element={

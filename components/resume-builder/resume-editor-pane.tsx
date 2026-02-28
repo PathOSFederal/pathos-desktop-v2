@@ -25,7 +25,7 @@ import { TargetRolesStep } from '@/components/resume-builder/target-roles-step';
 import { WorkExperienceStep } from '@/components/resume-builder/work-experience-step';
 import { EducationStep } from '@/components/resume-builder/education-step';
 import { SkillsStep } from '@/components/resume-builder/skills-step';
-import type { ResumeData as PageResumeData } from '@/app/dashboard/resume-builder/page';
+import type { ResumeData as PageResumeData } from '@/components/resume-builder/resume-types';
 import type { ResumeVersion, ResumeView } from '@/lib/resume/resume-domain-model';
 import {
   Select,

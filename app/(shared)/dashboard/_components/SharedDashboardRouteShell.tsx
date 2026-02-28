@@ -10,7 +10,6 @@ import {
   SharedAppShell,
   PathAdvisorRail,
   type PathAdvisorMessage,
-  type ThemeVariant,
 } from '@pathos/ui';
 
 const SIMULATED_REPLY =

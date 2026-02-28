@@ -48,12 +48,11 @@ export interface PathAdvisorRailProps {
   onSend?: (text: string) => void;
 }
 
-/** Suggested prompts: dashboard/decision workspace tone; rendered as chips in the card. */
+/** Suggested prompts: dashboard-context quick questions; 3 items per mockup parity. */
 const SUGGESTED_PROMPTS = [
-  'How does my expected salary compare to typical GS grades?',
-  'What benefits matter most if I only stay 3 to 5 years?',
-  'Explain the FERS pension estimate on my dashboard.',
-  'What should I update in my assumptions next?',
+  'What should I focus on first today?',
+  'Why did my readiness score change?',
+  'When can I expect a referral decision?',
 ];
 
 /**

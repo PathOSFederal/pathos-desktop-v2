@@ -65,7 +65,7 @@ import { toast } from '@/hooks/use-toast';
 import { ToastAction } from '@/components/ui/toast';
 import { getGuidanceMessages } from '@/lib/resume/guidance-rules';
 import type { ResumeData } from '@/lib/mock/resume-builder';
-import type { ResumeData as PageResumeData } from '@/app/dashboard/resume-builder/page';
+import type { ResumeData as PageResumeData } from '@/components/resume-builder/resume-types';
 import type {
   ResumeDocument,
   ResumeVersion,

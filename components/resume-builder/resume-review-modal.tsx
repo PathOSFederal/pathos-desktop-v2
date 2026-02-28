@@ -66,7 +66,7 @@ import type { PathAdvisorAnchor } from '@/lib/pathadvisor/anchors';
 import { generateDemoProposals } from '@/lib/pathadvisor/demoProposalFactory';
 import { ChangeProposalCard } from '@/components/pathadvisor/ChangeProposalCard';
 import { ResumeEditorPane } from '@/components/resume-builder/resume-editor-pane';
-import type { ResumeData as PageResumeData } from '@/app/dashboard/resume-builder/page';
+import type { ResumeData as PageResumeData } from '@/components/resume-builder/resume-types';
 import type { ResumeDocument } from '@/lib/resume/resume-domain-model';
 import { resumeDataToDocument } from '@/lib/resume/resume-helpers';
 import type { ResumeData } from '@/lib/mock/resume-builder';

@@ -21,6 +21,7 @@
     "docs:day-patches": "node scripts/gen-day-patches.mjs",
     "docs:owner-map": "node scripts/generate-owner-map.mjs",
     "check:boundaries": "node scripts/check-boundaries.mjs",
+    "routes:check": "node scripts/check-route-parity.mjs",
     "prepare": "husky"
   },
   "dependencies": {

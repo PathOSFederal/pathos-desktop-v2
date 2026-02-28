@@ -12,6 +12,10 @@ const eslintConfig = defineConfig([
     'out/**',
     'build/**',
     'next-env.d.ts',
+    // Generated/build outputs and patch artifacts (reduce lint noise):
+    'apps/desktop/dist/**',
+    'artifacts/**',
+    '_local_artifacts/**',
   ]),
 ]);
 

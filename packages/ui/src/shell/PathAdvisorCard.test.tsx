@@ -11,10 +11,45 @@
 import React from 'react';
 import { describe, it, expect } from 'vitest';
 import { renderToString } from 'react-dom/server';
+import {
+  NavigationProvider,
+  type NavigationAdapter,
+  type NavLinkProps,
+} from '@pathos/adapters';
 import { PathAdvisorCard } from './PathAdvisorCard';
 
 function noop(_text: string) {
   /* mock */
+}
+
+const testAdapter: NavigationAdapter = {
+  pathname: '/dashboard',
+  push: noop,
+  replace: noop,
+  back: function () {
+    /* mock */
+  },
+};
+
+function TestLink(props: NavLinkProps) {
+  return (
+    <a
+      href={props.href}
+      className={props.className}
+      onClick={props.onClick}
+      data-tour={props['data-tour']}
+    >
+      {props.children}
+    </a>
+  );
+}
+
+function renderCard(element: React.ReactNode) {
+  return renderToString(
+    <NavigationProvider adapter={testAdapter} linkComponent={TestLink}>
+      {element}
+    </NavigationProvider>
+  );
 }
 
 describe('PathAdvisorCard', function () {
@@ -23,7 +58,7 @@ describe('PathAdvisorCard', function () {
       { role: 'user' as const, content: 'Hello' },
       { role: 'assistant' as const, content: 'Hi there.' },
     ];
-    const output = renderToString(
+    const output = renderCard(
       <PathAdvisorCard
         messages={messages}
         suggestedPrompts={[]}
@@ -36,7 +71,7 @@ describe('PathAdvisorCard', function () {
 
   it('renders suggested prompts as chips', function () {
     const prompts = ['First prompt', 'Second prompt'];
-    const output = renderToString(
+    const output = renderCard(
       <PathAdvisorCard
         messages={[]}
         suggestedPrompts={prompts}
@@ -48,7 +83,7 @@ describe('PathAdvisorCard', function () {
   });
 
   it('renders composer with send button so onSend can be invoked on submit', function () {
-    const output = renderToString(
+    const output = renderCard(
       <PathAdvisorCard
         messages={[]}
         suggestedPrompts={[]}
