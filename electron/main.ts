@@ -21,11 +21,8 @@
 import path from 'node:path';
 import { app, BrowserWindow, BrowserView, ipcMain } from 'electron';
 import { fileURLToPath } from "node:url";
-// Teaching note: Electron's Node ESM loader resolves exact filenames.
-// We include the explicit `.ts` extension so the runtime can find the module
-// when running the Electron main process in dev mode.
-import { buildDesktopShellLayout } from '../lib/desktop/desktop-shell-layout.ts';
-import type { DesktopShellBounds } from '../lib/desktop/desktop-shell-layout.ts';
+import { buildDesktopShellLayout } from '../lib/desktop/desktop-shell-layout';
+import type { DesktopShellBounds } from '../lib/desktop/desktop-shell-layout';
 
 // Teaching note: ESM modules do not provide __dirname, so we derive it from
 // import.meta.url to keep preload resolution stable across environments.

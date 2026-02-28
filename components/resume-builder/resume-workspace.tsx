@@ -28,7 +28,7 @@ import { TailoringBanner } from '@/components/resume-builder/tailoring-banner';
 import { RewriteTransitionUI } from '@/components/resume-builder/rewrite-transition-ui';
 import { JobDetailsSlideOver } from '@/components/dashboard/job-details-slideover';
 import type { ResumeData } from '@/lib/mock/resume-builder';
-import type { ResumeData as PageResumeData } from '@/app/dashboard/resume-builder/page';
+import type { ResumeData as PageResumeData } from '@/components/resume-builder/resume-types';
 import type {
   ResumeDocument,
   ResumeVersion,

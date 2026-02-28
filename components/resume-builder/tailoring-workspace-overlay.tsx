@@ -53,7 +53,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { toast } from '@/hooks/use-toast';
 import { getGuidanceMessages } from '@/lib/resume/guidance-rules';
 import { resumeDataToDocument } from '@/lib/resume/resume-helpers';
-import type { ResumeData as PageResumeData } from '@/app/dashboard/resume-builder/page';
+import type { ResumeData as PageResumeData } from '@/components/resume-builder/resume-types';
 import type { TargetJob } from '@/store/resumeBuilderStore';
 import type { ResumeDocument, ResumeVersion } from '@/lib/resume/resume-domain-model';
 import type { GuidanceContext } from '@/lib/resume/guidance-rules';

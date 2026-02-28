@@ -23,7 +23,7 @@ import { FileText, FileCode } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { SensitiveValue } from '@/components/sensitive-value';
 import { useDashboardCardVisibility } from '@/components/dashboard/dashboard-card-visibility-toggle';
-import type { ResumeData as PageResumeData } from '@/app/dashboard/resume-builder/page';
+import type { ResumeData as PageResumeData } from '@/components/resume-builder/resume-types';
 import type { ResumeView } from '@/lib/resume/resume-domain-model';
 
 interface ResumePreviewPaneProps {
