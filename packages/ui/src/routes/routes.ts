@@ -48,6 +48,9 @@ export const GUIDED_APPLY_CANON = '/desktop/usajobs-guided';
  */
 export const GUIDED_APPLY_ALIAS = '/guided-apply';
 
+/** Application Confidence Center. */
+export const APPLICATION_CONFIDENCE_CENTER = '/application-confidence-center';
+
 /** Explore Federal Benefits (job seeker). */
 export const EXPLORE_BENEFITS = '/explore/benefits';
 
@@ -75,6 +78,7 @@ export const SIDEBAR_ROUTES: readonly string[] = [
   JOB_SEARCH,
   SAVED_JOBS,
   GUIDED_APPLY_CANON,
+  APPLICATION_CONFIDENCE_CENTER,
   EXPLORE_BENEFITS,
   ALERTS,
   IMPORT,

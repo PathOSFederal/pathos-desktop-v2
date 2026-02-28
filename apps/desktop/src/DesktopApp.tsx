@@ -5,7 +5,8 @@
  * @pathos/ui with the reactRouterNavAdapter from @pathos/adapters.
  *
  * Route table matches the screens verified in /desktop-preview:
- *   /dashboard, /dashboard/career, /settings, /guided-apply
+ *   /dashboard, /dashboard/career, /dashboard/job-search, /dashboard/saved-jobs,
+ *   /dashboard/resume-builder, /desktop/usajobs-guided, /application-confidence-center, /settings
  *
  * PathAdvisor rail uses local-only reaction loop: onSend appends user message,
  * then schedules a simulated assistant reply so the rail reacts to input.
@@ -24,8 +25,11 @@ import {
   SavedJobsScreen,
   ResumeBuilderScreen,
   PlaceholderScreen,
+  ApplicationConfidenceCenterScreen,
   PathAdvisorRail,
   type PathAdvisorMessage,
+  type PathAdvisorAnchorContext,
+  type ApplicationConfidenceAnchorContext,
 } from '@pathos/ui';
 import { useReactRouterNavAdapter } from './adapters/react-router-nav-adapter';
 import { RouterNavLink } from './adapters/RouterNavLink';
@@ -37,6 +41,18 @@ const SIMULATED_REPLY =
 export function DesktopApp() {
   const adapter = useReactRouterNavAdapter();
   const [advisorMessages, setAdvisorMessages] = useState<PathAdvisorMessage[]>([]);
+  const [pathAdvisorAnchorContext, setPathAdvisorAnchorContext] = useState<PathAdvisorAnchorContext | null>(null);
+
+  const handleAnchorContextChange = useCallback(function (context: ApplicationConfidenceAnchorContext | null) {
+    if (context === null) {
+      setPathAdvisorAnchorContext(null);
+      return;
+    }
+    setPathAdvisorAnchorContext({
+      viewingLabel: context.title ? 'Application: ' + context.title : 'Application Confidence Center',
+      applicationId: context.applicationId,
+    });
+  }, []);
 
   const handleAdvisorSend = useCallback(function (text: string) {
     const userMessage: PathAdvisorMessage = { role: 'user', content: text };
@@ -72,6 +88,7 @@ export function DesktopApp() {
           <PathAdvisorRail
             messages={advisorMessages}
             onSend={handleAdvisorSend}
+            anchorContext={pathAdvisorAnchorContext}
           />
         }
       >
@@ -91,6 +108,12 @@ export function DesktopApp() {
           <Route path="/alerts" element={<PlaceholderScreen />} />
           <Route path="/import" element={<PlaceholderScreen />} />
           <Route path="/settings" element={<SettingsScreen />} />
+          <Route
+            path="/application-confidence-center"
+            element={
+              <ApplicationConfidenceCenterScreen onAnchorContextChange={handleAnchorContextChange} />
+            }
+          />
         </Routes>
       </SharedAppShell>
     </NavigationProvider>

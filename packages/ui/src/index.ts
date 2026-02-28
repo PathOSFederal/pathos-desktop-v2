@@ -17,11 +17,7 @@ export { SharedAppShell, type AppShellProps, type Platform, type ThemeVariant } 
 export { Sidebar, type SidebarProps } from './shell/Sidebar';
 export { TopBar, type TopBarProps } from './shell/TopBar';
 export { PathAdvisorCard, type PathAdvisorCardProps, type PathAdvisorMessage } from './shell/PathAdvisorCard';
-export {
-  PathAdvisorRail,
-  type PathAdvisorRailProps,
-  type PathAdvisorAnchorContext,
-} from './shell/PathAdvisorRail';
+export { PathAdvisorRail, type PathAdvisorRailProps, type PathAdvisorAnchorContext } from './shell/PathAdvisorRail';
 export {
   usePathAdvisorBriefingStore,
   type PathAdvisorBriefing,
@@ -46,3 +42,8 @@ export type { DashboardViewModel, FocusItem, ActiveTrack, SignalItem } from './s
 export { buildDashboardViewModel } from './screens/dashboard/buildDashboardViewModel';
 export { useDashboardSnapshot } from './screens/dashboard/useDashboardSnapshot';
 export type { DashboardChanges, DashboardSnapshot } from './screens/dashboard/useDashboardSnapshot';
+export {
+  ApplicationConfidenceCenterScreen,
+  type ApplicationConfidenceCenterScreenProps,
+  type ApplicationConfidenceAnchorContext,
+} from './screens/ApplicationConfidenceCenterScreen';

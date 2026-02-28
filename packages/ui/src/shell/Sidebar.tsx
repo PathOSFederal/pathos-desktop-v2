@@ -30,6 +30,7 @@ import {
   Bell,
   Inbox,
   ClipboardList,
+  Target,
 } from 'lucide-react';
 import { cn } from '@pathos/core';
 import { useNav, useNavLink } from '@pathos/adapters';
@@ -43,6 +44,7 @@ import {
   JOB_SEARCH,
   SAVED_JOBS,
   GUIDED_APPLY_CANON,
+  APPLICATION_CONFIDENCE_CENTER,
   EXPLORE_BENEFITS,
   ALERTS,
   IMPORT,
@@ -119,6 +121,7 @@ const navSections: NavSection[] = [
       { label: 'Job Search', href: JOB_SEARCH, icon: <Search className="w-4 h-4" /> },
       { label: 'Saved Jobs', href: SAVED_JOBS, icon: <Bookmark className="w-4 h-4" /> },
       { label: 'Guided Apply', href: GUIDED_APPLY_CANON, icon: <ClipboardList className="w-4 h-4" /> },
+      { label: 'Application Confidence Center', href: APPLICATION_CONFIDENCE_CENTER, icon: <Target className="w-4 h-4" /> },
     ],
   },
   {

@@ -1657,3 +1657,58 @@ Validation commands and results:
 - `pnpm build` -> pass (Next.js build succeeded; baseline-browser-mapping staleness warnings only)
 - `pnpm -r typecheck` -> pass
 - `pnpm test packages/ui/src/screens/dashboard/buildDashboardViewModel.test.ts packages/ui/src/screens/dashboard/useDashboardSnapshot.test.ts packages/ui/src/stores/dashboardHeroDoNowStore.test.ts` -> pass (3 files, 10 tests)
+
+---
+
+## Application Confidence Center v1 — Pass 1 (Scaffold only)
+
+**Branch:** Use current branch (no branch change). No commit or push.
+
+**Scope:** New route/screen for Application Confidence Center using existing SharedAppShell and PathAdvisor rail. Layout: list of tracked applications (empty state with CTA), main area with three placeholder cards (Status Intel with Explain button, Next Best Moves, Timeline Forecast). Add tracked application dialog scaffold; Explainer Video modal scaffold (script preview placeholder, generate disabled). PathAdvisor rail receives stub anchor context from selected tracked app. Zero theme drift; existing UI primitives and tooltip pattern only.
+
+### Files changed
+
+| File | What / why |
+|------|------------|
+| `packages/ui/src/screens/ApplicationConfidenceCenterScreen.tsx` | New screen: layout, empty state, Add CTA, SimpleModal scaffolds for Add tracked application and Explainer Video; inline tooltips on Explain and Add buttons; onAnchorContextChange callback for rail. |
+| `packages/ui/src/shell/PathAdvisorRail.tsx` | Added `PathAdvisorAnchorContext` type and `anchorContext` prop; rail passes derived `viewingLabel` to PathAdvisorCard when anchor context is set. |
+| `packages/ui/src/shell/Sidebar.tsx` | Added nav item "Application Confidence Center" under CAREER & JOBS with href `/application-confidence-center`, icon Target. |
+| `packages/ui/src/index.ts` | Exported ApplicationConfidenceCenterScreen, ApplicationConfidenceCenterScreenProps, ApplicationConfidenceAnchorContext; PathAdvisorAnchorContext. |
+| `apps/desktop/src/DesktopApp.tsx` | New route `/application-confidence-center` rendering ApplicationConfidenceCenterScreen with onAnchorContextChange; state pathAdvisorAnchorContext; PathAdvisorRail receives anchorContext (stub from selected app). |
+| `docs/merge-notes.md` | This section: files changed, what/why, commands run, patch artifact. |
+
+### Commands run
+
+Validation commands to run (outputs pasted after running): `pnpm lint`, `pnpm typecheck`, `pnpm test` (if tests exist and are fast), `pnpm build`.
+
+### Patch artifact
+
+- `artifacts/app-confidence-center-pass1-this-run.patch` — incremental diff for this run (HEAD to working tree, excludes artifacts/). Generate with:  
+  `git diff --binary HEAD -- . ":(exclude)artifacts" | Out-File -FilePath artifacts/app-confidence-center-pass1-this-run.patch -Encoding utf8`  
+  (PowerShell). If the repo uses cumulative day patches, also run `pnpm docs:day-patches --day <N>` for the current day.
+
+**Patch Artifacts (FINAL) — this run**
+
+Command: `git diff --binary HEAD -- . ":(exclude)artifacts" | Out-File -FilePath artifacts/app-confidence-center-pass1-this-run.patch -Encoding utf8`
+
+Get-Item output:
+```
+Name          : app-confidence-center-pass1-this-run.patch
+Length        : 29014
+LastWriteTime : 2/26/2026 11:59:28 PM
+```
+
+### Validation commands (summary)
+
+- **pnpm lint** — Run at repo root; may include pre-existing warnings/errors in other packages. New code: `packages/ui` ApplicationConfidenceCenterScreen and desktop route introduce no new lint errors (unused `selectedApp` removed).
+- **pnpm typecheck** — Root `tsc -p tsconfig.json` has pre-existing errors (electron experiments, resume-builder, app paths). `pnpm --filter @pathos/ui typecheck` and `apps/desktop` `tsc --noEmit` both **pass**.
+- **pnpm test** — Pre-existing 44 failures in `job-storage.test.ts` (localStorage not defined in node). No new tests added in Pass 1 per task ("skip tests in Pass 1" when no established pattern).
+- **pnpm --filter @pathos/desktop build** — **Passed.** Renderer and Electron build complete successfully.
+
+## Merge main into dashboard command center
+
+Merged decisions:
+- PathAdvisorAnchorContext standardized to `{ viewingLabel?: string; applicationId?: string }` in shared rail and desktop app wiring.
+- Guided Apply canonical route is `/desktop/usajobs-guided`; `/guided-apply` remains alias redirect to canonical path.
+- Application Confidence Center preserved and integrated in shared navigation and desktop routing at `/application-confidence-center`.
+- Route constants remain the source of truth; sidebar uses constants and includes `APPLICATION_CONFIDENCE_CENTER` in `SIDEBAR_ROUTES`.

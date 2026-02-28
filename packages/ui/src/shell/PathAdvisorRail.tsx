@@ -19,11 +19,12 @@ import {
   type PathAdvisorMessage,
 } from './PathAdvisorCard';
 
-/** Stub anchor context for rail: current selection or focus context. */
+/** Stub anchor context for PathAdvisor (e.g. selected application in Confidence Center). */
 export interface PathAdvisorAnchorContext {
-  anchorType: string;
-  anchorTitle: string;
-  anchorSummary: string;
+  /** Optional label for "Viewing" chip when anchored to a specific context. */
+  viewingLabel?: string;
+  /** Optional application or entity id for future use. */
+  applicationId?: string;
 }
 
 export interface PathAdvisorRailProps {
@@ -33,6 +34,11 @@ export interface PathAdvisorRailProps {
   /** Optional: privacy chip value (default "Local only") */
   privacyLabel?: string;
   /**
+   * Optional stub anchor context (e.g. selected tracked application in Application Confidence Center).
+   * When set, viewingLabel can be derived from context; Pass 1 uses mocked/stub data.
+   */
+  anchorContext?: PathAdvisorAnchorContext | null;
+  /**
    * Optional controlled mode: when both messages and onSend are provided,
    * the rail does not own message state; the app handles send (e.g. append user
    * and schedule a simulated assistant reply).
@@ -40,8 +46,6 @@ export interface PathAdvisorRailProps {
   messages?: PathAdvisorMessage[];
   /** When provided with messages, app handles send (e.g. append user + simulated reply). */
   onSend?: (text: string) => void;
-  /** Optional stub anchor context (e.g. placeholder selection) for rail header. */
-  anchorContext?: PathAdvisorAnchorContext;
 }
 
 /** Suggested prompts: dashboard-context quick questions; 3 items per mockup parity. */
@@ -81,17 +85,21 @@ export function PathAdvisorRail(props: PathAdvisorRailProps) {
   const onSend: (text: string) => void =
     isControlled && props.onSend !== undefined ? props.onSend : handleSendInternal;
 
+  // When anchorContext is provided (e.g. from Application Confidence Center), use its viewingLabel for the card.
+  const viewingLabel =
+    props.anchorContext !== undefined && props.anchorContext !== null && props.anchorContext.viewingLabel
+      ? props.anchorContext.viewingLabel
+      : props.viewingLabel;
+
   return (
     <div className="h-full flex flex-col min-h-0">
-      <div className="flex-1 min-h-0 flex flex-col">
-        <PathAdvisorCard
-          messages={messages}
-          suggestedPrompts={SUGGESTED_PROMPTS}
-          onSend={onSend}
-          viewingLabel={props.viewingLabel}
-          privacyLabel={props.privacyLabel}
-        />
-      </div>
+      <PathAdvisorCard
+        messages={messages}
+        suggestedPrompts={SUGGESTED_PROMPTS}
+        onSend={onSend}
+        viewingLabel={viewingLabel}
+        privacyLabel={props.privacyLabel}
+      />
     </div>
   );
 }
