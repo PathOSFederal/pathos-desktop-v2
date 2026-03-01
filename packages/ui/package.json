@@ -11,6 +11,8 @@
   "dependencies": {
     "@pathos/adapters": "workspace:*",
     "@pathos/core": "workspace:*",
+    "@radix-ui/react-dropdown-menu": "latest",
+    "@radix-ui/react-tooltip": "latest",
     "lucide-react": "^0.454.0",
     "react": "19.2.0",
     "react-dom": "19.2.0",

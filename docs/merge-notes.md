@@ -1712,3 +1712,986 @@ Merged decisions:
 - Guided Apply canonical route is `/desktop/usajobs-guided`; `/guided-apply` remains alias redirect to canonical path.
 - Application Confidence Center preserved and integrated in shared navigation and desktop routing at `/application-confidence-center`.
 - Route constants remain the source of truth; sidebar uses constants and includes `APPLICATION_CONFIDENCE_CENTER` in `SIDEBAR_ROUTES`.
+
+---
+
+## Career & Resume screen (executive command center)
+
+**Branch:** feature/careerAndResume_page_creation (or current branch). **Do not commit or push.**
+
+**Goal:** Implement the Career & Resume screen to match mockups (docs/mockups/careerAndResume_*.png) and current-build styling. Same layout primitives, tokens (var(--p-*)), SectionHeader/ModuleCard/CardRowList patterns as Dashboard. Two-column layout (main scroll + fixed PathAdvisor rail) via existing SharedAppShell; route on existing shared Career route (/dashboard/career) for Next (3000) and Desktop (5173).
+
+### Files changed + why
+
+| File | Change |
+|------|--------|
+| `packages/ui/src/stores/pathAdvisorScreenOverridesStore.ts` | **NEW.** Zustand store for per-screen rail overrides (viewingLabel, suggestedPrompts, briefingLabel). CareerScreen sets these on mount so PathAdvisor rail shows "Career & Resume" context and career quick prompts without shell being route-aware. |
+| `packages/ui/src/shell/PathAdvisorRail.tsx` | Subscribe to pathAdvisorScreenOverridesStore; pass viewingLabel, suggestedPrompts, briefingLabel to PathAdvisorCard when overrides set; else defaults (Dashboard). |
+| `packages/ui/src/shell/PathAdvisorCard.tsx` | Optional `briefingLabel` prop; when set, show it above the Do now block instead of "From Today's Focus". |
+| `packages/ui/src/screens/CareerScreen.tsx` | **REPLACED.** Full Career & Resume screen: title row (Career & Resume + microcopy + Local-only badge + Last updated), Today's Best Move hero (primary CTA + Ask PathAdvisor), Resume Readiness 4-tile briefing, Your Resume card (version/status, sections checklist, Open Builder / Duplicate / Export disabled when incomplete), Linter Findings (grouped by severity, calm badges), Tailoring Workspace (job context or empty state, checklist, Start Tailoring disabled when no job with tooltip), Career Narrative (3 bullets + Update narrative / Generate options), Saved Assets (bullet bank, STAR, metrics + add/import mock actions). Demo state at top of file: noResume, incompleteResume, readyResume, tailorReadyWithJob. On mount: set screen overrides and dashboardHeroDoNowStore so rail shows "From Career & Resume", Do now "Complete Resume", and 3 career quick prompts. |
+| `packages/ui/src/screens/CareerScreen.test.tsx` | **NEW.** Three tests: renders title and key sections; Start Tailoring disabled when demoState not tailorReadyWithJob; Start Tailoring not disabled when tailorReadyWithJob. |
+| `packages/ui/src/index.ts` | Export usePathAdvisorScreenOverridesStore and PathAdvisorScreenOverrides. |
+
+### Commands run + results
+
+- **pnpm -r typecheck** — PASS (packages/adapters, packages/core, packages/ui, apps/desktop).
+- **pnpm test** — PASS (673 tests, 42 files). CareerScreen.test.tsx: 3 tests pass.
+- **pnpm routes:check** — PASS. All Sidebar routes resolve in Desktop and Next.
+
+### Layout and scroll
+
+- Career page uses existing `SharedDashboardRouteShell` (same as dashboard). Main content is inside SharedAppShell’s `<main data-scroll-container="main">`; PathAdvisor rail is fixed. No new routing; career route already wired in app/(shared)/dashboard/career/page.tsx and DesktopApp.tsx.
+
+### PathAdvisor rail (Career context)
+
+- When CareerScreen mounts it sets pathAdvisorScreenOverridesStore (viewingLabel: "Career & Resume", suggestedPrompts: the 3 mockup prompts, briefingLabel: "From Career & Resume") and dashboardHeroDoNowStore (label: "Complete Resume", route: RESUME_BUILDER). Rail shows briefing panel with "From Career & Resume", Do now mirroring hero CTA, and quick prompt chips. On unmount overrides and hero do-now are cleared.
+
+### Styling
+
+- Tokens only (var(--p-*)). ModuleCard, CardRowList, SectionHeader, AskPathAdvisorButton reused. No hardcoded colors. Same section header and card chrome as Dashboard.
+
+### Follow-ups / known gaps
+
+- No backend integration; all data is demo/mock driven by CAREER_DEMO_STATE constant and optional `demoState` prop (for tests).
+- Export CareerDemoState from index if consumers need to drive state from URL or settings.
+- Human simulation: not required for this pass (no store persistence, no create/save/delete; UI-only with local demo state).
+
+---
+
+## Resume Readiness screen updates (v0 final)
+
+**Branch:** feature/careerAndResume_page_creation. **Do not commit or push.**
+
+**Goal:** Implement Resume Readiness screen updates per v0 scope: naming, Active resume dropdown, New version actions (duplicate / create tailored), Tailoring Workspace target job picker, All Resumes drawer, calm chip styling. UI + local state only; no backend. Route constants and URLs unchanged.
+
+### What changed
+
+- **A) Naming:** User-facing label "Career & Resume" → "Resume Readiness" everywhere: Sidebar item, page title + subtitle, PathAdvisor rail "Viewing: …" and "From …", and all briefing source labels. Internal route path `/dashboard/career` unchanged.
+- **B) Active resume dropdown:** Redesigned to strict grid: left = resume name (truncate), right = two compact chips (Type + Status) and muted "Updated X ago". Group headers "MASTER" and "TAILORED (RECENT)". Footer "Manage resumes…" opens All Resumes drawer. Trigger stays compact (name + chips only, no dates).
+- **C) New version menu:** "Duplicate active resume" creates a new entry with "(Copy)" suffix, sets it active, status Draft/In progress, shows toast. "Create tailored version from saved job" opens drawer with searchable saved-job picker (2-line format: title + GS, agency • location • close date); "Create tailored resume" disabled until job selected (tooltip). On confirm: new tailored resume "[Job Title] – GS-X", set active, set Tailoring Workspace target job, toast, scroll to Tailoring Workspace.
+- **D) Tailoring Workspace:** Added "Target job" searchable dropdown (saved jobs, same 2-line format). Empty state when no saved jobs: guidance + CTA to Saved Jobs. "Start tailoring" disabled until target job selected, with tooltip.
+- **E) All Resumes drawer:** Row layout: left name (truncate), middle two chips (Type + Status), right Set active / Archive. "Updated X ago" on muted second line. Active row shows "Active" indicator and disabled "Active" button instead of "Set active".
+- **F) List styling:** Muted chip variants (--p-surface2, --p-text-muted) in dropdowns and drawers; strong emphasis only for primary CTA and active/selected state.
+
+### Files changed
+
+- `packages/ui/src/shell/Sidebar.tsx` — Sidebar label "Career & Resume" → "Resume Readiness".
+- `packages/ui/src/stores/pathAdvisorScreenOverridesStore.ts` — Comment updates for viewingLabel/briefingLabel.
+- `packages/ui/src/screens/CareerScreen.tsx` — Full implementation: store usage, Active resume dropdown (groups + footer), New version menu (Duplicate + Create tailored drawer), Tailoring target job picker, All Resumes drawer, Create tailored drawer, toast, MutedChip, JobOptionRow, TailoringTargetJobPicker. PathAdvisor overrides set to "Resume Readiness". All briefing sourceLabel → "Resume Readiness".
+- `packages/ui/src/stores/careerResumeScreenStore.ts` — **NEW.** Local UI state: resumes, activeResumeId, targetJobIdForTailoring, toastMessage; seedFromDemoState, addResume, setActiveResumeId, setTargetJobForTailoring, archiveResume, setToast, resetSeeded. formatUpdatedAgo helper.
+- `packages/ui/src/stores/careerResumeScreenStore.test.ts` — **NEW.** Tests: seedFromDemoState (incompleteResume, tailorReadyWithJob), addResume sets active, setTargetJobForTailoring, formatUpdatedAgo.
+- `packages/ui/src/screens/CareerScreen.test.tsx` — Updated: "Resume Readiness" title/sections; YOUR RESUME + Tailoring + Target job assertions; Start Tailoring disabled; beforeEach reset of careerResumeScreenStore.
+
+### Commands run + pass/fail
+
+- **pnpm -r typecheck** — **PASS** (packages/adapters, packages/core, packages/ui, apps/desktop).
+- **pnpm test** — **PASS** (680 tests, 43 files).
+- **pnpm routes:check** — **PASS.** All Sidebar routes resolve in Desktop and Next.
+
+### Known follow-ups
+
+- No backend; resume list and target job are in-memory only (careerResumeScreenStore). Persistence can be added later.
+- Human simulation not required this run (no persistence keys; create/duplicate/tailored are mock in-memory only).
+
+### Required git snapshots
+
+**git status**
+```
+On branch feature/careerAndResume_page_creation
+Changes not staged for commit:
+  modified:   docs/merge-notes.md
+  modified:   packages/ui/src/index.ts
+  modified:   packages/ui/src/screens/CareerScreen.tsx
+  modified:   packages/ui/src/shell/PathAdvisorCard.tsx
+  modified:   packages/ui/src/shell/PathAdvisorRail.tsx
+  modified:   packages/ui/src/shell/Sidebar.tsx
+Untracked:
+  packages/ui/src/screens/CareerScreen.test.tsx
+  packages/ui/src/stores/careerResumeScreenStore.test.ts
+  packages/ui/src/stores/careerResumeScreenStore.ts
+  packages/ui/src/stores/pathAdvisorScreenOverridesStore.ts
+  (and docs/mockups, etc.)
+```
+
+**git branch --show-current**
+```
+feature/careerAndResume_page_creation
+```
+
+**git diff --name-status develop...HEAD**  
+(No `develop` branch; repo uses `main`.)
+
+**git diff --name-status main -- packages/ui** (reference)
+```
+M	packages/ui/src/index.ts
+M	packages/ui/src/screens/CareerScreen.tsx
+M	packages/ui/src/shell/PathAdvisorCard.tsx
+M	packages/ui/src/shell/PathAdvisorRail.tsx
+M	packages/ui/src/shell/Sidebar.tsx
+```
+(Plus new: careerResumeScreenStore.ts, careerResumeScreenStore.test.ts; CareerScreen.test.tsx; pathAdvisorScreenOverridesStore.ts per current working tree.)
+
+**git diff --stat main -- packages/ui**
+```
+ packages/ui/src/index.ts                  |    4 +
+ packages/ui/src/screens/CareerScreen.tsx  | 1537 +++++++++++++++++++++++++++--
+ packages/ui/src/shell/PathAdvisorCard.tsx |    8 +-
+ packages/ui/src/shell/PathAdvisorRail.tsx |   30 +-
+ packages/ui/src/shell/Sidebar.tsx         |    2 +-
+ 5 files changed, 1515 insertions(+), 66 deletions(-)
+```
+(Stats above are vs main for tracked package files; new store files add more lines.)
+
+---
+
+## Resume Readiness — CSS/copy parity, routing rename, Referral Readiness Check
+
+**Branch:** feature/careerAndResume_page_creation. **Do not commit or push.**
+
+**Goal:** Bring Resume Readiness screen to mockup parity: copy renames (Referral Readiness Check, severity labels), YOUR RESUMES + Active resume label + “Updated X ago” + Edit/Duplicate/Export + “New version” button, canonical route with alias redirect.
+
+### What changed
+
+- **Phase 2 — Copy + naming**
+  - Replaced “Linter Findings” with **Referral Readiness Check**: title “REFERRAL READINESS CHECK”, subtitle “Quick issues that could lower your referral odds.” and scope “for &lt;Active Resume Name&gt; • N issues”. Severity labels: **Fix first**, **Improve**, **Optional** (was Must fix / Improve / Optional). Renamed `linterFindings` → `referralFindings`, severity `mustFix` → `fixFirst`.
+  - Card **YOUR RESUME** → **YOUR RESUMES**. Added “Active resume” label above dropdown. “Updated X ago” below trigger row (using `formatUpdatedAgo(activeResume.updatedAt)`). Primary action **Edit resume** (was “Open Builder”). Added **Duplicate** button in actions row (duplicate + toast). **+ New version** button with ChevronDown (Duplicate active resume / Create tailored version from saved job). “View all resumes (N)” link when `resumes.length > 1`.
+  - Tailoring Workspace card: subtitle **Using: &lt;Active Resume name&gt;** when `activeResume` is set.
+- **Phase 3 — Routing**
+  - **Canonical route:** `RESUME_READINESS = '/dashboard/resume-readiness'`. Sidebar and `SIDEBAR_ROUTES` use `RESUME_READINESS`.
+  - **Alias:** `CAREER = '/dashboard/career'` redirects to `/dashboard/resume-readiness`. Next: `app/(shared)/dashboard/career/page.tsx` now calls `redirect('/dashboard/resume-readiness')`. Desktop: `/dashboard/career` → `<Navigate to="/dashboard/resume-readiness" replace />`. New page `app/(shared)/dashboard/resume-readiness/page.tsx` renders `CareerScreen`.
+  - Sidebar `isItemActive`: Resume Readiness item is active when pathname is `RESUME_READINESS` or `CAREER`. Route parity script: `SIDEBAR_ROUTE_NAMES` uses `RESUME_READINESS` instead of `CAREER`.
+
+### Files changed
+
+- `packages/ui/src/screens/CareerScreen.tsx` — Referral Readiness Check (title, subtitle, severity Fix first/Improve/Optional), YOUR RESUMES, Active resume label, Updated X ago, Edit resume, Duplicate button, + New version button, View all resumes link, Tailoring Workspace subtitle.
+- `packages/ui/src/routes/routes.ts` — Added `RESUME_READINESS`, kept `CAREER`; `SIDEBAR_ROUTES` uses `RESUME_READINESS`.
+- `packages/ui/src/shell/Sidebar.tsx` — Import `RESUME_READINESS` and `CAREER`; sidebar href and tour use `RESUME_READINESS`; `isItemActive` treats both paths as active.
+- `scripts/check-route-parity.mjs` — `SIDEBAR_ROUTE_NAMES`: `CAREER` → `RESUME_READINESS`.
+- `app/(shared)/dashboard/resume-readiness/page.tsx` — **NEW.** Renders `CareerScreen` (canonical).
+- `app/(shared)/dashboard/career/page.tsx` — Redirect to `/dashboard/resume-readiness` (server component).
+- `apps/desktop/src/DesktopApp.tsx` — Route `/dashboard/resume-readiness` → `CareerScreen`; `/dashboard/career` → `Navigate` to resume-readiness.
+- `packages/ui/src/screens/CareerScreen.test.tsx` — Assert “YOUR RESUMES”, “REFERRAL READINESS CHECK”, “Quick issues that could lower your referral odds”; new test “renders Referral Readiness Check card (not Linter Findings)”.
+
+### Commands run + pass/fail
+
+- **pnpm -r typecheck** — **PASS**
+- **pnpm test** — **PASS** (681 tests, 43 files)
+- **pnpm routes:check** — **PASS** (all Sidebar routes resolve in Desktop and Next)
+
+### Follow-ups
+
+- Phase 1 (deeper CSS/layout audit vs Dashboard primitives) and Phase 4 (explicit demo toggles for resumeCount / savedJobsCount / showArchivedResumes) were scoped out for minimal diff; can be done in a follow-up.
+- `desktop-preview` and any external links to `/dashboard/career` continue to work via redirect.
+
+### Git snapshots (required)
+
+**git status**
+```
+On branch feature/careerAndResume_page_creation
+Changes not staged for commit:
+  modified:   app/(shared)/dashboard/career/page.tsx
+  modified:   docs/merge-notes.md
+  modified:   packages/ui/src/routes/routes.ts
+  modified:   packages/ui/src/screens/CareerScreen.tsx
+  modified:   packages/ui/src/screens/CareerScreen.test.tsx
+  modified:   packages/ui/src/shell/Sidebar.tsx
+  modified:   scripts/check-route-parity.mjs
+Untracked:
+  app/(shared)/dashboard/resume-readiness/page.tsx
+  (plus existing untracked store/test files, mockups, etc.)
+Modified in desktop:
+  apps/desktop/src/DesktopApp.tsx
+```
+
+**git branch --show-current**
+```
+feature/careerAndResume_page_creation
+```
+
+**git diff --name-status develop...HEAD**  
+(No `develop`; use `main` as baseline.)
+
+**git diff --name-status main -- . ":(exclude)docs/merge-notes.md" ":(exclude)docs/mockups/*"**
+```
+M	app/(shared)/dashboard/career/page.tsx
+M	apps/desktop/src/DesktopApp.tsx
+M	packages/ui/src/routes/routes.ts
+M	packages/ui/src/screens/CareerScreen.tsx
+M	packages/ui/src/screens/CareerScreen.test.tsx
+M	packages/ui/src/shell/Sidebar.tsx
+M	scripts/check-route-parity.mjs
+A	app/(shared)/dashboard/resume-readiness/page.tsx
+```
+
+**git diff --stat main -- packages/ui app ":(exclude)app/**/mockups*" scripts apps/desktop**
+(Summary: CareerScreen +routes +Sidebar +tests; new resume-readiness page; career redirect; DesktopApp +check-route-parity.)
+
+---
+
+## Proof Library (Saved Assets → Proof Library)
+
+**Goal:** Improve the “Saved Assets” card on the Resume Readiness screen so users instantly understand its purpose and the layout looks organized and executive-grade.
+
+### What changed + why
+
+- **Rename + reframe:** Card title changed from “Saved Assets” to **“Proof Library”** with subtitle: “Reusable evidence you can drop into bullets and tailoring.”
+- **Structured layout:** Replaced three-number layout with a 3-column grid of mini-panels (responsive: stacked on small widths). Each panel has: Label, Count, primary “Add …” button, secondary “View” action. Panels: **STAR stories**, **Bullet bank**, **Metrics**.
+- **Import (optional):** “Import from notes” → “Import from notes (optional)” with tooltip: “Paste notes. PathOS can extract bullets, STAR stories, and metrics.” Kept secondary to the three panels.
+- **Interactions (mock):** “Add STAR story” / “Add bullet” / “Add metric” open a modal (Title + Content + Save); Save adds item and increments count (local-only state). “View” opens a drawer listing items (or empty state). All behavior local-only; no persistence.
+- **Style:** Uses existing tokens (`var(--p-*)`) and Card/Button/Badge/Separator patterns; no hardcoded colors.
+- **Tests:** CareerScreen tests updated/added so that “PROOF LIBRARY” and the three panels (STAR stories, Bullet bank, Metrics) are asserted.
+
+### Files changed
+
+- `packages/ui/src/screens/CareerScreen.tsx` — Proof Library card (title, subtitle, 3 panels with counts and Add/View), Add modal, View drawer, local state and handlers; `ProofLibraryItem` type at module scope.
+- `packages/ui/src/screens/CareerScreen.test.tsx` — Expectations updated for “PROOF LIBRARY”; new test “renders Proof Library with three panels (STAR stories, Bullet bank, Metrics)” (title, labels, Add buttons, Import optional).
+- `docs/merge-notes.md` — This section.
+
+### Commands run + results
+
+- **pnpm -r typecheck** — Exit 0. packages/adapters, packages/core, packages/ui, apps/desktop typecheck passed.
+- **pnpm test -- --run** — Exit 0. 43 test files, 682 tests passed (includes CareerScreen.test.tsx, 6 tests).
+
+### Git snapshots (Proof Library pass)
+
+**git status**
+```
+On branch feature/careerAndResume_page_creation
+Changes not staged for commit:
+  modified:   app/(shared)/dashboard/career/page.tsx
+  modified:   apps/desktop/src/DesktopApp.tsx
+  modified:   docs/merge-notes.md
+  deleted:    docs/mockups/dashboard-command-center-v1-bottom.png
+  deleted:    docs/mockups/dashboard-command-center-v1-top.png
+  modified:   packages/ui/src/index.ts
+  modified:   packages/ui/src/routes/routes.ts
+  modified:   packages/ui/src/screens/CareerScreen.tsx
+  modified:   packages/ui/src/shell/PathAdvisorCard.tsx
+  modified:   packages/ui/src/shell/PathAdvisorRail.tsx
+  modified:   packages/ui/src/shell/Sidebar.tsx
+  modified:   scripts/check-route-parity.mjs
+Untracked:
+  app/(shared)/dashboard/resume-readiness/
+  docs/mockups/careerAndResume_*.png
+  packages/ui/src/screens/CareerScreen.test.tsx
+  packages/ui/src/stores/careerResumeScreenStore.test.ts
+  packages/ui/src/stores/careerResumeScreenStore.ts
+  packages/ui/src/stores/pathAdvisorScreenOverridesStore.ts
+```
+
+**git branch --show-current**
+```
+feature/careerAndResume_page_creation
+```
+
+**Note:** No `develop` branch; using `main` as baseline.
+
+**git diff --name-status main...HEAD**  
+(Empty if branch has no commits vs main; working tree changes listed in status above.)
+
+**git diff --name-status main --** (working tree vs main, selected paths)
+```
+M	app/(shared)/dashboard/career/page.tsx
+M	apps/desktop/src/DesktopApp.tsx
+M	packages/ui/src/index.ts
+M	packages/ui/src/routes/routes.ts
+M	packages/ui/src/screens/CareerScreen.tsx
+M	packages/ui/src/shell/PathAdvisorCard.tsx
+M	packages/ui/src/shell/PathAdvisorRail.tsx
+M	packages/ui/src/shell/Sidebar.tsx
+M	scripts/check-route-parity.mjs
+A	app/(shared)/dashboard/resume-readiness/
+```
+(+ untracked CareerScreen.test.tsx, stores, etc.)
+
+**git diff --stat main -- packages/ui/src/screens/CareerScreen.tsx packages/ui/src/screens/CareerScreen.test.tsx**
+(CareerScreen: Proof Library UI, state, modal/drawer; test: PROOF LIBRARY + three panels.)
+
+---
+
+## Resume Readiness UX fixes (chips, spacing, overlay, archive/delete)
+
+**Goal:** Fix four UX issues on Resume Readiness: (A) meaningfully color-coded resume type/status chips, (B) spacing between name and chips for scannability, (C) “New version” menu above PathAdvisor rail, (D) archive + delete with confirm in All Resumes drawer.
+
+### What changed + why
+
+- **A) Chip meaning (token-safe):** Replaced generic `MutedChip` with **ResumeTypeChip** (Master = neutral/outline `var(--p-surface2)`; Tailored = accent `var(--p-accent-bg)`, `var(--p-accent-muted)`, `var(--p-accent)`) and **ResumeStatusChip** (Ready = success-like `var(--p-success-bg)` + check icon; In progress/Draft = muted). Used in both the active-resume dropdown list items and All Resumes drawer rows. Two chips max: Type + Status.
+- **B) Spacing/layout:** Enforced strict layout for dropdown items and drawer rows: name on left, chip group on right, no wrapping. Added consistent horizontal gap (`gap-3`) between name and chips; name truncates (`truncate min-w-0`), chips `flex-shrink-0`.
+- **C) Overlay layering:** “New version” dropdown was rendering behind the PathAdvisor rail. It now renders via **createPortal(..., document.body)** with `z-50` so it appears above the rail. Menu position is derived from trigger button `getBoundingClientRect()` when opened.
+- **D) Removal actions:**  
+  - **Archive:** Per resume row in All Resumes drawer: Archive icon button sets `archived: true` in store (item hidden unless “Show archived” is checked). Toast “Archived.” with **Undo** that calls `unarchiveResume(id)`.  
+  - **Delete permanently:** Only in drawer, under a “More” (⋮) overflow menu per row. **Confirm dialog:** title “Delete resume?”, body “This removes the resume from this device. This can’t be undone.”, Cancel / Delete. Delete removes the resume from local mock state and clears active if it was active.  
+  - **Show archived:** Checkbox in All Resumes drawer header toggles `showArchived`; when true, archived items are listed.
+- **Store:** `CareerResumeEntry` has optional `archived?: boolean`. New actions: `archiveResume` (sets archived, sets toast + `toastUndoResumeId`), `unarchiveResume`, `deleteResume`, `setShowArchived`, `setToastWithUndo`. `resetSeeded` clears `toastMessage`, `toastUndoResumeId`, `showArchived`. Dropdown and “View all resumes” count use **visible** resumes (filter `archived !== true`).
+
+### Files changed
+
+- `packages/ui/src/stores/careerResumeScreenStore.ts` — `archived`, `toastUndoResumeId`, `showArchived`; `archiveResume` (soft), `unarchiveResume`, `deleteResume`, `setShowArchived`, `setToastWithUndo`; `resetSeeded` extended.
+- `packages/ui/src/screens/CareerScreen.tsx` — ResumeTypeChip, ResumeStatusChip; active row + dropdown rows + drawer rows use new chips and layout; New version menu portaled with createPortal; toast with Undo; All Resumes drawer: Show archived, Archive button, More menu with Delete, delete confirm dialog; `visibleResumes`, `deleteConfirmResumeId`, `drawerRowMoreOpenId`.
+- `packages/ui/src/stores/careerResumeScreenStore.test.ts` — Tests: archiveResume sets archived and toast; showArchived reveals archived; unarchiveResume clears archived and toast; deleteResume removes item and clears active.
+- `packages/ui/src/screens/CareerScreen.test.tsx` — Test: “renders YOUR RESUMES empty state when no resumes (SSR does not seed store)”.
+
+### Commands run + results
+
+- **pnpm -r typecheck:** Passed (packages/adapters, packages/core, packages/ui, apps/desktop).
+- **pnpm test -- --run:** Passed. 43 test files, 687 tests. CareerScreen and careerResumeScreenStore tests all pass.
+
+### Git state (required)
+
+**git status**
+```
+On branch feature/careerAndResume_page_creation
+Changes not staged for commit:
+  modified:   app/(shared)/dashboard/career/page.tsx
+  modified:   apps/desktop/src/DesktopApp.tsx
+  modified:   docs/merge-notes.md
+  ... (other pre-existing modified files)
+  modified:   packages/ui/src/screens/CareerScreen.tsx
+  ...
+Untracked: packages/ui/src/stores/careerResumeScreenStore.ts, careerResumeScreenStore.test.ts, CareerScreen.test.tsx, ...
+```
+
+**git branch --show-current**
+```
+feature/careerAndResume_page_creation
+```
+
+**git diff --name-status develop...HEAD**  
+(No `develop` branch in repo; use `main` as baseline. main...HEAD may be empty if branch has no unique commits.)
+
+**git diff --stat develop...HEAD**  
+(Same note as above.)
+
+---
+
+## Resume Readiness UI regressions (row layout, close button, chips, dropdown)
+
+**Goal:** Fix four regressions: (A) All Resumes drawer row too dense — 2-line layout; (B) drawer close button inconsistent; (C) chips semantic styling (token-only); (D) New version dropdown transparent and behind PathAdvisor rail.
+
+### What changed
+
+- **A) All Resumes drawer row layout:** Each row is now a consistent 2-line layout. Line 1: resume name (truncate) left, action right — “Set active” or disabled “Active” (no separate Active chip). Line 2: chips group left (Type + Status only; Archived chip when applicable), “Updated X ago” right. Chips in a compact group that does not wrap.
+- **B) Close button consistency:** All Resumes, Proof Library, and Create tailored drawers use a shared close control: Lucide `X` icon, `size-9` icon button, ghost-style hover (`hover:bg-[var(--p-surface2)]`) and focus-visible ring. No raw “×” character; no app Button import (packages/ui stays boundary-safe).
+- **C) Chip semantics:** ResumeTypeChip and ResumeStatusChip already use token-only styling (Master = outline/neutral; Tailored = accent; Ready = success + Check icon; In progress/Draft = muted). No code change; validated.
+- **D) New version dropdown:** Menu is portaled to `document.body` with overlay at `z-[100]` so it renders above PathAdvisor rail. Menu content uses `backgroundColor: 'var(--p-surface)'` and `z-10` so it has a solid surface and stacks above the overlay backdrop.
+
+### Files changed
+
+- `packages/ui/src/screens/CareerScreen.tsx` — All Resumes drawer: 2-line row layout, X close button; Proof Library and Create tailored drawers: X close button; New version menu: z-[100], backgroundColor, z-10 on content; Lucide `X` import.
+
+### Commands run + results
+
+- **pnpm -r typecheck:** Passed (packages/adapters, packages/core, packages/ui, apps/desktop).
+- **pnpm test:** Passed. 43 test files, 687 tests (including CareerScreen.test.tsx, careerResumeScreenStore.test.ts).
+
+### Git state
+
+**git status**
+```
+On branch feature/careerAndResume_page_creation
+Changes not staged for commit:
+  modified:   ...
+  modified:   packages/ui/src/screens/CareerScreen.tsx
+  ...
+```
+
+**git branch --show-current**
+```
+feature/careerAndResume_page_creation
+```
+
+**git diff --name-status develop...HEAD**  
+(No `develop` branch; use `main` for baseline.)
+
+**git diff --stat develop...HEAD**  
+(Same note.)
+
+---
+
+## Resume Readiness UX parity fixes (dropdown, chips, tooltips, confirm)
+
+**Goal:** Finish Resume Readiness UX parity: Active resume dropdown 2-line layout per mockups; chips token-safe and visually distinct; drawer icon tooltips; destructive delete with confirm; archive with Undo toast.
+
+### What changed
+
+1. **A) Active resume dropdown — 2-line layout**
+   - Replaced single-row “name | chips | updated” with strict 2-line layout per item:
+     - Line 1: left = resume name (truncate), right = chip group (Type + Status), no wrapping.
+     - Line 2: “Updated X ago” in muted text, aligned right.
+   - Kept group headers (MASTER, TAILORED (RECENT)) and footer “Manage resumes…”.
+
+2. **B) Chips**
+   - Verified dropdown and All Resumes drawer use same components: `ResumeTypeChip` (Master/Tailored), `ResumeStatusChip` (Ready/In progress/Draft).
+   - Tailored uses accent tokens (`--p-accent-bg`, `--p-accent`); Ready uses success tokens + Check icon; Master neutral/outline. Token-only; no new colors.
+
+3. **C) Drawer icon tooltips**
+   - All Resumes drawer: added tooltips for icon actions using existing inline pattern (relative group + `aria-describedby` + sibling `role="tooltip"`):
+     - Archive button: “Archive resume”
+     - More (⋮) button: “More actions”
+   - Delete is only in More menu (no separate icon); menu item label “Delete permanently” is visible.
+
+4. **D) Destructive action and Archive**
+   - Delete permanently: confirm dialog already present — title “Delete resume?”, body “This removes the resume from this device. This can’t be undone.”, Cancel / Delete. Only deletes after confirm.
+   - Archive: store already performs archive and sets `toastMessage: 'Archived.'` and `toastUndoResumeId`; toast shows Undo that calls `unarchiveResume`. No code change.
+
+### Files changed
+
+- `packages/ui/src/screens/CareerScreen.tsx` — Dropdown: 2-line item layout (both MASTER and TAILORED sections). Drawer: tooltip wrappers for Archive and More icon buttons (unique ids per row).
+
+### Validation
+
+- **pnpm -r typecheck:** Passed (packages/adapters, packages/core, packages/ui, apps/desktop).
+- **pnpm test:** Passed. 43 test files, 687 tests (CareerScreen.test.tsx, careerResumeScreenStore.test.ts included).
+
+### Human Simulation Gate
+
+| Item | Value |
+|------|-------|
+| Required | No |
+| Triggers hit | none |
+| Why | UI layout, tooltips, and confirm/undo flows only; store behavior for archive/delete unchanged. |
+
+Do not commit or push.
+
+---
+
+## All Resumes drawer tooltips: portaled to body, side=left (no commit)
+
+**Goal:** Fix tooltip clipping in the All Resumes drawer by rendering tooltip content via a Radix portal to `document.body` and opening right-edge tooltips to the left (inward) with correct z-index above the drawer.
+
+### What changed
+
+1. **Tooltip implementation**
+   - All Resumes drawer rows previously used inline tooltips (relative group + sibling `role="tooltip"` div), which were clipped by the drawer's overflow/stacking context.
+   - Replaced with a Radix-based component that portals content to `document.body`: `packages/ui/src/components/DrawerTooltip.tsx`.
+
+2. **DrawerTooltip**
+   - Uses `@radix-ui/react-tooltip` (Provider, Root, Trigger, Portal, Content).
+   - Content is rendered inside `TooltipPrimitive.Portal` (to `document.body`).
+   - For right-edge icon buttons (Archive, More): `side="left"`, `sideOffset={8}`, `collisionPadding={12}`.
+   - Tooltip content `zIndex: 50` so it appears above the drawer overlay (drawer uses `z-40`).
+
+3. **CareerScreen**
+   - Archive and More icon buttons in the All Resumes drawer now use `<DrawerTooltip content="..." side="left" sideOffset={8} collisionPadding={12}>` wrapping the trigger button; removed inline tooltip divs and `aria-describedby` (Radix manages a11y).
+   - More button's dropdown (Delete menu) unchanged; still a sibling of the tooltip wrapper.
+
+### Files changed
+
+- `packages/ui/package.json` — Added dependency `@radix-ui/react-tooltip`: `"latest"`.
+- `packages/ui/src/components/DrawerTooltip.tsx` — **New.** Portaled tooltip component (Radix Provider + Root + Trigger + Portal + Content), design tokens, z-index 50.
+- `packages/ui/src/screens/CareerScreen.tsx` — All Resumes drawer: Archive and More buttons wrapped in `DrawerTooltip`; removed inline tooltip markup.
+
+### Commands run and results
+
+- **pnpm install** — OK (after adding Radix tooltip to packages/ui).
+- **pnpm -r typecheck** — Passed (packages/adapters, packages/core, packages/ui, apps/desktop).
+- **pnpm -r test** / **pnpm test** — Passed. 43 test files, 687 tests (including `packages/ui/src/screens/CareerScreen.test.tsx`).
+
+### Validation
+
+- **Visual:** Open All Resumes drawer, hover Archive and More; tooltip should be fully visible (not clipped) and open to the left (inward). Confirm manually.
+- No commit or push.
+
+---
+
+## Overlay Rule v1 — Centralized z-index, Radix DropdownMenu for “New version” (no commit)
+
+**Goal:** Implement Overlay Rule v1 so DropdownMenu, Tooltip, and Sheet layering is consistent; “New version” dropdown always renders above PathAdvisor with a solid background; no custom createPortal/manual positioning.
+
+### What changed
+
+1. **Z-index scale (packages/ui)**
+   - Added `packages/ui/src/styles/zIndex.ts`: `Z_LAYOUT` (10), `Z_POPOVER` (50), `Z_DIALOG` (100), `Z_TOOLTIP` (50). Layout (rail) &lt; popover/tooltip &lt; dialog.
+
+2. **“New version” dropdown (CareerScreen)**
+   - Removed custom `createPortal` + manual anchor state (`newVersionMenuAnchor`, `newVersionButtonRef`). Re-implemented with `@radix-ui/react-dropdown-menu`: `DropdownMenuPrimitive.Root`, `Trigger`, `Portal`, `Content`. Content renders in `document.body` via Radix Portal; solid background `var(--p-surface)`, border `var(--p-border)`, `zIndex: Z_POPOVER`.
+
+3. **PathAdvisor rail**
+   - `packages/ui/src/shell/AppShell.tsx`: Left and right advisor rail `<aside>` now use `zIndex: Z_LAYOUT` so portaled popovers/dropdowns (Z_POPOVER) always render above the rail.
+
+4. **DrawerTooltip**
+   - `packages/ui/src/components/DrawerTooltip.tsx`: Replaced hardcoded `zIndex: 50` with `Z_TOOLTIP` from `../styles/zIndex`.
+
+### Files changed
+
+- `packages/ui/package.json` — Added `@radix-ui/react-dropdown-menu`: `"latest"`.
+- `packages/ui/src/styles/zIndex.ts` — **New.** Centralized z-index constants (layout, popover, dialog, tooltip).
+- `packages/ui/src/screens/CareerScreen.tsx` — Removed `createPortal` and anchor state; “New version” uses Radix DropdownMenu + Portal; DropdownMenuContent uses `var(--p-surface)` and `Z_POPOVER`.
+- `packages/ui/src/shell/AppShell.tsx` — Rail asides use `Z_LAYOUT`.
+- `packages/ui/src/components/DrawerTooltip.tsx` — Uses `Z_TOOLTIP` from zIndex module.
+
+### Commands run and results
+
+- **pnpm install** — OK.
+- **pnpm -r typecheck** — Passed (packages/adapters, packages/core, packages/ui, apps/desktop).
+- **pnpm test packages/ui** — 8 test files, 36 tests passed (including `CareerScreen.test.tsx`).
+- **pnpm test** — Full suite: 43 test files, 687 tests passed.
+
+### Validation (edge cases)
+
+- **New version menu:** Open near the right edge; must render above PathAdvisor rail with solid background (no transparency).
+- **Tooltips near drawer edge:** DrawerTooltip (portaled + Z_TOOLTIP) should not be clipped.
+- No new global CSS; minimal diffs.
+
+Do not commit or push.
+
+---
+
+## Overlay Rule v1 enforced globally — shell layering, canonical Tooltip, audit script (no commit)
+
+**Goal:** Enforce Overlay Rule v1 everywhere: all tooltips/popovers/menus portaled to body, z-index from packages/ui/src/styles/zIndex.ts, rails at layout layer. Single canonical Tooltip; overlay audit script to prevent regressions.
+
+### What changed
+
+1. **Shell layering (AppShell)** — PathAdvisor rail asides: added `position: 'relative'` so `zIndex: Z_LAYOUT` takes effect. Mobile sidebar overlay: replaced Tailwind `z-50` with `style={{ zIndex: Z_DIALOG }}`.
+2. **Canonical Tooltip** — New `packages/ui/src/components/Tooltip.tsx` (Radix, Portal, Z_TOOLTIP). DrawerTooltip is a thin alias. Replaced inline `role="tooltip"` / absolute div tooltips in AskPathAdvisorButton, PathAdvisorCard (3), SettingsScreen, CareerScreen (2), ApplicationConfidenceCenterScreen. SimpleModal uses Z_DIALOG.
+3. **Overlay audit** — New `scripts/check-overlays.mjs`: fails on createPortal( in screens, role="tooltip" in ui (excl. Tooltip/DrawerTooltip), z-[ in ui (excl. zIndex.ts). Added `pnpm overlays:check`.
+
+### Files changed
+
+- `packages/ui/src/shell/AppShell.tsx` — position:relative on rails; Z_DIALOG for mobile overlay.
+- `packages/ui/src/components/Tooltip.tsx` — **New.** Canonical portaled tooltip.
+- `packages/ui/src/components/DrawerTooltip.tsx` — Thin alias around Tooltip.
+- `packages/ui/src/components/AskPathAdvisorButton.tsx` — Tooltip component.
+- `packages/ui/src/shell/PathAdvisorCard.tsx` — Three Tooltip wrappers.
+- `packages/ui/src/screens/SettingsScreen.tsx` — InlineTooltip uses Tooltip.
+- `packages/ui/src/screens/CareerScreen.tsx` — Two Tooltip wrappers.
+- `packages/ui/src/screens/ApplicationConfidenceCenterScreen.tsx` — InlineTooltip uses Tooltip; SimpleModal Z_DIALOG.
+- `scripts/check-overlays.mjs` — **New.** Overlay Rule v1 audit.
+- `package.json` — overlays:check script.
+
+### Commands run and results
+
+- **pnpm -r typecheck** — Passed.
+- **pnpm test** — 43 files, 687 tests passed.
+- **pnpm overlays:check** — Passed.
+
+Do not commit or push.
+
+---
+
+## OverlayRoot: global overlay layering fix (no commit)
+
+**Goal:** Fix tooltips and dropdowns rendering behind PathAdvisor rail or getting clipped by introducing a single global overlay host (OverlayRoot) and portaling all overlays into it. Deterministic layering via zIndex.ts.
+
+### What changed
+
+1. **Global overlay host (OverlayRoot)**
+   - **packages/ui/src/styles/zIndex.ts:** Added `OVERLAY_ROOT_ID = 'pathos-overlay-root'` and `Z_OVERLAY_ROOT = 1000`. Kept `Z_LAYOUT`, `Z_POPOVER`, `Z_DIALOG`, `Z_TOOLTIP` unchanged.
+   - **packages/ui/src/shell/AppShell.tsx:** Rendered a single `<div id="pathos-overlay-root" />` at the end of the shell (outside main layout, inside the root div). Inline styles: `position: 'fixed'`, `inset: 0`, `pointerEvents: 'none'`, `isolation: 'isolate'`, `zIndex: Z_OVERLAY_ROOT`. Overlay host does not block pointer events; portaled content uses `pointerEvents: 'auto'` where needed.
+
+2. **Portal all overlays into OverlayRoot**
+   - **packages/ui/src/components/Tooltip.tsx:** Resolve container with `getOverlayContainer()` (OverlayRoot when present, else `document.body`). Pass `container={container}` to `TooltipPrimitive.Portal`. Tooltip content uses `pointerEvents: 'auto'` and `zIndex: Z_TOOLTIP`. DrawerTooltip wraps Tooltip so it inherits the same portal behavior.
+   - **packages/ui/src/screens/CareerScreen.tsx:** `DropdownMenuPrimitive.Portal` now receives `container={document.getElementById(OVERLAY_ROOT_ID) || document.body}`. DropdownMenu Content already had solid `backgroundColor: 'var(--p-surface)'`, `borderColor: 'var(--p-border)'`, `zIndex: Z_POPOVER`.
+
+3. **Remove competing z-index sources**
+   - Replaced Tailwind z-index classes with inline `style={{ zIndex: ... }}` from zIndex.ts across packages/ui: **CareerScreen** (z-20, z-40, z-50, z-10 → Z_POPOVER or Z_DIALOG), **PathAdvisorCard** (z-30 → Z_POPOVER), **TopBar** (z-50 → Z_DIALOG), **Sidebar** (z-10 → 1 for local nav-item stacking). Rails (AppShell asides) already used `Z_LAYOUT`; no parent wrapper changes needed.
+
+4. **Strengthen scripts/check-overlays.mjs**
+   - Scope expanded to **packages/ui/src**, **apps/desktop/src**, **app/(shared)**. Fails if: (1) `className` contains `" z-"` (Tailwind z-index), except allowlisted files (zIndex.ts, AppShell.tsx where " z-" appears only in comments); (2) `role="tooltip"` except in Tooltip.tsx / DrawerTooltip.tsx; (3) `createPortal(` (allowlist empty). **pnpm overlays:check** remains wired at root.
+
+### Files changed (this run)
+
+- `packages/ui/src/styles/zIndex.ts` — OVERLAY_ROOT_ID, Z_OVERLAY_ROOT.
+- `packages/ui/src/shell/AppShell.tsx` — OverlayRoot div; import OVERLAY_ROOT_ID, Z_OVERLAY_ROOT.
+- `packages/ui/src/components/Tooltip.tsx` — getOverlayContainer(); Portal container; Content pointerEvents: auto.
+- `packages/ui/src/screens/CareerScreen.tsx` — DropdownMenu Portal container; Z_DIALOG, Z_POPOVER; all Tailwind z-* replaced with inline zIndex.
+- `packages/ui/src/shell/PathAdvisorCard.tsx` — z-30 → Z_POPOVER (inline).
+- `packages/ui/src/shell/TopBar.tsx` — z-50 → Z_DIALOG (inline).
+- `packages/ui/src/shell/Sidebar.tsx` — z-10 → inline zIndex: 1 (nav item stacking).
+- `scripts/check-overlays.mjs` — Scope ui + desktop + app/(shared); fail on " z-", role="tooltip", createPortal( with allowlists.
+
+### Commands run and results
+
+- **pnpm -r typecheck** — Passed (packages/adapters, packages/core, packages/ui, apps/desktop).
+- **pnpm test** — 43 test files, 687 tests passed.
+- **pnpm overlays:check** — Passed (Overlay Rule v1 / OverlayRoot).
+
+### Git state (reference)
+
+- **git status** — Branch feature/careerAndResume_page_creation; modified and untracked files as per current working tree.
+- **git branch --show-current** — feature/careerAndResume_page_creation.
+- **git diff --name-status main --** (overlay-related): M packages/ui/package.json, M packages/ui/src/components/AskPathAdvisorButton.tsx, M packages/ui/src/shell/AppShell.tsx, M packages/ui/src/shell/PathAdvisorCard.tsx, M packages/ui/src/shell/Sidebar.tsx, M packages/ui/src/shell/TopBar.tsx, M packages/ui/src/screens/ApplicationConfidenceCenterScreen.tsx, M packages/ui/src/screens/CareerScreen.tsx, M packages/ui/src/screens/SettingsScreen.tsx, etc. (Full diff not pasted.)
+- **git diff --stat main --** — (not pasted per instructions.)
+
+### Manual validation (proof)
+
+- PathAdvisor header tooltips (clear chat, settings, close briefing): must not be clipped; must appear above rail.
+- “New version” dropdown near right edge: must render above PathAdvisor rail with solid background.
+- All Resumes drawer row icon tooltips: must not be clipped.
+- At least one tooltip near viewport edge: collision behavior should avoid cutoff.
+
+Do not commit or push.
+
+---
+
+## Dropdown placement + Resume Readiness tile accent (Mar 1, 2025)
+
+### What changed and why
+
+1. **New version dropdown placement (Task A)**  
+   The “New version” menu stays portaled (no revert of portal/OverlayRoot). Positioning was adjusted so the menu anchors to the button and minimizes overlap with the PathAdvisor rail: `side="bottom"`, `align="end"`, `sideOffset={8}`, `collisionPadding={14}`, and a reasonable width range (`min-w-[12rem] max-w-[16rem]` with `w-56`). Radix will prefer flipping left/inward when the menu would collide with the rail.
+
+2. **Resume Readiness tiles accent (Task B)**  
+   The four tiles (Completeness, Missing fields, Tailor-ready, Last tailored) previously used a hard 2px solid left border (`borderLeft: '2px solid var(--p-accent-muted)'`). This was replaced with the app’s “fade accent” pattern: an absolute inner strip (8px wide) with a horizontal gradient `linear-gradient(90deg, var(--p-accent-muted), transparent)` and a vertical mask so the strip fades at top/bottom. All four tiles use the same `ResumeReadinessTile` component, so accent behavior is identical. Styling is token-only (`var(--p-*)`).
+
+### Files changed
+
+- `packages/ui/src/screens/CareerScreen.tsx` — New version `DropdownMenuPrimitive.Content` props (side, align, sideOffset, collisionPadding, width classes); `ResumeReadinessTile` inner content: removed solid border, added fade-accent div (gradient + mask).
+
+### Commands run and results
+
+- **pnpm -r typecheck** — Passed (packages/adapters, packages/core, packages/ui, apps/desktop).
+- **pnpm --filter @pathos/ui test --run** — Passed (exit code 0).
+
+### Constraints respected
+
+- Portal/OverlayRoot behavior unchanged.
+- Token-only styling; no hardcoded colors.
+- Minimal diffs (targeted edits only).
+
+Do not commit or push.
+
+---
+
+## Resume Readiness tiles: remove orange strip, match card system (Mar 1, 2025)
+
+### Problem
+
+The four “Resume Readiness” tiles (Completeness, Missing fields, Tailor-ready, Last tailored) had an inconsistent orange left-edge accent (vertical gradient strip) and did not match the styling of other cards on the page (e.g. TODAY'S BEST MOVE, YOUR RESUMES, ModuleCard).
+
+### Goal
+
+Make all four tiles visually consistent with each other and with the rest of the card system on Resume Readiness.
+
+### What changed
+
+1. **Component/style identified**  
+   The four tiles are rendered by `ResumeReadinessTile` in `packages/ui/src/screens/CareerScreen.tsx`.
+
+2. **Vertical orange gradient strip removed**  
+   The inner absolute div that drew an 8px left strip with `linear-gradient(90deg, var(--p-accent-muted), transparent)` and a vertical mask was removed entirely. No left accent bar remains.
+
+3. **Card styling aligned with page**  
+   Tiles now use the same card chrome as ModuleCard and other cards on the page:
+   - Same border: `1px solid var(--p-border)`
+   - Same radius: `var(--p-radius-lg)`
+   - Same surface: `var(--p-surface)`
+   - Same shadow: `var(--p-shadow-elev-1)`
+   - Added 1px top accent line: `borderTop: '1px solid var(--p-accent-muted)'` to match ModuleCard (subtle, token-safe; no new visual system).
+
+4. **Emphasis via content only**  
+   Value text remains orange (`var(--p-accent)`). No harsh accent bars.
+
+5. **Uniform structure**  
+   All four tiles share the exact same `ResumeReadinessTile` component and classes; inner content wrapper is `p-3 flex flex-col gap-0.5` with no per-tile styling differences.
+
+### Files changed
+
+- `packages/ui/src/screens/CareerScreen.tsx` — `ResumeReadinessTile`: removed gradient strip div and extra left padding; added `borderTop: '1px solid var(--p-accent-muted)'` to outer card; simplified inner wrapper to `p-3 flex flex-col gap-0.5`. Comment updated to describe alignment with ModuleCard/card system.
+
+### Validation
+
+- Visual: tiles are uniform and match other cards (same border, radius, surface, subtle top accent; value text orange).
+- **pnpm -r typecheck** — Passed.
+- **pnpm --filter @pathos/ui test --run** — Passed.
+
+Do not commit or push.
+
+---
+
+## Sidebar CAREER & JOBS order: Resume Builder before Resume Readiness (Mar 1, 2025)
+
+### Task
+
+Reorder sidebar navigation so “Resume Builder” appears before “Resume Readiness” under the CAREER & JOBS section. Desired order: … Job Search, Saved Jobs, Guided Apply, Resume Builder, Resume Readiness … (Application Confidence Center last).
+
+### What changed
+
+- **packages/ui/src/shell/Sidebar.tsx** — Reordered the `items` array in the CAREER & JOBS `navSections` entry. No route or label changes; only item order.
+- New order: Job Search, Saved Jobs, Guided Apply, Resume Builder, Resume Readiness, Application Confidence Center.
+
+### Constraints
+
+- Routes and labels unchanged.
+- Minimal diff (reorder only).
+- Route parity unchanged.
+
+### Validation
+
+- **pnpm -r typecheck** — Passed.
+- **pnpm -r test -- --run** — Passed.
+- **pnpm routes:check** — OK; all Sidebar routes resolve in Desktop and Next.
+
+Do not commit or push.
+
+---
+
+## Dashboard Briefing tiles: match Resume Readiness tile style (Mar 1, 2025)
+
+### Goal
+
+Make the Dashboard “Briefing” row tiles (Saved Jobs, Tracked Apps, Readiness, Next Milestone) match the Resume Readiness tile style for visual consistency: remove orange accent bars / harsh accent borders, use the same neutral card styling, keep emphasis via content (value typography + delta/subtext).
+
+### What changed
+
+1. **Component identified**  
+   The four tiles are rendered by `BriefingTile` in `packages/ui/src/screens/DashboardScreen.tsx` (single shared component for all briefing tiles).
+
+2. **Styles updated to match Resume Readiness tiles**  
+   - **Removed:** 2px left accent strip (`borderLeft: '2px solid var(--p-accent-muted)'`) and extra left padding (`pl-[calc(0.75rem+2px)]`).  
+   - **Added:** 1px top accent line on the outer card (`borderTop: '1px solid var(--p-accent-muted)'`) to match ModuleCard / Resume Readiness.  
+   - **Unchanged:** Same border token (`var(--p-border)`), radius (`var(--p-radius-lg)`), surface (`var(--p-surface)`), shadow (`var(--p-shadow-elev-1)`). Inner content uses `p-3 flex flex-col gap-0.5` (no left padding).
+
+3. **Signals preserved**  
+   - Delta/subtext (e.g. “+1 this week”, “1 updated”) still rendered with `subtextPositive` for success color where used.  
+   - Icons (BRIEFING_ICONS) unchanged.  
+   - Label/value/subtext layout and padding unchanged.
+
+4. **Tokens only**  
+   All styling uses `var(--p-*)`; no hardcoded colors. No restyling of unrelated cards (FocusHeroCard, ModuleCard, etc. untouched).
+
+### Files changed
+
+- `packages/ui/src/screens/DashboardScreen.tsx` — `BriefingTile`: removed left accent bar and extra padding; added `borderTop: '1px solid var(--p-accent-muted)'` to outer card; inner wrapper set to `p-3 flex flex-col gap-0.5`. Comment block updated to describe alignment with Resume Readiness tile style.
+
+### Validation
+
+- Visual: Dashboard briefing row tiles use same base card treatment as Resume Readiness (border, radius, surface, 1px top accent; no left strip).
+- **pnpm -r typecheck** — Passed.
+- **pnpm -r test -- --run** — Passed.
+
+Do not commit or push.
+
+---
+
+## Sidebar CAREER & JOBS: Guided Apply after Application Confidence Center (Mar 1, 2025)
+
+### Task
+
+Reorder sidebar nav under CAREER & JOBS so “Guided Apply” appears after “Application Confidence Center”. Target order: Job Search, Saved Jobs, Resume Builder, Resume Readiness, Application Confidence Center, Guided Apply.
+
+### What changed
+
+- **packages/ui/src/shell/Sidebar.tsx** — Reordered the `items` array in the CAREER & JOBS section: moved “Guided Apply” from third to last. Routes, labels, and icons unchanged; order only.
+
+### Constraints
+
+- Routes, labels, icons unchanged.
+- Minimal diff (reorder only).
+- Route parity unchanged.
+
+### Validation
+
+- **pnpm -r typecheck** — Passed.
+- **pnpm -r test -- --run** — Passed.
+- **pnpm routes:check** — OK; all Sidebar routes resolve in Desktop and Next.
+
+Do not commit or push.
+
+---
+
+## Push-ready (Resume Readiness v1) — Mar 1, 2025
+
+Final merge-ready documentation and artifact updates. Baseline: **main** (repo does not use develop).
+
+### Summary of what changed
+
+- **Resume Readiness page and route** — New `/dashboard/resume-readiness` route and CareerScreen (Resume Readiness tiles, resume list, today's best move, create tailored flow).
+- **Navigation** — Sidebar CAREER & JOBS order: Job Search, Saved Jobs, Resume Builder, Resume Readiness, Application Confidence Center, Guided Apply. Dashboard career link to Resume Readiness.
+- **PathAdvisor and tooltips** — Screen-specific prompts for Resume Readiness; DrawerTooltip/Tooltip components; overlay and z-index alignment.
+- **Stores** — careerResumeScreenStore, pathAdvisorScreenOverridesStore; tests for CareerScreen and careerResumeScreenStore.
+- **CI/scripts** — overlays check script (`pnpm overlays:check`); route parity script updates.
+- **Mockups** — Removed `dashboard-command-center-v1-*.png`; added `careerAndResume_*.png`.
+- **Change brief** — `docs/change-briefs/resume-readiness-v1.md` (non-technical).
+- **Patch artifacts** — `artifacts/resume-readiness-v1.patch` (cumulative main…HEAD), `artifacts/resume-readiness-v1-this-run.patch` (incremental).
+
+### Files changed (high-level)
+
+| Area | Paths |
+|------|--------|
+| App routes | `app/(shared)/dashboard/career/page.tsx`, `app/(shared)/dashboard/resume-readiness/` (new) |
+| Desktop | `apps/desktop/src/DesktopApp.tsx` |
+| UI package | `packages/ui`: CareerScreen, DashboardScreen, SettingsScreen, ApplicationConfidenceCenterScreen; Sidebar, TopBar, AppShell, PathAdvisorRail, PathAdvisorCard, AskPathAdvisorButton; routes, index; new DrawerTooltip, Tooltip, zIndex, careerResumeScreenStore, pathAdvisorScreenOverridesStore + tests |
+| Scripts | `scripts/check-route-parity.mjs`, `scripts/check-overlays.mjs` (new) |
+| Docs/mockups | `docs/merge-notes.md`, `docs/change-briefs/resume-readiness-v1.md` (new); mockups: 2 deleted, 4 added |
+| Lock/config | `package.json`, `packages/ui/package.json`, `pnpm-lock.yaml` |
+
+### Validation results
+
+| Command | Result | Notes |
+|---------|--------|--------|
+| pnpm lint | **FAIL** | 19 errors, 13 warnings. Errors in electron scripts (require), core test files (prefer-const), and UI (set-state-in-effect, empty interface, component-in-render). Pre-existing and in-branch; warnings allowed per policy. |
+| pnpm typecheck | **PASS** | Exit 0. |
+| pnpm test | **PASS** | 43 test files, 687 tests passed. |
+| pnpm build | **PASS** | Next.js production build succeeded; `/dashboard/resume-readiness` and other routes built. |
+| pnpm routes:check | **PASS** | All Sidebar routes resolve in Desktop and Next. |
+| pnpm overlays:check | **PASS** | Overlay Rule v1 / OverlayRoot. |
+
+### Git snapshots
+
+**git status**
+
+```
+On branch feature/careerAndResume_page_creation
+Changes to be committed:
+  new file:   app/(shared)/dashboard/resume-readiness/page.tsx
+  new file:   docs/mockups/careerAndResume_bottom.png
+  new file:   docs/mockups/careerAndResume_mid.png
+  new file:   docs/mockups/careerAndResume_mid_bottom.png
+  new file:   docs/mockups/careerAndResume_top.png
+  new file:   packages/ui/src/components/DrawerTooltip.tsx
+  new file:   packages/ui/src/components/Tooltip.tsx
+  new file:   packages/ui/src/screens/CareerScreen.test.tsx
+  new file:   packages/ui/src/stores/careerResumeScreenStore.test.ts
+  new file:   packages/ui/src/stores/careerResumeScreenStore.ts
+  new file:   packages/ui/src/stores/pathAdvisorScreenOverridesStore.ts
+  new file:   packages/ui/src/styles/zIndex.ts
+  new file:   scripts/check-overlays.mjs
+  new file:   docs/change-briefs/resume-readiness-v1.md
+
+Changes not staged for commit:
+  modified:   app/(shared)/dashboard/career/page.tsx
+  modified:   apps/desktop/src/DesktopApp.tsx
+  modified:   docs/merge-notes.md
+  deleted:    docs/mockups/dashboard-command-center-v1-bottom.png
+  deleted:    docs/mockups/dashboard-command-center-v1-top.png
+  modified:   package.json
+  modified:   packages/ui/package.json
+  ... (other modified files as in full status)
+```
+
+**git branch --show-current**
+
+```
+feature/careerAndResume_page_creation
+```
+
+**git diff --name-status main...HEAD**
+
+(Empty — branch has no commits beyond main; all changes are in working tree + staged.)
+
+**git diff --stat main...HEAD**
+
+(Empty — same reason.)
+
+**git diff --name-status main --** (working tree vs main, exclude artifacts)
+
+```
+M	app/(shared)/dashboard/career/page.tsx
+M	apps/desktop/src/DesktopApp.tsx
+M	docs/merge-notes.md
+D	docs/mockups/dashboard-command-center-v1-bottom.png
+D	docs/mockups/dashboard-command-center-v1-top.png
+M	package.json
+M	packages/ui/package.json
+... (plus new files when staged)
+```
+
+**git diff --stat main --** (working tree vs main)
+
+```
+ 21 files changed, 3020 insertions(+), 257 deletions(-)
+ (plus new files when staged)
+```
+
+### Patch artifacts (push-ready)
+
+- **Cumulative:** `git diff main...HEAD -- . ":(exclude)artifacts"` → `artifacts/resume-readiness-v1.patch` (0 bytes; no commits on branch).
+- **Incremental:** `git diff -- . ":(exclude)artifacts"` → `artifacts/resume-readiness-v1-this-run.patch`.
+
+**Artifacts listing (resume-readiness-v1 patches only):** See "Merge-ready validation" below for final sizes.
+
+Patch contents are not pasted here.
+
+### Git hygiene
+
+- **Mockups:** `docs/mockups/dashboard-command-center-v1-top.png` and `dashboard-command-center-v1-bottom.png` were restored (git restore) so they remain in the repo; `careerAndResume_*.png` are added alongside. No intentional deletion of mockups without replacement.
+- **Untracked → tracked:** New page folder, mockups, DrawerTooltip, Tooltip, CareerScreen.test, careerResumeScreenStore (+ test), pathAdvisorScreenOverridesStore, zIndex.ts, check-overlays.mjs, and change brief were added and staged.
+
+Do not commit or push.
+
+---
+
+## Merge-ready validation (Mar 1, 2025)
+
+Final gate results and artifact listing after lint fixes, mockup restore, and patch regeneration.
+
+### Summary
+
+- **Lint:** All 19 errors fixed (CJS eslint-disable, prefer-const, set-state-in-effect via queueMicrotask, empty interface → type, Sidebar NavLink from parent). Exit 0; 12 warnings remain (allowed).
+- **Mockups:** Restored `docs/mockups/dashboard-command-center-v1-top.png` and `dashboard-command-center-v1-bottom.png` with `git restore`; both remain in repo.
+- **Cumulative patch:** Branch has no commits beyond main, so `git diff main...HEAD` is empty. Cumulative patch generated as **working tree vs main**: `git diff main -- . ":(exclude)artifacts"` → non-empty `artifacts/resume-readiness-v1.patch`.
+
+### Command results
+
+| Command | Result |
+|---------|--------|
+| pnpm lint | **PASS** (0 errors, 12 warnings) |
+| pnpm typecheck | **PASS** |
+| pnpm test | **PASS** (43 files, 687 tests) |
+| pnpm build | **PASS** |
+| pnpm routes:check | **PASS** |
+| pnpm overlays:check | **PASS** |
+
+### Git snapshots
+
+**git status**
+
+```
+On branch feature/careerAndResume_page_creation
+Changes to be committed:
+  new file:   app/(shared)/dashboard/resume-readiness/page.tsx
+  new file:   docs/change-briefs/resume-readiness-v1.md
+  new file:   docs/mockups/careerAndResume_bottom.png
+  new file:   docs/mockups/careerAndResume_mid.png
+  new file:   docs/mockups/careerAndResume_mid_bottom.png
+  new file:   docs/mockups/careerAndResume_top.png
+  new file:   packages/ui/src/components/DrawerTooltip.tsx
+  new file:   packages/ui/src/components/Tooltip.tsx
+  new file:   packages/ui/src/screens/CareerScreen.test.tsx
+  new file:   packages/ui/src/stores/careerResumeScreenStore.test.ts
+  new file:   packages/ui/src/stores/careerResumeScreenStore.ts
+  new file:   packages/ui/src/stores/pathAdvisorScreenOverridesStore.ts
+  new file:   packages/ui/src/styles/zIndex.ts
+  new file:   scripts/check-overlays.mjs
+
+Changes not staged for commit:
+  modified:   app/(shared)/dashboard/career/page.tsx
+  modified:   apps/desktop/scripts/copy-preload.cjs
+  modified:   apps/desktop/scripts/postinstall-electron.cjs
+  ... (lint fixes + feature changes in packages/ui, docs, etc.)
+```
+
+**git branch --show-current**
+
+```
+feature/careerAndResume_page_creation
+```
+
+**git diff --name-status main...HEAD**
+
+(Empty — no commits on branch beyond main.)
+
+**git diff --stat main...HEAD**
+
+(Empty — same.)
+
+### Patch artifacts (corrected)
+
+- **Cumulative:** `git diff main -- . ":(exclude)artifacts"` → `artifacts/resume-readiness-v1.patch` (working tree vs main; branch has no commits).
+- **Incremental:** `git diff -- . ":(exclude)artifacts"` → `artifacts/resume-readiness-v1-this-run.patch`.
+
+**Artifacts listing**
+
+```
+Name          : resume-readiness-v1.patch
+Length        : 239658
+LastWriteTime : 3/1/2026 1:41:56 PM
+
+Name          : resume-readiness-v1-this-run.patch
+Length        : 200042
+LastWriteTime : 3/1/2026 1:41:56 PM
+```
+
+Do not commit or push.

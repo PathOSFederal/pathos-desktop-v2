@@ -95,7 +95,8 @@ export function DesktopApp() {
         <Routes>
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
           <Route path="/dashboard" element={<DashboardScreen />} />
-          <Route path="/dashboard/career" element={<CareerScreen />} />
+          <Route path="/dashboard/resume-readiness" element={<CareerScreen />} />
+          <Route path="/dashboard/career" element={<Navigate to="/dashboard/resume-readiness" replace />} />
           <Route path="/dashboard/compensation" element={<PlaceholderScreen />} />
           <Route path="/dashboard/benefits" element={<PlaceholderScreen />} />
           <Route path="/dashboard/retirement" element={<PlaceholderScreen />} />

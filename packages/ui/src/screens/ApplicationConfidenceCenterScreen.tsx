@@ -19,6 +19,8 @@ import type React from 'react';
 import { useState, useCallback } from 'react';
 import { Plus, HelpCircle, X } from 'lucide-react';
 import { ModuleCard } from '../components/ModuleCard';
+import { Tooltip } from '../components/Tooltip';
+import { Z_DIALOG } from '../styles/zIndex';
 
 // ---------------------------------------------------------------------------
 // Stub type for PathAdvisor rail context (selected tracked application)
@@ -51,7 +53,8 @@ function SimpleModal(props: {
   if (!props.open) return null;
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      className="fixed inset-0 flex items-center justify-center p-4"
+      style={{ zIndex: Z_DIALOG }}
       role="dialog"
       aria-modal="true"
       aria-labelledby="simple-modal-title"
@@ -94,33 +97,23 @@ function SimpleModal(props: {
   );
 }
 
-// ---------------------------------------------------------------------------
-// Inline tooltip (matches SettingsScreen / PathAdvisorCard pattern; no Radix in ui package)
-// ---------------------------------------------------------------------------
-
+/** Portaled tooltip wrapper (Overlay Rule v1). */
 function InlineTooltip(props: {
   id: string;
   name: string;
   description: string;
   children: React.ReactNode;
 }) {
+  const content = (
+    <>
+      <p className="font-semibold" style={{ color: 'var(--p-text)' }}>{props.name}</p>
+      <p>{props.description}</p>
+    </>
+  );
   return (
-    <div className="relative group">
+    <Tooltip contentId={props.id} side="top" content={content}>
       {props.children}
-      <div
-        id={props.id}
-        role="tooltip"
-        className="pointer-events-none absolute left-1/2 -translate-x-1/2 bottom-full z-20 mb-1 w-56 rounded-[var(--p-radius)] border p-2 text-center text-[11px] opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
-        style={{
-          background: 'var(--p-surface)',
-          borderColor: 'var(--p-border)',
-          color: 'var(--p-text-muted)',
-        }}
-      >
-        <p className="font-semibold" style={{ color: 'var(--p-text)' }}>{props.name}</p>
-        <p>{props.description}</p>
-      </div>
-    </div>
+    </Tooltip>
   );
 }
 

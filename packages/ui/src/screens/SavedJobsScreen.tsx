@@ -42,7 +42,8 @@ import type { Job, SavedJobsStore } from '@pathos/core';
 // Props
 // ---------------------------------------------------------------------------
 
-export interface SavedJobsScreenProps {}
+/** Props for SavedJobsScreen; currently no required props. */
+export type SavedJobsScreenProps = Record<string, unknown>;
 
 // ---------------------------------------------------------------------------
 // Sub-component: Saved job list item
@@ -257,8 +258,10 @@ export function SavedJobsScreen(_props: SavedJobsScreenProps) {
 
   useEffect(function () {
     const loaded = loadSavedJobsStore();
-    setStore(loaded);
-    setMounted(true);
+    queueMicrotask(function () {
+      setStore(loaded);
+      setMounted(true);
+    });
   }, []);
 
   const persist = useCallback(function (next: SavedJobsStore) {

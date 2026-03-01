@@ -134,7 +134,7 @@ describe('Guided Apply Storage', function () {
       expect(step!.completed).toBe(true);
 
       // Toggle back
-      let store2 = updateSession(reloaded, session.id, function (s) {
+      const store2 = updateSession(reloaded, session.id, function (s) {
         return toggleChecklistStep(s, 'confirm-announcement');
       });
       saveGuidedApplyStore(store2);
@@ -226,7 +226,7 @@ describe('Guided Apply Storage', function () {
 
     it('clearGuidedApplyData should wipe all sessions and reset storage', function () {
       const s1 = createSession('Job A', '');
-      let store = addSession(loadGuidedApplyStore(), s1);
+      const store = addSession(loadGuidedApplyStore(), s1);
       saveGuidedApplyStore(store);
 
       // Verify data exists

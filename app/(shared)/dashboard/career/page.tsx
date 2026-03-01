@@ -1,12 +1,8 @@
-'use client';
+import { redirect } from 'next/navigation';
 
-import { CareerScreen } from '@pathos/ui';
-import { SharedDashboardRouteShell } from '../_components/SharedDashboardRouteShell';
-
+/**
+ * Alias for Resume Readiness. Redirect to canonical path so old links and bookmarks still work.
+ */
 export default function CareerPage() {
-  return (
-    <SharedDashboardRouteShell>
-      <CareerScreen />
-    </SharedDashboardRouteShell>
-  );
+  redirect('/dashboard/resume-readiness');
 }

@@ -30,8 +30,9 @@ import {
 import { Sidebar, type SidebarProps } from './Sidebar';
 import { TopBar, type TopBarProps } from './TopBar';
 
-// Import shared theme tokens (single source of truth)
+// Import shared theme tokens and overlay z-index scale (Overlay Rule v1)
 import '../styles/theme.css';
+import { Z_DIALOG, Z_LAYOUT, Z_OVERLAY_ROOT, OVERLAY_ROOT_ID } from '../styles/zIndex';
 import { ScrollbarsStyle } from './ScrollbarsStyle';
 
 // ---------------------------------------------------------------------------
@@ -138,14 +139,14 @@ export function SharedAppShell(props: AppShellProps) {
         platform={platform}
       />
 
-      {/* Mobile sidebar overlay */}
+      {/* Mobile sidebar overlay: Z_DIALOG so it sits above layout (Overlay Rule v1) */}
       {mobileNavOpen && (
-        <div className="fixed inset-0 z-50 lg:hidden">
+        <div className="fixed inset-0 lg:hidden" style={{ zIndex: Z_DIALOG }}>
           <div
             className="absolute inset-0 bg-black/60 backdrop-blur-sm"
             onClick={function () { setMobileNavOpen(false); }}
           />
-          <div className="absolute left-0 top-0 h-full w-64 z-50">
+          <div className="absolute left-0 top-0 h-full w-64" style={{ zIndex: Z_DIALOG }}>
             <Sidebar
               isEmployee={props.sidebar?.isEmployee}
               userName={props.sidebar?.userName}
@@ -171,11 +172,11 @@ export function SharedAppShell(props: AppShellProps) {
           </div>
         )}
 
-        {/* Left advisor rail */}
+        {/* Left advisor rail: position + layout z-index so portaled overlays render above (Overlay Rule v1) */}
         {dock === 'left' && !props.hideAdvisor && props.rightRail && (
           <aside
             className="hidden lg:block w-80 flex-shrink-0"
-            style={{ borderRight: '1px solid var(--p-border)', background: 'var(--p-bg)' }}
+            style={{ position: 'relative', borderRight: '1px solid var(--p-border)', background: 'var(--p-bg)', zIndex: Z_LAYOUT }}
           >
             <div className="sticky top-2 h-[calc(100vh-5rem)] px-3 pt-3 pb-3">
               {props.rightRail}
@@ -192,11 +193,11 @@ export function SharedAppShell(props: AppShellProps) {
           {props.children}
         </main>
 
-        {/* Right advisor rail */}
+        {/* Right advisor rail: position + layout z-index so portaled overlays render above (Overlay Rule v1) */}
         {dock === 'right' && !props.hideAdvisor && props.rightRail && (
           <aside
             className="hidden lg:block w-80 flex-shrink-0"
-            style={{ borderLeft: '1px solid var(--p-border)', background: 'var(--p-surface)' }}
+            style={{ position: 'relative', borderLeft: '1px solid var(--p-border)', background: 'var(--p-surface)', zIndex: Z_LAYOUT }}
           >
             <div className="sticky top-2 h-[calc(100vh-5rem)] px-3 pt-3 pb-3">
               {props.rightRail}
@@ -204,6 +205,18 @@ export function SharedAppShell(props: AppShellProps) {
           </aside>
         )}
       </div>
+
+      {/* Global overlay host: all tooltips/dropdowns/dialogs portal here so they layer above rails (OverlayRoot) */}
+      <div
+        id={OVERLAY_ROOT_ID}
+        style={{
+          position: 'fixed',
+          inset: 0,
+          pointerEvents: 'none',
+          isolation: 'isolate',
+          zIndex: Z_OVERLAY_ROOT,
+        }}
+      />
     </div>
   );
 }

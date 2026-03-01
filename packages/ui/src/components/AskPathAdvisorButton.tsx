@@ -14,6 +14,7 @@
 
 import type React from 'react';
 import { Sparkles } from 'lucide-react';
+import { Tooltip } from './Tooltip';
 
 export interface AskPathAdvisorButtonProps {
   /** Click handler; typically opens PathAdvisor briefing or focus. */
@@ -87,7 +88,14 @@ export function AskPathAdvisorButton(props: AskPathAdvisorButtonProps) {
     (className !== undefined && className !== '' ? ' ' + className : '');
 
   return (
-    <div className="relative group inline-block">
+    <Tooltip contentId={tooltipId} side="top" content={
+      <>
+        <p className="font-semibold" style={{ color: 'var(--p-text)' }}>
+          Ask PathAdvisor
+        </p>
+        <p>{tooltipContent}</p>
+      </>
+    }>
       <button
         type="button"
         onClick={onClick}
@@ -99,28 +107,12 @@ export function AskPathAdvisorButton(props: AskPathAdvisorButtonProps) {
           color: 'var(--p-text-muted)',
         }}
         aria-label="Ask PathAdvisor"
-        aria-describedby={tooltipId}
       >
         <span className="flex-shrink-0" style={{ color: 'var(--p-accent)' }}>
           <Sparkles className={iconSize} aria-hidden />
         </span>
         Ask PathAdvisor
       </button>
-      <div
-        id={tooltipId}
-        role="tooltip"
-        className="pointer-events-none absolute left-0 bottom-full z-20 mb-1 w-52 rounded-[var(--p-radius)] border p-2 text-left text-[11px] opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
-        style={{
-          background: 'var(--p-surface)',
-          borderColor: 'var(--p-border)',
-          color: 'var(--p-text-muted)',
-        }}
-      >
-        <p className="font-semibold" style={{ color: 'var(--p-text)' }}>
-          Ask PathAdvisor
-        </p>
-        <p>{tooltipContent}</p>
-      </div>
-    </div>
+    </Tooltip>
   );
 }

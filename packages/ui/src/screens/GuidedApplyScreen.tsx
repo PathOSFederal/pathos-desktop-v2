@@ -86,12 +86,14 @@ export function GuidedApplyScreen(props: GuidedApplyScreenProps) {
   // Load store from localStorage on mount
   useEffect(function () {
     const loaded = loadGuidedApplyStore();
-    setStore(loaded);
-    if (loaded.lastOpenedSessionId && getSessionById(loaded, loaded.lastOpenedSessionId)) {
-      setActiveSessionId(loaded.lastOpenedSessionId);
-      setView('session');
-    }
-    setMounted(true);
+    queueMicrotask(function () {
+      setStore(loaded);
+      if (loaded.lastOpenedSessionId && getSessionById(loaded, loaded.lastOpenedSessionId)) {
+        setActiveSessionId(loaded.lastOpenedSessionId);
+        setView('session');
+      }
+      setMounted(true);
+    });
   }, []);
 
   // Persist on every store change (skip initial)

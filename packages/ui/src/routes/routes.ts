@@ -25,7 +25,10 @@ export const BENEFITS = '/dashboard/benefits';
 /** Retirement (employee). */
 export const RETIREMENT = '/dashboard/retirement';
 
-/** Career & Resume. */
+/** Resume Readiness (canonical). Sidebar links here. */
+export const RESUME_READINESS = '/dashboard/resume-readiness';
+
+/** Alias for Resume Readiness. Redirect to RESUME_READINESS; kept for backward compatibility. */
 export const CAREER = '/dashboard/career';
 
 /** Resume Builder. */
@@ -73,7 +76,7 @@ export const SIDEBAR_ROUTES: readonly string[] = [
   COMPENSATION,
   BENEFITS,
   RETIREMENT,
-  CAREER,
+  RESUME_READINESS,
   RESUME_BUILDER,
   JOB_SEARCH,
   SAVED_JOBS,

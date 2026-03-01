@@ -17,6 +17,8 @@ import type React from 'react';
 import { useState, useRef, useEffect } from 'react';
 import { Sparkles, Eye, Shield, Send, Trash2, Settings2, X } from 'lucide-react';
 import { ModuleCard } from '../components/ModuleCard';
+import { Tooltip } from '../components/Tooltip';
+import { Z_POPOVER } from '../styles/zIndex';
 import { usePathAdvisorBriefingStore } from '../stores/pathAdvisorBriefingStore';
 import { useDashboardHeroDoNowStore } from '../stores/dashboardHeroDoNowStore';
 import { useNav } from '@pathos/adapters';
@@ -50,6 +52,8 @@ export interface PathAdvisorCardProps {
   viewingLabel?: string;
   /** Optional privacy chip value (default "Local only"). */
   privacyLabel?: string;
+  /** Optional label above the Do now block (e.g. "From Career & Resume"). When unset, shows "From Today's Focus". */
+  briefingLabel?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -96,7 +100,8 @@ export function PathAdvisorCard(props: PathAdvisorCardProps) {
   useEffect(
     function () {
       if (props.keepHistoryOnDevice !== undefined) {
-        setKeepHistoryEnabled(props.keepHistoryOnDevice);
+        const value = props.keepHistoryOnDevice;
+        queueMicrotask(function () { setKeepHistoryEnabled(value); });
       }
     },
     [props.keepHistoryOnDevice]
@@ -176,43 +181,41 @@ export function PathAdvisorCard(props: PathAdvisorCardProps) {
       className="relative flex items-center gap-1"
     >
       <div className="relative group">
-        <button
-          type="button"
-          className={actionButtonClassName}
-          style={{
-            background: 'var(--p-surface2)',
-            border: '1px solid var(--p-border)',
-            color: 'var(--p-text-muted)',
-          }}
-          aria-label="Clear chat"
-          aria-describedby="pathadvisor-clear-tooltip"
-          aria-expanded={isClearConfirmOpen}
-          onClick={function () {
-            setIsSettingsOpen(false);
-            setIsClearConfirmOpen(!isClearConfirmOpen);
-          }}
+        <Tooltip
+          contentId="pathadvisor-clear-tooltip"
+          side="bottom"
+          content={
+            <>
+              <p className="font-semibold" style={{ color: 'var(--p-text)' }}>Clear chat</p>
+              <p>Remove current conversation messages from this PathAdvisor view.</p>
+            </>
+          }
         >
-          <Trash2 className="w-3.5 h-3.5" />
-        </button>
-        <div
-          id="pathadvisor-clear-tooltip"
-          role="tooltip"
-          className="pointer-events-none absolute right-0 top-full z-20 mt-1 w-52 rounded-[var(--p-radius)] border p-2 text-left text-[11px] opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
-          style={{
-            background: 'var(--p-surface)',
-            borderColor: 'var(--p-border)',
-            color: 'var(--p-text-muted)',
-          }}
-        >
-          <p className="font-semibold" style={{ color: 'var(--p-text)' }}>Clear chat</p>
-          <p>Remove current conversation messages from this PathAdvisor view.</p>
-        </div>
+          <button
+            type="button"
+            className={actionButtonClassName}
+            style={{
+              background: 'var(--p-surface2)',
+              border: '1px solid var(--p-border)',
+              color: 'var(--p-text-muted)',
+            }}
+            aria-label="Clear chat"
+            aria-expanded={isClearConfirmOpen}
+            onClick={function () {
+              setIsSettingsOpen(false);
+              setIsClearConfirmOpen(!isClearConfirmOpen);
+            }}
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+          </button>
+        </Tooltip>
         {isClearConfirmOpen ? (
           <div
-            className="absolute right-0 top-full z-30 mt-1 w-56 rounded-[var(--p-radius)] border p-2"
+            className="absolute right-0 top-full mt-1 w-56 rounded-[var(--p-radius)] border p-2"
             style={{
               background: 'var(--p-surface)',
               borderColor: 'var(--p-border)',
+              zIndex: Z_POPOVER,
             }}
           >
             <p className="text-[11px] mb-2" style={{ color: 'var(--p-text-muted)' }}>
@@ -250,43 +253,41 @@ export function PathAdvisorCard(props: PathAdvisorCardProps) {
       </div>
 
       <div className="relative group">
-        <button
-          type="button"
-          className={actionButtonClassName}
-          style={{
-            background: 'var(--p-surface2)',
-            border: '1px solid var(--p-border)',
-            color: 'var(--p-text-muted)',
-          }}
-          aria-label="PathAdvisor settings"
-          aria-describedby="pathadvisor-settings-tooltip"
-          aria-expanded={isSettingsOpen}
-          onClick={function () {
-            setIsClearConfirmOpen(false);
-            setIsSettingsOpen(!isSettingsOpen);
-          }}
+        <Tooltip
+          contentId="pathadvisor-settings-tooltip"
+          side="bottom"
+          content={
+            <>
+              <p className="font-semibold" style={{ color: 'var(--p-text)' }}>PathAdvisor settings</p>
+              <p>Adjust local chat retention and optional export actions.</p>
+            </>
+          }
         >
-          <Settings2 className="w-3.5 h-3.5" />
-        </button>
-        <div
-          id="pathadvisor-settings-tooltip"
-          role="tooltip"
-          className="pointer-events-none absolute right-0 top-full z-20 mt-1 w-56 rounded-[var(--p-radius)] border p-2 text-left text-[11px] opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
-          style={{
-            background: 'var(--p-surface)',
-            borderColor: 'var(--p-border)',
-            color: 'var(--p-text-muted)',
-          }}
-        >
-          <p className="font-semibold" style={{ color: 'var(--p-text)' }}>PathAdvisor settings</p>
-          <p>Adjust local chat retention and optional export actions.</p>
-        </div>
+          <button
+            type="button"
+            className={actionButtonClassName}
+            style={{
+              background: 'var(--p-surface2)',
+              border: '1px solid var(--p-border)',
+              color: 'var(--p-text-muted)',
+            }}
+            aria-label="PathAdvisor settings"
+            aria-expanded={isSettingsOpen}
+            onClick={function () {
+              setIsClearConfirmOpen(false);
+              setIsSettingsOpen(!isSettingsOpen);
+            }}
+          >
+            <Settings2 className="w-3.5 h-3.5" />
+          </button>
+        </Tooltip>
         {isSettingsOpen ? (
           <div
-            className="absolute right-0 top-full z-30 mt-1 w-64 rounded-[var(--p-radius)] border p-2"
+            className="absolute right-0 top-full mt-1 w-64 rounded-[var(--p-radius)] border p-2"
             style={{
               background: 'var(--p-surface)',
               borderColor: 'var(--p-border)',
+              zIndex: Z_POPOVER,
             }}
           >
             <button
@@ -366,10 +367,12 @@ export function PathAdvisorCard(props: PathAdvisorCardProps) {
         </span>
       </div>
 
-      {/* Do now: mirror of dashboard hero focus action; hide when invalid; label for clarity. */}
+      {/* Do now: mirror of hero focus action; label from props (e.g. "From Career & Resume") or default "From Today's Focus". */}
       <div className="flex-shrink-0 mb-3">
         <p className="text-[10px] uppercase tracking-wide mb-1" style={{ color: 'var(--p-text-dim)' }}>
-          From Today&apos;s Focus
+          {props.briefingLabel !== undefined && props.briefingLabel !== ''
+            ? props.briefingLabel
+            : "From Today's Focus"}
         </p>
         {heroDoNow !== null && heroDoNow !== undefined && heroDoNow.route !== null && heroDoNow.route !== '' ? (
           <button
@@ -429,33 +432,30 @@ export function PathAdvisorCard(props: PathAdvisorCardProps) {
                   PathAdvisor Briefing
                 </h3>
                 <div className="relative group">
-                  <button
-                    type="button"
-                    onClick={closeBriefing}
-                    className="h-6 w-6 grid place-items-center rounded-[var(--p-radius)] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-[var(--p-accent)]"
-                    style={{
-                      background: 'var(--p-surface2)',
-                      border: '1px solid var(--p-border)',
-                      color: 'var(--p-text-muted)',
-                    }}
-                    aria-label="Close briefing"
-                    aria-describedby="pathadvisor-briefing-close-tooltip"
+                  <Tooltip
+                    contentId="pathadvisor-briefing-close-tooltip"
+                    side="bottom"
+                    content={
+                      <>
+                        <p className="font-semibold" style={{ color: 'var(--p-text)' }}>Close briefing</p>
+                        <p>Close this briefing and return to the default PathAdvisor view.</p>
+                      </>
+                    }
                   >
-                    <X className="w-3.5 h-3.5" />
-                  </button>
-                  <div
-                    id="pathadvisor-briefing-close-tooltip"
-                    role="tooltip"
-                    className="pointer-events-none absolute right-0 top-full z-20 mt-1 w-48 rounded-[var(--p-radius)] border p-2 text-left text-[11px] opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
-                    style={{
-                      background: 'var(--p-surface)',
-                      borderColor: 'var(--p-border)',
-                      color: 'var(--p-text-muted)',
-                    }}
-                  >
-                    <p className="font-semibold" style={{ color: 'var(--p-text)' }}>Close briefing</p>
-                    <p>Close this briefing and return to the default PathAdvisor view.</p>
-                  </div>
+                    <button
+                      type="button"
+                      onClick={closeBriefing}
+                      className="h-6 w-6 grid place-items-center rounded-[var(--p-radius)] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-[var(--p-accent)]"
+                      style={{
+                        background: 'var(--p-surface2)',
+                        border: '1px solid var(--p-border)',
+                        color: 'var(--p-text-muted)',
+                      }}
+                      aria-label="Close briefing"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </Tooltip>
                 </div>
               </div>
               {briefing.sourceLabel !== undefined && briefing.sourceLabel !== '' ? (

@@ -13,6 +13,7 @@
 import type React from 'react';
 import { useState, useEffect, useCallback } from 'react';
 import { Download, Trash2, AlertTriangle, ShieldCheck, Palette, Info } from 'lucide-react';
+import { Tooltip } from '../components/Tooltip';
 import { useNav } from '@pathos/adapters';
 import {
   loadGuidedApplyStore,
@@ -78,14 +79,22 @@ function SettingsSection(props: { title: string; children: React.ReactNode }) {
   );
 }
 
+/** Info icon button with portaled tooltip (Overlay Rule v1). */
 function InlineTooltip(props: {
   id: string;
   name: string;
   description: string;
   shortcut?: string;
 }) {
+  const content = (
+    <>
+      <p className="font-semibold" style={{ color: 'var(--p-text)' }}>{props.name}</p>
+      <p>{props.description}</p>
+      {props.shortcut !== undefined && props.shortcut !== '' ? <p className="mt-1">Shortcut: {props.shortcut}</p> : null}
+    </>
+  );
   return (
-    <div className="relative group">
+    <Tooltip contentId={props.id} side="bottom" content={content}>
       <button
         type="button"
         className="h-5 w-5 grid place-items-center rounded-[var(--p-radius)]"
@@ -95,25 +104,10 @@ function InlineTooltip(props: {
           background: 'var(--p-surface2)',
         }}
         aria-label={props.name}
-        aria-describedby={props.id}
       >
         <Info className="h-3 w-3" />
       </button>
-      <div
-        id={props.id}
-        role="tooltip"
-        className="pointer-events-none absolute right-0 top-full z-20 mt-1 w-64 rounded-[var(--p-radius)] border p-2 text-left text-[11px] opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
-        style={{
-          background: 'var(--p-surface)',
-          borderColor: 'var(--p-border)',
-          color: 'var(--p-text-muted)',
-        }}
-      >
-        <p className="font-semibold" style={{ color: 'var(--p-text)' }}>{props.name}</p>
-        <p>{props.description}</p>
-        {props.shortcut ? <p className="mt-1">Shortcut: {props.shortcut}</p> : null}
-      </div>
-    </div>
+    </Tooltip>
   );
 }
 
@@ -204,10 +198,13 @@ export function SettingsScreen(props: SettingsScreenProps) {
     setTodayCount(loadTodayStore().items.length);
   }, []);
 
-  useEffect(function () { refreshCounts(); }, [refreshCounts]);
+  useEffect(function () {
+    queueMicrotask(function () { refreshCounts(); });
+  }, [refreshCounts]);
   useEffect(function () {
     const stored = loadThemeVariantPreference();
-    setSavedThemeVariant(stored ?? DEFAULT_THEME_VARIANT);
+    const value = stored !== null && stored !== undefined ? stored : DEFAULT_THEME_VARIANT;
+    queueMicrotask(function () { setSavedThemeVariant(value); });
   }, []);
 
   const showFeedback = useCallback(function (msg: string) {
