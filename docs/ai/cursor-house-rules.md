@@ -253,6 +253,16 @@ Make the smallest possible edits required to complete the task. Do not rewrite w
 
 ---
 
+## Overlay Rule v1 (Tooltips, Menus, Popovers)
+
+- Use **canonical Tooltip / DrawerTooltip wrappers** for all tooltips, menus, and popovers. Do not invent inline overlay implementations.
+- **No inline `role="tooltip"` in the DOM.** Tooltips must be implemented via the shared wrappers so stacking and drawer behavior stay correct.
+- **No Tailwind z-index utilities (`z-*`)** for overlays. Layering is managed by the overlay system; ad-hoc `z-10`, `z-50`, etc. cause clipping and ordering bugs.
+- **No `createPortal` in screens.** Overlay content must be rendered through the canonical overlay/portal stack, not via direct `createPortal` calls in screen components.
+- **Validation:** Run `pnpm overlays:check` as part of validation for any change that touches overlays, tooltips, menus, or popovers.
+
+---
+
 ## Quick Reference
 
 | Rule | Do | Don't |

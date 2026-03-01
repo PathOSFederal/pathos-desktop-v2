@@ -1,3 +1,46 @@
+# Job Search v1 — Layout, Executive Briefing, Token Dropdowns
+
+(No commit or push. Validation run and summary below.)
+
+## What changed
+
+1. **Layout width ratio + spacing (Scope A)**  
+   Main content area is a 2-column grid: left (results) `minmax(340px, min(460px, 400px))`, right (details) `minmax(560px, 1fr)`. Scroll Invariant preserved with `min-h-0`. Padding and section spacing in the details card aligned with executive card rhythm (p-4, space-y-5, line-height token).
+
+2. **Job details reformat — executive briefing (Scope B)**  
+   Details card refactored into: (1) **Header block**: job title (primary), agency + location (secondary), meta chips row (GS, Close date, Remote/Telework, Series if present), 1–2 line summary (muted); (2) **Requirements block**: specialized experience checklist with Check icon, skills & keywords as chips in a wrap grid, documents needed compact checklist; (3) **Action bar** pinned to bottom: Save job (primary), Tailor resume (secondary), Ask PathAdvisor (secondary via `AskPathAdvisorButton`), View on USAJOBS. Token-only styling; no long paragraphs.
+
+3. **Filter dropdowns — token-styled, portaled (Scope C)**  
+   Reusable `FilterDropdown` in `packages/ui/src/screens/_components/FilterDropdown.tsx`: Radix DropdownMenu, portaled to OverlayRoot (getOverlayContainer), token styling (`var(--p-surface)`, `var(--p-border)`, `var(--p-shadow-elev-1)`, hover `var(--p-surface2)`), zIndex from `zIndex.ts` (Z_POPOVER). Applied to all five filters: Grades (GS-9..GS-15 + All Grades), Series (2210, 0343, 0301, 1102 + All Series), Agencies (derived from MOCK_JOBS + All Agencies), Location (derived from MOCK_JOBS + Any Location), Types (Competitive, Excepted, Term + All Types). Fifth filter uses store `appointmentType` (Types); no Tailwind z-*; Overlay Rule v1 satisfied.
+
+## Files changed
+
+- `packages/ui/src/screens/JobSearchScreen.tsx` — grid layout, JobDetailsPanel executive briefing, FilterDropdown for all 5 filters; filter option constants and agency/location derived from MOCK_JOBS.
+- `packages/ui/src/screens/_components/FilterDropdown.tsx` — new: token-styled portaled dropdown (Radix DropdownMenu, OverlayRoot, zIndex).
+- `packages/ui/src/stores/jobSearchV1Store.test.ts` — added test: setFilters then runSearch returns filtered results by gradeBand.
+- `docs/merge-notes.md` — this section.
+
+## Commands run + results
+
+- **pnpm -r typecheck** — Passed (packages/adapters, packages/core, packages/ui, apps/desktop).
+- **pnpm test** — Passed (711 tests, 48 files).
+- **pnpm routes:check** — OK (all Sidebar routes resolve).
+- **pnpm overlays:check** — Passed (Overlay Rule v1 / OverlayRoot).
+
+## Manual checks (recommended)
+
+At 1280–1440px width: (1) results list feels breathable (left column 340–400px), (2) details panel reads like a briefing (header, requirements blocks, pinned action bar), (3) filter dropdown opens and is themed (surface, border, shadow) and not clipped by the rail; dark mode appearance correct.
+
+## Human Simulation Gate
+
+| Item | Value |
+|------|-------|
+| Required | No |
+| Triggers hit | none (layout, styling, filter UI; store filter state already tested) |
+| Why | No new create/save/delete actions; filter selection updates existing store and is covered by store test. |
+
+---
+
 # Dashboard Command Center v1 – Pass 1 (Scaffold)
 
 (Log git state and validation outputs below; do not paste full diffs.)
@@ -2692,6 +2735,232 @@ LastWriteTime : 3/1/2026 1:41:56 PM
 Name          : resume-readiness-v1-this-run.patch
 Length        : 200042
 LastWriteTime : 3/1/2026 1:41:56 PM
+```
+
+Do not commit or push.
+
+---
+
+## AI docs: Overlay Rule v1 and tooltip/overlay usage
+
+**Goal:** Add Overlay Rule v1 and tooltip/overlay usage rules to AI docs so future Cursor runs don’t regress the overlay system.
+
+### Doc sections added
+
+- **docs/ai/cursor-house-rules.md:** New section “Overlay Rule v1 (Tooltips, Menus, Popovers)” — canonical Tooltip/DrawerTooltip wrappers; no inline `role="tooltip"` DOM; no Tailwind `z-*`; no `createPortal` in screens; run `pnpm overlays:check` in validation.
+- **docs/ai/testing-standards.md:** New UI check “Overlay sanity” — hover tooltips near rail/drawer edges (confirm not clipped); open dropdown near rail (confirm above rail); confirm `pnpm overlays:check` passes.
+- **docs/ai/prompt-header.md:** Added `pnpm overlays:check` to the required validation list for UI/overlay changes.
+
+### Files changed
+
+- `docs/ai/cursor-house-rules.md`
+- `docs/ai/testing-standards.md`
+- `docs/ai/prompt-header.md`
+- `docs/merge-notes.md` (this log)
+
+### Commands run
+
+- `pnpm overlays:check` — passed (Overlay Rule v1 / OverlayRoot).
+
+### Git snapshots
+
+**git status**
+
+```
+On branch feature/job-search-prompted-filters-v1
+Changes not staged for commit:
+	modified:   docs/ai/cursor-house-rules.md
+	modified:   docs/ai/prompt-header.md
+	modified:   docs/ai/testing-standards.md
+	modified:   docs/merge-notes.md
+no changes added to commit
+```
+
+**git branch --show-current**
+
+```
+feature/job-search-prompted-filters-v1
+```
+
+**git diff --name-status main...HEAD**
+
+(Empty — branch has no commits beyond main.)
+
+**git diff --stat main...HEAD**
+
+(Empty — same.)
+
+Do not commit or push.
+
+---
+
+## Job Search screen v1 (Prompted Filters, store, PathAdvisor)
+
+**Goal:** Build Job Search screen v1 to match mock: title/subtitle, Prompted Filters (translate to filters), search row, filters bar, results + details, PathAdvisor rail. Local-only; token-only styling; scroll invariant; route parity; no commits/pushes.
+
+### Summary
+
+- **Route + page:** Job Search route unchanged; screen shows title "Job Search" and subtitle "Explore roles, save targets, and reduce uncertainty." Web (Next) and desktop both use same route.
+- **Stores:** New job search v1 Zustand store (`packages/ui/src/stores/jobSearchV1Store.ts`) with persistence to `pathos_job_search_v1`. State: lastQuery, filters, results (mock), selectedJobId, loading, hasSearched, appliedFromPrompt. Save job uses core `addSavedJobDirect` / `saveSavedJobsStore` so saved jobs appear in Saved Jobs screen.
+- **Storage keys:** Added `JOB_SEARCH_V1_STORAGE_KEY` (`pathos_job_search_v1`) and `PROMPT_TO_FILTERS_AUDIT_KEY` (`pathos_jobsearch_prompt_to_filters_v1`) in `packages/core/src/storage-keys.ts` and `lib/storage-keys.ts`.
+- **Prompted Filters:** Card with "Describe what you're looking for (optional)", placeholder, "Translate to filters" button. Deterministic parser (`packages/ui/src/lib/promptToFiltersParser.ts`) extracts GS levels, agencies (DHS, VA, etc.), remote/telework/hybrid, series, location phrase, keywords. Proposed filters preview with chips, interpretation line, Apply filters / Edit filters / Discard. On Apply: store filters, write audit to `pathos_jobsearch_prompt_to_filters_v1`, run search. "Applied from prompt" note with View (expand to show prompt).
+- **Search row:** Keywords + optional location inputs, Search (primary), Reset (secondary), microcopy "Results shown from saved snapshots (mock) for now."
+- **Filters bar:** Dropdowns All Grades, All Series, All Agencies, Any Location, All Types; Clear all filters; "Applied from prompt" + View.
+- **Results + details:** Two panes (results list left, details center). Results: title, agency, location, close date, GS chip, fit badge (High/Medium/Low), Save per item, "New" / "Close date updated" on first two. Details: checklist sections (Specialized experience, Skills & keywords, Documents needed), Save job / Tailor resume / Ask PathAdvisor. States: before search "Run a search to view jobs.", loading skeleton, no results message.
+- **PathAdvisor:** Screen overrides on mount (viewingLabel "Job Search", suggested prompts, briefingLabel "From Job Search"); Do now "Save and start tailoring" when job selected, cleared on unmount.
+- **Tests:** Parser tests (`promptToFiltersParser.test.ts`), store tests (`jobSearchV1Store.test.ts`), screen tests (`JobSearchScreen.test.tsx` with NavigationProvider). Vitest already has localStorage polyfill and excludes **/node_modules/**.
+
+### Files changed
+
+- `lib/storage-keys.ts` — added JOB_SEARCH_V1_STORAGE_KEY, PROMPT_TO_FILTERS_AUDIT_KEY, STORAGE_KEYS entries.
+- `packages/core/src/storage-keys.ts` — same keys.
+- `packages/core/src/index.ts` — export new keys.
+- `packages/ui/src/screens/JobSearchScreen.tsx` — rewritten for v1 (title/subtitle, prompted filters, search row, filters bar, results + details, PathAdvisor overrides).
+- `packages/ui/src/stores/jobSearchV1Store.ts` — new (Zustand store, persist pathos_job_search_v1, integrate core saved-jobs).
+- `packages/ui/src/lib/promptToFiltersParser.ts` — new (deterministic prompt → filters + keywords + evidence).
+- `packages/ui/src/screens/jobSearchMockChecklists.ts` — new (checklist data for mock jobs).
+- `packages/ui/src/lib/promptToFiltersParser.test.ts` — new.
+- `packages/ui/src/stores/jobSearchV1Store.test.ts` — new.
+- `packages/ui/src/screens/JobSearchScreen.test.tsx` — new.
+
+### Validation commands (run and summarize)
+
+- **pnpm -r typecheck** — PASS (all 4 scopes).
+- **pnpm test** — PASS (700 tests, 46 files).
+- **pnpm routes:check** — PASS (all Sidebar routes resolve in Desktop and Next).
+- **pnpm overlays:check** — PASS (Overlay Rule v1 / OverlayRoot).
+
+### Manual test checklist
+
+- [ ] Job Search loads; scroll behaves (main scroll container only); PathAdvisor rail stays fixed.
+- [ ] Prompt translate → proposed filters → Apply filters → chips reflect → search results update.
+- [ ] Save job → appears in Saved Jobs (or saved state) → refresh → still saved.
+- [ ] Clear filters and Reset behave predictably.
+- [ ] Desktop and web both show the same route.
+
+### Human Simulation Gate
+
+| Item | Value |
+|------|-------|
+| Required | Yes |
+| Triggers hit | Adds Save/Apply action; changes store logic; persistence (pathos_job_search_v1, pathos_jobsearch_prompt_to_filters_v1, core saved-jobs). |
+| Why | Create-button rule: save job → appears in Saved Jobs → refresh → still there; storage keys verified. |
+
+### AI Acceptance Checklist
+
+| Item | Value |
+|------|-------|
+| Flow | Search → jobSearchV1Store.runSearch() → results; Save job → core addSavedJobDirect/saveSavedJobsStore → Saved Jobs screen; Apply from prompt → store filters + audit key pathos_jobsearch_prompt_to_filters_v1. |
+| Store(s) | useJobSearchV1Store (packages/ui); core loadSavedJobsStore/saveSavedJobsStore for saved jobs. |
+| Storage key(s) | pathos_job_search_v1, pathos_jobsearch_prompt_to_filters_v1, pathos:saved-jobs-store (core). |
+| Failure mode | Broken store: results/saved state lost on refresh. Broken save: job not in Saved Jobs. |
+| How tested | Unit: parser, store (runSearch, applyProposedFiltersFromPrompt, saveJob), screen (title/subtitle). Manual: create → appears elsewhere → refresh → still there. |
+
+### Git state (this run)
+
+**git status**
+```
+On branch feature/job-search-prompted-filters-v1
+Changes not staged for commit:
+  modified:   docs/ai/..., lib/storage-keys.ts, packages/core/..., packages/ui/src/screens/JobSearchScreen.tsx
+Untracked: packages/ui/src/lib/, JobSearchScreen.test.tsx, jobSearchMockChecklists.ts, jobSearchV1Store.test.ts, jobSearchV1Store.ts
+```
+
+**git branch --show-current:** feature/job-search-prompted-filters-v1
+
+**git diff --name-status develop...HEAD:** (Empty.)
+
+**git diff --stat develop...HEAD:** (Empty.)
+
+Do not commit or push.
+
+---
+
+## Job Search evaluation path (mock data, sample jobs, PathAdvisor copy)
+
+**Goal:** One-click evaluation: mock jobs dataset, "Load sample jobs" button, "Use example prompt" link, prompt-to-filters runs mockSearchJobs; PathAdvisor rail Job Search helper copy (no compensation). Minimal diffs; token-only; scroll invariant; overlay rule unchanged.
+
+### What changed
+
+- **A) Mock jobs:** New `packages/ui/src/screens/jobSearchMockJobs.ts`: `MOCK_JOBS` (10 items, stable ids mock-js-1..mock-js-10), `MOCK_JOB_TAGS` (New / Close date updated for mock-js-1, mock-js-2), variety (agencies, grades, Remote/DC/Arlington). `mockSearchJobs(input, jobs)` pure function: keywords (title/summary), location substring, filters (gradeBand, agency, series, location, remoteType, appointmentType), sort by close-date order.
+- **B) Store:** `jobSearchV1Store` uses `MOCK_JOBS` and `mockSearchJobs` for `runSearch()`. New action `loadSampleJobs()`: sets results = MOCK_JOBS, hasSearched = true, selectedJobId = first id.
+- **C) Empty state:** "Run a search to view jobs." kept; added "Load sample jobs" button (calls `loadSampleJobs()`, details pane shows first job). "Use example prompt" link fills prompt input with placeholder text so "Translate to filters" becomes enabled.
+- **D) Prompt-to-filters:** Empty prompt keeps "Translate to filters" disabled. After "Use example prompt", Apply filters applies filters and runs search via `mockSearchJobs`.
+- **E) PathAdvisor:** `PathAdvisorScreenOverrides` extended with optional `helperParagraph`. Job Search sets `helperParagraph` to "Use this workspace to decode job requirements and decide your next best move. Ask about specialized experience, keywords, and what to do next." PathAdvisorCard uses it when message list empty (no compensation copy on Job Search).
+- **F) Checklists:** `jobSearchMockChecklists` maps mock-js-* ids to existing checklist keys so details pane shows SPECIALIZED EXPERIENCE / SKILLS / DOCUMENTS. List item tags from `MOCK_JOB_TAGS` (not index).
+- **Tests:** `jobSearchMockJobs.test.ts` (mockSearchJobs filters agency/grade/keywords/location, sort); `jobSearchV1Store.test.ts` (loadSampleJobs populates and selects first); `jobSearchMockChecklists.test.ts` (getChecklistForJob mock-js-1 returns checklist); `JobSearchScreen.test.tsx` (after loadSampleJobs store has results and first job selected).
+
+### Files changed (this run)
+
+- `packages/ui/src/screens/jobSearchMockJobs.ts` — new (MOCK_JOBS, MOCK_JOB_TAGS, mockSearchJobs).
+- `packages/ui/src/screens/jobSearchMockJobs.test.ts` — new.
+- `packages/ui/src/screens/jobSearchMockChecklists.ts` — map mock-js-* to checklist keys.
+- `packages/ui/src/screens/jobSearchMockChecklists.test.ts` — new.
+- `packages/ui/src/screens/JobSearchScreen.tsx` — Load sample jobs button, Use example prompt link, MOCK_JOB_TAGS for list tags.
+- `packages/ui/src/screens/JobSearchScreen.test.tsx` — test loadSampleJobs store state.
+- `packages/ui/src/stores/jobSearchV1Store.ts` — loadSampleJobs(), runSearch uses mockSearchJobs(MOCK_JOBS).
+- `packages/ui/src/stores/jobSearchV1Store.test.ts` — test loadSampleJobs.
+- `packages/ui/src/stores/pathAdvisorScreenOverridesStore.ts` — helperParagraph in overrides.
+- `packages/ui/src/shell/PathAdvisorRail.tsx` — pass helperParagraph to PathAdvisorCard.
+- `packages/ui/src/shell/PathAdvisorCard.tsx` — optional helperParagraph for empty-state body copy.
+
+### Commands run (summaries)
+
+**pnpm -r typecheck**
+```
+packages/adapters typecheck: Done
+packages/core typecheck: Done
+packages/ui typecheck: Done
+apps/desktop typecheck: Done
+Exit: 0
+```
+
+**pnpm test**
+```
+Test Files  48 passed (48)
+Tests       710 passed (710)
+Exit: 0
+```
+
+**pnpm routes:check**
+```
+routes:check: OK — all Sidebar routes resolve in Desktop and Next.
+```
+
+**pnpm overlays:check**
+```
+overlays:check passed (Overlay Rule v1 / OverlayRoot).
+```
+
+### Git state (this run)
+
+**git status**
+```
+On branch feature/job-search-prompted-filters-v1
+Changes not staged for commit:
+  modified:   docs/ai/cursor-house-rules.md, docs/ai/prompt-header.md, docs/ai/testing-standards.md,
+              docs/merge-notes.md, lib/storage-keys.ts, packages/core/src/index.ts,
+              packages/core/src/storage-keys.ts, packages/ui/src/screens/JobSearchScreen.tsx,
+              packages/ui/src/shell/PathAdvisorCard.tsx, packages/ui/src/shell/PathAdvisorRail.tsx,
+              packages/ui/src/stores/pathAdvisorScreenOverridesStore.ts
+Untracked: packages/ui/src/lib/, JobSearchScreen.test.tsx, jobSearchMockChecklists.ts,
+            jobSearchMockChecklists.test.ts, jobSearchMockJobs.ts, jobSearchMockJobs.test.ts,
+            jobSearchV1Store.test.ts, jobSearchV1Store.ts
+```
+
+**git branch --show-current**
+```
+feature/job-search-prompted-filters-v1
+```
+
+**git diff --name-status main...HEAD**
+```
+(Empty — branch has no commits beyond main.)
+```
+
+**git diff --stat main...HEAD**
+```
+(Empty.)
 ```
 
 Do not commit or push.

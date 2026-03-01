@@ -22,6 +22,18 @@ export const BENEFITS_WORKSPACE_STORAGE_KEY = 'pathos-benefits-workspace-v1';
 export const GUIDED_USAJOBS_GOALS_STORAGE_KEY = 'pathos-guided-usajobs-goals-v1';
 export const THEME_VARIANT_STORAGE_KEY = 'pathos.themeVariant';
 
+/**
+ * Job Search v1 store persistence (lastQuery, filters, results, selectedJobId).
+ * Used by Job Search screen to persist state across refresh.
+ */
+export const JOB_SEARCH_V1_STORAGE_KEY = 'pathos_job_search_v1';
+
+/**
+ * Prompt-to-filters translation audit trail (promptText, proposedFilters, evidence, timestamp).
+ * Written when user applies filters from "Translate to filters" flow.
+ */
+export const PROMPT_TO_FILTERS_AUDIT_KEY = 'pathos_jobsearch_prompt_to_filters_v1';
+
 export const STORAGE_KEYS = {
   PROFILE: PROFILE_STORAGE_KEY,
   JOB_SEARCH: JOB_SEARCH_STORAGE_KEY,
@@ -41,4 +53,6 @@ export const STORAGE_KEYS = {
   BENEFITS_WORKSPACE: BENEFITS_WORKSPACE_STORAGE_KEY,
   GUIDED_USAJOBS_GOALS: GUIDED_USAJOBS_GOALS_STORAGE_KEY,
   THEME_VARIANT: THEME_VARIANT_STORAGE_KEY,
+  JOB_SEARCH_V1: JOB_SEARCH_V1_STORAGE_KEY,
+  PROMPT_TO_FILTERS_AUDIT: PROMPT_TO_FILTERS_AUDIT_KEY,
 } as const;

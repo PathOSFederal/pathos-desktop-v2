@@ -54,6 +54,8 @@ export interface PathAdvisorCardProps {
   privacyLabel?: string;
   /** Optional label above the Do now block (e.g. "From Career & Resume"). When unset, shows "From Today's Focus". */
   briefingLabel?: string;
+  /** Optional empty-state body copy (e.g. Job Search specific). When unset, default compensation copy is used. */
+  helperParagraph?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -524,9 +526,9 @@ export function PathAdvisorCard(props: PathAdvisorCardProps) {
               className="text-[13px]"
               style={{ color: 'var(--p-text-muted)' }}
             >
-              Use this workspace to review your compensation estimates and
-              decision drivers. Ask for help comparing grades, understanding
-              benefits, or adjusting assumptions.
+              {props.helperParagraph !== undefined && props.helperParagraph !== ''
+                ? props.helperParagraph
+                : 'Use this workspace to review your compensation estimates and decision drivers. Ask for help comparing grades, understanding benefits, or adjusting assumptions.'}
             </p>
           ) : (
             messageList.map(function (msg, index) {

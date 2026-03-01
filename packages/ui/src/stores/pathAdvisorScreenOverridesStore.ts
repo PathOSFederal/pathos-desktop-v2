@@ -19,6 +19,8 @@ export interface PathAdvisorScreenOverrides {
   suggestedPrompts: string[];
   /** Label above the "Do now" block (e.g. "From Resume Readiness"). When unset, card uses "From Today's Focus". */
   briefingLabel?: string;
+  /** When set, empty-state body copy in the rail uses this instead of default (e.g. Job Search avoids compensation copy). */
+  helperParagraph?: string;
 }
 
 interface PathAdvisorScreenOverridesState {

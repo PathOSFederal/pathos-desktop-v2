@@ -359,4 +359,14 @@ Document each check in `merge-notes.md`:
 
 ---
 
+## Overlay sanity (UI check)
+
+When changing UI near the rail, drawer, or overlay system:
+
+- **Tooltips near rail/drawer edges:** Hover tooltips on controls close to the rail or drawer edges; confirm they are not clipped and remain fully visible.
+- **Dropdowns near rail:** Open a dropdown (menu, popover) near the rail; confirm it renders above the rail and is not cut off.
+- **Automated check:** Run `pnpm overlays:check` and confirm it passes.
+
+---
+
 *Last updated: December 2025*

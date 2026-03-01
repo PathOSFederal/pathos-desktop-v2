@@ -27,6 +27,7 @@ All work must be "CI-equivalent green" before requesting a review or opening/ref
 - `pnpm typecheck`
 - `pnpm test`
 - `pnpm build` (run locally unless explicitly excluded for a documented reason)
+- For UI/overlay changes: `pnpm overlays:check`
 
 If any command fails, you must fix the issue and rerun the full suite until all are green.
 
