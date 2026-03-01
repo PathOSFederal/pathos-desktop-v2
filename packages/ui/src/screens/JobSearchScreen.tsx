@@ -273,9 +273,12 @@ export function JobSearchScreen(props: JobSearchScreenProps) {
     let loaded = loadJobSearchStore();
     loaded = loadMockResultsIfEmpty(loaded);
     loaded = ensureValidSelection(loaded);
-    setStore(loaded);
-    setSearchInput(loaded.lastSearchQuery || '');
-    setMounted(true);
+    const query = loaded.lastSearchQuery || '';
+    queueMicrotask(function () {
+      setStore(loaded);
+      setSearchInput(query);
+      setMounted(true);
+    });
   }, []);
 
   // Persist on every change (after mount)

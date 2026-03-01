@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-require-imports -- Node CJS script; require() required */
 const path = require('path');
 const fs = require('fs');
 const { spawnSync } = require('child_process');

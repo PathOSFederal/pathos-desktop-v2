@@ -23,6 +23,10 @@ export {
   type PathAdvisorBriefing,
   type BriefingSection,
 } from './stores/pathAdvisorBriefingStore';
+export {
+  usePathAdvisorScreenOverridesStore,
+  type PathAdvisorScreenOverrides,
+} from './stores/pathAdvisorScreenOverridesStore';
 
 // Screens
 export {

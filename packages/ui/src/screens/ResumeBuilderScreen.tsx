@@ -48,8 +48,8 @@ import type {
 // Props
 // ---------------------------------------------------------------------------
 
-export interface ResumeBuilderScreenProps {
-}
+/** Props for ResumeBuilderScreen; currently no required props. */
+export type ResumeBuilderScreenProps = Record<string, unknown>;
 
 // ---------------------------------------------------------------------------
 // Helper: generate IDs
@@ -273,8 +273,11 @@ export function ResumeBuilderScreen(_props: ResumeBuilderScreenProps) {
   const [versionLabel, setVersionLabel] = useState('');
 
   useEffect(function () {
-    setStore(loadResumeStore());
-    setMounted(true);
+    const loaded = loadResumeStore();
+    queueMicrotask(function () {
+      setStore(loaded);
+      setMounted(true);
+    });
   }, []);
 
   const persist = useCallback(function (next: ResumeStore) {

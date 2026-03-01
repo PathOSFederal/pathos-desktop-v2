@@ -14,7 +14,7 @@
 'use client';
 
 import type React from 'react';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import {
   Home,
   DollarSign,
@@ -39,6 +39,7 @@ import {
   COMPENSATION,
   BENEFITS,
   RETIREMENT,
+  RESUME_READINESS,
   CAREER,
   RESUME_BUILDER,
   JOB_SEARCH,
@@ -116,12 +117,12 @@ const navSections: NavSection[] = [
   {
     title: 'CAREER & JOBS',
     items: [
-      { label: 'Career & Resume', href: CAREER, icon: <Briefcase className="w-4 h-4" /> },
-      { label: 'Resume Builder', href: RESUME_BUILDER, icon: <FileText className="w-4 h-4" /> },
       { label: 'Job Search', href: JOB_SEARCH, icon: <Search className="w-4 h-4" /> },
       { label: 'Saved Jobs', href: SAVED_JOBS, icon: <Bookmark className="w-4 h-4" /> },
-      { label: 'Guided Apply', href: GUIDED_APPLY_CANON, icon: <ClipboardList className="w-4 h-4" /> },
+      { label: 'Resume Builder', href: RESUME_BUILDER, icon: <FileText className="w-4 h-4" /> },
+      { label: 'Resume Readiness', href: RESUME_READINESS, icon: <Briefcase className="w-4 h-4" /> },
       { label: 'Application Confidence Center', href: APPLICATION_CONFIDENCE_CENTER, icon: <Target className="w-4 h-4" /> },
+      { label: 'Guided Apply', href: GUIDED_APPLY_CANON, icon: <ClipboardList className="w-4 h-4" /> },
     ],
   },
   {
@@ -160,8 +161,9 @@ function NavItemRow(props: {
   isActive: boolean;
   onNavigate?: () => void;
   dataTourId?: string;
+  NavLink: ReturnType<typeof useNavLink>;
 }) {
-  const NavLink = useNavLink();
+  const NavLink = props.NavLink;
   const [isExpanded, setIsExpanded] = useState(false);
   const hasChildren = props.item.children && props.item.children.length > 0;
   const hasBadge = props.item.badgeCount !== undefined && props.item.badgeCount > 0;
@@ -200,18 +202,18 @@ function NavItemRow(props: {
             background: props.isActive ? 'var(--p-accent-bg)' : 'transparent',
           }}
         />
-        <span className="flex-shrink-0 relative z-10" style={{ color: props.isActive ? 'var(--p-accent)' : 'var(--p-text-dim)' }}>{props.item.icon}</span>
-        <span className="flex-1 relative z-10" style={{ color: props.isActive ? 'var(--p-text)' : 'var(--p-text-muted)' }}>{props.item.label}</span>
+        <span className="flex-shrink-0 relative" style={{ color: props.isActive ? 'var(--p-accent)' : 'var(--p-text-dim)', zIndex: 1 }}>{props.item.icon}</span>
+        <span className="flex-1 relative" style={{ color: props.isActive ? 'var(--p-text)' : 'var(--p-text-muted)', zIndex: 1 }}>{props.item.label}</span>
         {hasBadge && (
           <span
-            className="flex-shrink-0 text-xs font-medium px-1.5 py-0.5 rounded-full min-w-[20px] text-center relative z-10"
-            style={{ background: 'var(--p-danger)', color: '#fff' }}
+            className="flex-shrink-0 text-xs font-medium px-1.5 py-0.5 rounded-full min-w-[20px] text-center relative"
+            style={{ zIndex: 1, background: 'var(--p-danger)', color: '#fff' }}
           >
             {props.item.badgeCount}
           </span>
         )}
         {hasChildren && (
-          <ChevronRight className={cn('w-4 h-4 transition-transform relative z-10', isExpanded && 'rotate-90')} style={{ color: 'var(--p-text-dim)' }} />
+          <ChevronRight className={cn('w-4 h-4 transition-transform relative', isExpanded && 'rotate-90')} style={{ color: 'var(--p-text-dim)', zIndex: 1 }} />
         )}
       </NavLink>
       {hasChildren && isExpanded && props.item.children && (
@@ -241,6 +243,7 @@ function NavItemRow(props: {
 
 export function Sidebar(props: SidebarProps) {
   const nav = useNav();
+  const NavLink = useNavLink();
   const pathname = nav.pathname;
   const isEmployee = props.isEmployee ?? false;
   const userName = props.userName ?? 'User';
@@ -273,12 +276,15 @@ export function Sidebar(props: SidebarProps) {
     if (itemHref === DASHBOARD) {
       return pathname === DASHBOARD;
     }
+    if (itemHref === RESUME_READINESS) {
+      return pathname === RESUME_READINESS || pathname === CAREER;
+    }
     return pathname === itemHref || pathname.indexOf(itemHref + '/') === 0;
   };
 
   // Tour data attributes (hrefs from route constants)
   const tourMap: Record<string, string> = {
-    [CAREER]: 'nav-career-resume',
+    [RESUME_READINESS]: 'nav-resume-readiness',
     [RESUME_BUILDER]: 'nav-resume-builder',
     [JOB_SEARCH]: 'nav-job-search',
     [EXPLORE_BENEFITS]: 'nav-benefits',
@@ -326,6 +332,7 @@ export function Sidebar(props: SidebarProps) {
                       isActive={isItemActive(item.href)}
                       onNavigate={props.onNavigate}
                       dataTourId={tourMap[item.href]}
+                      NavLink={NavLink}
                     />
                   );
                 })}

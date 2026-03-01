@@ -18,6 +18,7 @@ import {
   PathAdvisorCard,
   type PathAdvisorMessage,
 } from './PathAdvisorCard';
+import { usePathAdvisorScreenOverridesStore } from '../stores/pathAdvisorScreenOverridesStore';
 
 /** Stub anchor context for PathAdvisor (e.g. selected application in Confidence Center). */
 export interface PathAdvisorAnchorContext {
@@ -48,8 +49,8 @@ export interface PathAdvisorRailProps {
   onSend?: (text: string) => void;
 }
 
-/** Suggested prompts: dashboard-context quick questions; 3 items per mockup parity. */
-const SUGGESTED_PROMPTS = [
+/** Default suggested prompts when no screen overrides (dashboard context). */
+const DEFAULT_SUGGESTED_PROMPTS = [
   'What should I focus on first today?',
   'Why did my readiness score change?',
   'When can I expect a referral decision?',
@@ -85,20 +86,41 @@ export function PathAdvisorRail(props: PathAdvisorRailProps) {
   const onSend: (text: string) => void =
     isControlled && props.onSend !== undefined ? props.onSend : handleSendInternal;
 
+  // Screen overrides (e.g. Career & Resume) provide viewingLabel, suggestedPrompts, briefingLabel.
+  const overrides = usePathAdvisorScreenOverridesStore(function (s) {
+    return s.overrides;
+  });
+
   // When anchorContext is provided (e.g. from Application Confidence Center), use its viewingLabel for the card.
+  // Otherwise use screen overrides or props.
   const viewingLabel =
     props.anchorContext !== undefined && props.anchorContext !== null && props.anchorContext.viewingLabel
       ? props.anchorContext.viewingLabel
-      : props.viewingLabel;
+      : overrides !== null && overrides !== undefined && overrides.viewingLabel !== ''
+        ? overrides.viewingLabel
+        : props.viewingLabel !== undefined && props.viewingLabel !== ''
+          ? props.viewingLabel
+          : 'Dashboard';
+
+  const suggestedPrompts =
+    overrides !== null && overrides !== undefined && overrides.suggestedPrompts.length > 0
+      ? overrides.suggestedPrompts
+      : DEFAULT_SUGGESTED_PROMPTS;
+
+  const briefingLabel =
+    overrides !== null && overrides !== undefined && overrides.briefingLabel !== undefined
+      ? overrides.briefingLabel
+      : undefined;
 
   return (
     <div className="h-full flex flex-col min-h-0">
       <PathAdvisorCard
         messages={messages}
-        suggestedPrompts={SUGGESTED_PROMPTS}
+        suggestedPrompts={suggestedPrompts}
         onSend={onSend}
         viewingLabel={viewingLabel}
         privacyLabel={props.privacyLabel}
+        briefingLabel={briefingLabel}
       />
     </div>
   );

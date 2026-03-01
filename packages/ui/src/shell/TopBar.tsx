@@ -15,6 +15,7 @@
 import type React from 'react';
 import { useState } from 'react';
 import { Search, Eye, EyeOff, Users, Info, ShieldCheck, X } from 'lucide-react';
+import { Z_DIALOG } from '../styles/zIndex';
 import type { Platform } from './AppShell';
 
 export interface TopBarProps {
@@ -99,8 +100,9 @@ export function TopBar(props: TopBarProps) {
       {/* Info panel overlay */}
       {showInfoPanel && (
         <div
-          className="absolute left-4 sm:left-16 top-full mt-1 z-50 w-80 p-4 space-y-3"
+          className="absolute left-4 sm:left-16 top-full mt-1 w-80 p-4 space-y-3"
           style={{
+            zIndex: Z_DIALOG,
             background: 'var(--p-surface)',
             border: '1px solid var(--p-border)',
             borderRadius: 'var(--p-radius-lg)',

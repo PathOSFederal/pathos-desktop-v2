@@ -177,10 +177,9 @@ function SectionHeader(props: { title: string; lastUpdated?: string }) {
 }
 
 // ---------------------------------------------------------------------------
-// Briefing: 4 compact tiles with value and subtext
-// Base border matches ModuleCard (1px p-border, radius-lg); subtle left
-// accent bar (2px, accent-muted) distinguishes briefing tiles without
-// duplicating the hero's full accent treatment.
+// Briefing: 4 compact tiles (Saved Jobs, Tracked Apps, Readiness, Next Milestone).
+// Same card treatment as Resume Readiness tiles: border, radius, surface,
+// 1px top accent; no left accent strip. Emphasis via content (value + subtext/deltas).
 // ---------------------------------------------------------------------------
 
 const BRIEFING_ICONS: Record<string, React.ReactNode> = {
@@ -205,13 +204,10 @@ function BriefingTile(props: {
         border: '1px solid var(--p-border)',
         borderRadius: 'var(--p-radius-lg)',
         boxShadow: 'var(--p-shadow-elev-1)',
+        borderTop: '1px solid var(--p-accent-muted)',
       }}
     >
-      {/* Inner content with 2px left accent bar (briefing signature; low emphasis). */}
-      <div
-        className="p-3 flex flex-col gap-0.5 pl-[calc(0.75rem+2px)]"
-        style={{ borderLeft: '2px solid var(--p-accent-muted)' }}
-      >
+      <div className="p-3 flex flex-col gap-0.5">
         <div className="flex items-start justify-between gap-2">
           <span
             className="text-[11px] uppercase tracking-wide"
