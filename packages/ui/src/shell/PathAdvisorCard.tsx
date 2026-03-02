@@ -19,7 +19,8 @@ import { Sparkles, Eye, Shield, Send, Trash2, Settings2, X } from 'lucide-react'
 import { ModuleCard } from '../components/ModuleCard';
 import { Tooltip } from '../components/Tooltip';
 import { Z_POPOVER } from '../styles/zIndex';
-import { usePathAdvisorBriefingStore } from '../stores/pathAdvisorBriefingStore';
+import { usePathAdvisorBriefingStore, isFitBriefing } from '../stores/pathAdvisorBriefingStore';
+import { usePathAdvisorScreenOverridesStore } from '../stores/pathAdvisorScreenOverridesStore';
 import { useDashboardHeroDoNowStore } from '../stores/dashboardHeroDoNowStore';
 import { useNav } from '@pathos/adapters';
 
@@ -93,6 +94,9 @@ export function PathAdvisorCard(props: PathAdvisorCardProps) {
   });
   const closeBriefing = usePathAdvisorBriefingStore(function (s) {
     return s.clearBriefing;
+  });
+  const overrides = usePathAdvisorScreenOverridesStore(function (s) {
+    return s.overrides;
   });
   const heroDoNow = useDashboardHeroDoNowStore(function (s) {
     return s.action;
@@ -419,7 +423,7 @@ export function PathAdvisorCard(props: PathAdvisorCardProps) {
           border: '1px solid var(--p-border)',
         }}
       >
-        {/* PathAdvisor Briefing: deep explanation opened from Dashboard "Ask PathAdvisor"; above quick prompts. */}
+        {/* PathAdvisor Briefing: generic (Dashboard) or Fit explanation (Job Search "Why this fit?"). */}
         {briefing !== null && isBriefingOpen ? (
           <div className="flex-shrink-0 px-3 pt-2 pb-2">
             <div
@@ -431,7 +435,7 @@ export function PathAdvisorCard(props: PathAdvisorCardProps) {
             >
               <div className="flex items-start justify-between gap-2 mb-2">
                 <h3 className="font-semibold text-[13px]" style={{ color: 'var(--p-text)' }}>
-                  PathAdvisor Briefing
+                  {isFitBriefing(briefing) ? 'Fit explanation' : 'PathAdvisor Briefing'}
                 </h3>
                 <div className="relative group">
                   <Tooltip
@@ -460,32 +464,86 @@ export function PathAdvisorCard(props: PathAdvisorCardProps) {
                   </Tooltip>
                 </div>
               </div>
-              {briefing.sourceLabel !== undefined && briefing.sourceLabel !== '' ? (
-                <p className="text-[11px] mb-2" style={{ color: 'var(--p-text-dim)' }}>
-                  From: {briefing.sourceLabel}
-                </p>
-              ) : null}
-              {briefing.sections.length > 0
-                ? briefing.sections.map(function (sec, idx) {
-                    const isFirst = idx === 0;
-                    return (
-                      <div key={idx} className={isFirst ? 'pt-0 pb-2' : 'pt-2 pb-2'}>
-                        {isFirst ? null : (
-                          <div
-                            className="mx-4 mb-2 h-px"
-                            style={{ background: 'var(--p-border)', opacity: 0.6 }}
-                          />
-                        )}
-                        <p className="text-[11px] font-medium mb-0.5" style={{ color: 'var(--p-text-muted)' }}>
-                          {sec.heading}
-                        </p>
-                        <p className="text-[11px] mt-0" style={{ color: 'var(--p-text-dim)' }}>
-                          {sec.body}
-                        </p>
-                      </div>
-                    );
-                  })
-                : null}
+              {isFitBriefing(briefing) ? (
+                /* Fit explanation: stars, confidence, top 2–3 reasons, inputs used/missing, one CTA. Deterministic; no generated prose. */
+                <>
+                  <p className="text-[11px] truncate mb-1.5" style={{ color: 'var(--p-text-dim)' }} title={briefing.jobTitle}>
+                    {briefing.jobTitle}
+                  </p>
+                  <div className="flex flex-wrap items-center gap-2 mb-2">
+                    <span className="inline-flex gap-0.5" style={{ color: 'var(--p-accent)' }} aria-label={'Fit: ' + briefing.stars + ' of 5 stars'}>
+                      {Array.from({ length: 5 }, function (_, i) {
+                        return i < briefing.stars ? '★' : '☆';
+                      })}
+                    </span>
+                    <span
+                      className="text-[10px] px-1.5 py-0.5 rounded"
+                      style={{ background: 'var(--p-surface2)', color: 'var(--p-text-dim)' }}
+                    >
+                      {briefing.confidence} confidence
+                    </span>
+                  </div>
+                  {briefing.reasons.length > 0 ? (
+                    <ul className="list-none mb-2 space-y-0.5">
+                      {briefing.reasons.slice(0, 3).map(function (r, i) {
+                        return (
+                          <li key={i} className="text-[11px]" style={{ color: 'var(--p-text-muted)' }}>
+                            • {r}
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  ) : null}
+                  <p className="text-[10px] mb-2" style={{ color: 'var(--p-text-dim)' }}>
+                    Based on: {briefing.inputsUsed.length > 0 ? briefing.inputsUsed.join(', ') : 'job data'}
+                    {briefing.missingInputs.length > 0 ? '. Missing: ' + briefing.missingInputs.join(', ') : ''}
+                  </p>
+                  {overrides !== null && overrides !== undefined && overrides.onFitBriefingPrimaryAction !== undefined ? (
+                    <button
+                      type="button"
+                      onClick={overrides.onFitBriefingPrimaryAction}
+                      className="w-full py-2 px-3 text-[12px] font-medium rounded-[var(--p-radius)]"
+                      style={{
+                        background: 'var(--p-accent)',
+                        color: 'var(--p-bg)',
+                        border: 'none',
+                      }}
+                    >
+                      {briefing.isJobSaved ? 'Tailor resume' : 'Save + Start Tailoring'}
+                    </button>
+                  ) : null}
+                </>
+              ) : (
+                /* Generic briefing: sourceLabel + sections. */
+                <>
+                  {briefing.sourceLabel !== undefined && briefing.sourceLabel !== '' ? (
+                    <p className="text-[11px] mb-2" style={{ color: 'var(--p-text-dim)' }}>
+                      From: {briefing.sourceLabel}
+                    </p>
+                  ) : null}
+                  {briefing.sections.length > 0
+                    ? briefing.sections.map(function (sec, idx) {
+                        const isFirst = idx === 0;
+                        return (
+                          <div key={idx} className={isFirst ? 'pt-0 pb-2' : 'pt-2 pb-2'}>
+                            {isFirst ? null : (
+                              <div
+                                className="mx-4 mb-2 h-px"
+                                style={{ background: 'var(--p-border)', opacity: 0.6 }}
+                              />
+                            )}
+                            <p className="text-[11px] font-medium mb-0.5" style={{ color: 'var(--p-text-muted)' }}>
+                              {sec.heading}
+                            </p>
+                            <p className="text-[11px] mt-0" style={{ color: 'var(--p-text-dim)' }}>
+                              {sec.body}
+                            </p>
+                          </div>
+                        );
+                      })
+                    : null}
+                </>
+              )}
             </div>
             <div
               className="mt-2 mx-0 h-px flex-shrink-0"

@@ -15,8 +15,9 @@
 import type React from 'react';
 import { useState } from 'react';
 import * as DropdownMenuPrimitive from '@radix-ui/react-dropdown-menu';
-import { ChevronDown } from 'lucide-react';
+import { ChevronDown, Info } from 'lucide-react';
 import { OVERLAY_ROOT_ID, Z_POPOVER } from '../../styles/zIndex';
+import { Tooltip } from '../../components/Tooltip';
 
 /** Class for dropdown items; hover/highlight uses token --p-surface2 via inline style below. */
 const ITEM_HIGHLIGHT_CLASS = 'pathos-filter-dropdown-item';
@@ -35,6 +36,8 @@ export interface FilterDropdownProps {
   options: FilterDropdownOption[];
   /** Called when user selects an option. */
   onSelect: (value: string) => void;
+  /** Optional tooltip for filter group; when set, an info icon is shown next to trigger. */
+  tooltip?: string;
 }
 
 /**
@@ -71,23 +74,31 @@ export function FilterDropdown(props: FilterDropdownProps): React.ReactElement {
       <style>
         {'.' + ITEM_HIGHLIGHT_CLASS + '[data-highlighted]{ background: var(--p-surface2); }'}
       </style>
+      <div className="inline-flex items-center gap-1">
       <DropdownMenuPrimitive.Root open={open} onOpenChange={setOpen}>
       <DropdownMenuPrimitive.Trigger asChild>
-        <button
-          type="button"
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm rounded border bg-transparent outline-none min-w-[7rem] justify-between"
-          style={{
-            borderColor: 'var(--p-border)',
-            color: 'var(--p-text)',
-            borderRadius: 'var(--p-radius)',
-          }}
-          aria-haspopup="listbox"
-          aria-expanded={open}
-        >
-          <span className="truncate">{displayLabel}</span>
-          <ChevronDown className="w-4 h-4 flex-shrink-0" style={{ color: 'var(--p-text-muted)' }} aria-hidden />
-        </button>
+          <button
+            type="button"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm rounded border bg-transparent outline-none min-w-[7rem] justify-between"
+            style={{
+              borderColor: 'var(--p-border)',
+              color: 'var(--p-text)',
+              borderRadius: 'var(--p-radius)',
+            }}
+            aria-haspopup="listbox"
+            aria-expanded={open}
+          >
+            <span className="truncate">{displayLabel}</span>
+            <ChevronDown className="w-4 h-4 flex-shrink-0" style={{ color: 'var(--p-text-muted)' }} aria-hidden />
+          </button>
       </DropdownMenuPrimitive.Trigger>
+      {props.tooltip !== undefined && props.tooltip !== '' ? (
+        <Tooltip content={props.tooltip} contentId="filter-dropdown-info-tooltip">
+          <span className="inline-flex items-center" aria-label="What this filter means">
+            <Info className="w-3.5 h-3.5" style={{ color: 'var(--p-text-dim)' }} aria-hidden />
+          </span>
+        </Tooltip>
+      ) : null}
       <DropdownMenuPrimitive.Portal container={container}>
         <DropdownMenuPrimitive.Content
           side="bottom"
@@ -131,6 +142,7 @@ export function FilterDropdown(props: FilterDropdownProps): React.ReactElement {
         </DropdownMenuPrimitive.Content>
       </DropdownMenuPrimitive.Portal>
     </DropdownMenuPrimitive.Root>
+    </div>
     </>
   );
 }

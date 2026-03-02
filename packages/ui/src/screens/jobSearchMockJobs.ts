@@ -6,9 +6,38 @@
  * PURPOSE: Stable mock jobs (8–12) for one-click evaluation and filter testing.
  * mockSearchJobs is a pure, deterministic filter/sort; no network.
  * BOUNDARY: No next/* or electron/*. Uses @pathos/core Job type.
+ *
+ * Overview: Each job may have an optional overview object for Key Facts grid
+ * and risk-flag chips (USAJOBS-style fields). Kept compact; no large text blocks.
  */
 
 import type { Job } from '@pathos/core';
+
+// ---------------------------------------------------------------------------
+// Job overview (evaluation-quality): Key Facts + risk flags for details panel
+// ---------------------------------------------------------------------------
+
+/** USAJOBS-style overview fields for Key Facts grid and risk chips. All optional. */
+export interface JobOverview {
+  openTo?: string[];
+  appointmentType?: string;
+  teleworkEligible?: string;
+  remoteJob?: string;
+  workSchedule?: string;
+  travelRequired?: string;
+  securityClearance?: string;
+  drugTest?: string;
+  financialDisclosure?: string;
+  supervisoryStatus?: string;
+  bargainingUnitStatus?: string;
+  promotionPotential?: string;
+  payRange?: string;
+}
+
+/** Job with optional overview (used by mock list and details; core Job remains unchanged). */
+export interface JobWithOverview extends Job {
+  overview?: JobOverview;
+}
 
 // ---------------------------------------------------------------------------
 // Stable mock jobs: variety of agencies, grades, locations, remote/onsite
@@ -16,8 +45,8 @@ import type { Job } from '@pathos/core';
 
 const MOCK_SAVED_AT = '2025-02-01T12:00:00.000Z';
 
-/** 10 mock jobs with stable ids for evaluation and filter testing. */
-export const MOCK_JOBS: Job[] = [
+/** 10 mock jobs with stable ids and overview for evaluation and filter testing. */
+export const MOCK_JOBS: JobWithOverview[] = [
   {
     id: 'mock-js-1',
     title: 'IT Specialist (Cybersecurity)',
@@ -27,6 +56,21 @@ export const MOCK_JOBS: Job[] = [
     url: 'https://www.usajobs.gov/job/sample1',
     summary: 'Cybersecurity roles supporting DHS mission. Remote work possible.',
     savedAt: MOCK_SAVED_AT,
+    overview: {
+      openTo: ['Public', 'Veterans'],
+      appointmentType: 'Competitive',
+      teleworkEligible: 'Yes',
+      remoteJob: 'No',
+      workSchedule: 'Full-time',
+      travelRequired: 'Yes',
+      securityClearance: 'Secret',
+      drugTest: 'Yes',
+      financialDisclosure: 'No',
+      supervisoryStatus: 'No',
+      bargainingUnitStatus: 'Yes',
+      promotionPotential: 'GS-13',
+      payRange: '$86,962 - $113,047',
+    },
   },
   {
     id: 'mock-js-2',
@@ -37,6 +81,21 @@ export const MOCK_JOBS: Job[] = [
     url: 'https://www.usajobs.gov/job/sample2',
     summary: 'Organizational analysis and process improvement. Series 0343.',
     savedAt: MOCK_SAVED_AT,
+    overview: {
+      openTo: ['Public'],
+      appointmentType: 'Competitive',
+      teleworkEligible: 'Yes',
+      remoteJob: 'Yes',
+      workSchedule: 'Full-time',
+      travelRequired: 'No',
+      securityClearance: 'None',
+      drugTest: 'No',
+      financialDisclosure: 'No',
+      supervisoryStatus: 'No',
+      bargainingUnitStatus: 'Yes',
+      promotionPotential: 'GS-12',
+      payRange: '$72,553 - $94,317',
+    },
   },
   {
     id: 'mock-js-3',
@@ -47,6 +106,21 @@ export const MOCK_JOBS: Job[] = [
     url: 'https://www.usajobs.gov/job/sample3',
     summary: 'Program evaluation and metrics. Hybrid telework.',
     savedAt: MOCK_SAVED_AT,
+    overview: {
+      openTo: ['Public', 'Veterans'],
+      appointmentType: 'Competitive',
+      teleworkEligible: 'Yes',
+      remoteJob: 'No',
+      workSchedule: 'Full-time',
+      travelRequired: '25% or less',
+      securityClearance: 'None',
+      drugTest: 'No',
+      financialDisclosure: 'No',
+      supervisoryStatus: 'No',
+      bargainingUnitStatus: 'Yes',
+      promotionPotential: 'GS-13',
+      payRange: '$86,962 - $113,047',
+    },
   },
   {
     id: 'mock-js-4',
@@ -57,6 +131,21 @@ export const MOCK_JOBS: Job[] = [
     url: 'https://www.usajobs.gov/job/sample4',
     summary: 'Budget formulation and execution. On-site.',
     savedAt: MOCK_SAVED_AT,
+    overview: {
+      openTo: ['Public'],
+      appointmentType: 'Competitive',
+      teleworkEligible: 'No',
+      remoteJob: 'No',
+      workSchedule: 'Full-time',
+      travelRequired: 'No',
+      securityClearance: 'Secret',
+      drugTest: 'No',
+      financialDisclosure: 'Yes',
+      supervisoryStatus: 'No',
+      bargainingUnitStatus: 'No',
+      promotionPotential: 'GS-13',
+      payRange: '$86,962 - $113,047',
+    },
   },
   {
     id: 'mock-js-5',
@@ -67,6 +156,21 @@ export const MOCK_JOBS: Job[] = [
     url: 'https://www.usajobs.gov/job/sample5',
     summary: 'Staffing and classification. Series 0201.',
     savedAt: MOCK_SAVED_AT,
+    overview: {
+      openTo: ['Internal'],
+      appointmentType: 'Competitive',
+      teleworkEligible: 'Yes',
+      remoteJob: 'No',
+      workSchedule: 'Full-time',
+      travelRequired: 'No',
+      securityClearance: 'None',
+      drugTest: 'No',
+      financialDisclosure: 'No',
+      supervisoryStatus: 'Yes',
+      bargainingUnitStatus: 'No',
+      promotionPotential: 'GS-14',
+      payRange: '$103,409 - $134,435',
+    },
   },
   {
     id: 'mock-js-6',
@@ -77,6 +181,21 @@ export const MOCK_JOBS: Job[] = [
     url: 'https://www.usajobs.gov/job/sample6',
     summary: 'Contract administration and negotiation.',
     savedAt: MOCK_SAVED_AT,
+    overview: {
+      openTo: ['Public', 'Veterans'],
+      appointmentType: 'Competitive',
+      teleworkEligible: 'Yes',
+      remoteJob: 'No',
+      workSchedule: 'Full-time',
+      travelRequired: '25% or less',
+      securityClearance: 'None',
+      drugTest: 'No',
+      financialDisclosure: 'No',
+      supervisoryStatus: 'No',
+      bargainingUnitStatus: 'Yes',
+      promotionPotential: 'GS-12',
+      payRange: '$72,553 - $94,317',
+    },
   },
   {
     id: 'mock-js-7',
@@ -87,6 +206,21 @@ export const MOCK_JOBS: Job[] = [
     url: 'https://www.usajobs.gov/job/sample7',
     summary: 'Information security programs. Series 2210.',
     savedAt: MOCK_SAVED_AT,
+    overview: {
+      openTo: ['Public'],
+      appointmentType: 'Excepted',
+      teleworkEligible: 'Yes',
+      remoteJob: 'Yes',
+      workSchedule: 'Full-time',
+      travelRequired: 'No',
+      securityClearance: 'Top Secret',
+      drugTest: 'Yes',
+      financialDisclosure: 'No',
+      supervisoryStatus: 'No',
+      bargainingUnitStatus: 'No',
+      promotionPotential: 'GS-14',
+      payRange: '$103,409 - $134,435',
+    },
   },
   {
     id: 'mock-js-8',
@@ -97,6 +231,21 @@ export const MOCK_JOBS: Job[] = [
     url: 'https://www.usajobs.gov/job/sample8',
     summary: 'Policy analysis and program evaluation.',
     savedAt: MOCK_SAVED_AT,
+    overview: {
+      openTo: ['Public'],
+      appointmentType: 'Competitive',
+      teleworkEligible: 'Yes',
+      remoteJob: 'No',
+      workSchedule: 'Full-time',
+      travelRequired: 'No',
+      securityClearance: 'None',
+      drugTest: 'No',
+      financialDisclosure: 'Unknown',
+      supervisoryStatus: 'No',
+      bargainingUnitStatus: 'Yes',
+      promotionPotential: 'GS-13',
+      payRange: '$86,962 - $113,047',
+    },
   },
   {
     id: 'mock-js-9',
@@ -107,6 +256,21 @@ export const MOCK_JOBS: Job[] = [
     url: 'https://www.usajobs.gov/job/sample9',
     summary: 'Financial analysis and reporting. Series 0560.',
     savedAt: MOCK_SAVED_AT,
+    overview: {
+      openTo: ['Public', 'Veterans'],
+      appointmentType: 'Competitive',
+      teleworkEligible: 'Yes',
+      remoteJob: 'Yes',
+      workSchedule: 'Full-time',
+      travelRequired: 'No',
+      securityClearance: 'None',
+      drugTest: 'No',
+      financialDisclosure: 'Yes',
+      supervisoryStatus: 'No',
+      bargainingUnitStatus: 'Yes',
+      promotionPotential: 'GS-13',
+      payRange: '$86,962 - $113,047',
+    },
   },
   {
     id: 'mock-js-10',
@@ -117,6 +281,21 @@ export const MOCK_JOBS: Job[] = [
     url: 'https://www.usajobs.gov/job/sample10',
     summary: 'Policy development and strategic planning.',
     savedAt: MOCK_SAVED_AT,
+    overview: {
+      openTo: ['Public'],
+      appointmentType: 'Competitive',
+      teleworkEligible: 'Yes',
+      remoteJob: 'No',
+      workSchedule: 'Full-time',
+      travelRequired: 'Yes',
+      securityClearance: 'Secret',
+      drugTest: 'No',
+      financialDisclosure: 'Yes',
+      supervisoryStatus: 'No',
+      bargainingUnitStatus: 'No',
+      promotionPotential: 'GS-15',
+      payRange: '$122,198 - $158,860',
+    },
   },
 ];
 
@@ -167,22 +346,23 @@ export interface MockSearchInput {
  * Pure, deterministic mock search. Matches keywords (title/summary), location,
  * and filters (grade, agency, location, remoteType via location string).
  * Returns jobs sorted by closeDate order (soonest first).
+ * Accepts Job[] or JobWithOverview[]; returns same type as input.
  */
 export function mockSearchJobs(
   input: MockSearchInput,
-  jobs: Job[]
-): Job[] {
+  jobs: JobWithOverview[]
+): JobWithOverview[] {
   const keywords = (input.keywords !== undefined ? input.keywords : '').trim().toLowerCase();
   const location = (input.location !== undefined ? input.location : '').trim().toLowerCase();
   const filters = input.filters !== undefined ? input.filters : {};
 
-  let list: Job[] = [];
+  let list: JobWithOverview[] = [];
   for (let i = 0; i < jobs.length; i++) {
     list.push(jobs[i]);
   }
 
   if (keywords !== '') {
-    const next: Job[] = [];
+    const next: JobWithOverview[] = [];
     for (let i = 0; i < list.length; i++) {
       const j = list[i];
       const titleMatch = j.title && j.title.toLowerCase().indexOf(keywords) !== -1;
@@ -196,7 +376,7 @@ export function mockSearchJobs(
   }
 
   if (location !== '') {
-    const next: Job[] = [];
+    const next: JobWithOverview[] = [];
     for (let i = 0; i < list.length; i++) {
       const j = list[i];
       if (j.location && j.location.toLowerCase().indexOf(location) !== -1) {
@@ -207,7 +387,7 @@ export function mockSearchJobs(
   }
 
   if (filters.gradeBand !== undefined && filters.gradeBand !== '') {
-    const next: Job[] = [];
+    const next: JobWithOverview[] = [];
     for (let i = 0; i < list.length; i++) {
       if (list[i].grade === filters.gradeBand) {
         next.push(list[i]);
@@ -217,7 +397,7 @@ export function mockSearchJobs(
   }
 
   if (filters.agency !== undefined && filters.agency !== '') {
-    const next: Job[] = [];
+    const next: JobWithOverview[] = [];
     for (let i = 0; i < list.length; i++) {
       const a = list[i].agency;
       if (a && a.indexOf(filters.agency) !== -1) {
@@ -228,7 +408,7 @@ export function mockSearchJobs(
   }
 
   if (filters.series !== undefined && filters.series !== '') {
-    const next: Job[] = [];
+    const next: JobWithOverview[] = [];
     for (let i = 0; i < list.length; i++) {
       const s = list[i].summary;
       if (s && s.indexOf(filters.series) !== -1) {
@@ -239,7 +419,7 @@ export function mockSearchJobs(
   }
 
   if (filters.location !== undefined && filters.location !== '') {
-    const next: Job[] = [];
+    const next: JobWithOverview[] = [];
     for (let i = 0; i < list.length; i++) {
       const loc = list[i].location;
       if (loc && loc.indexOf(filters.location) !== -1) {
@@ -250,7 +430,7 @@ export function mockSearchJobs(
   }
 
   if (filters.remoteType !== undefined && filters.remoteType !== '') {
-    const next: Job[] = [];
+    const next: JobWithOverview[] = [];
     const rt = filters.remoteType.toLowerCase();
     for (let i = 0; i < list.length; i++) {
       const job = list[i];
@@ -266,7 +446,7 @@ export function mockSearchJobs(
   }
 
   if (filters.appointmentType !== undefined && filters.appointmentType !== '') {
-    const next: Job[] = [];
+    const next: JobWithOverview[] = [];
     for (let i = 0; i < list.length; i++) {
       const s = list[i].summary;
       if (s && s.indexOf(filters.appointmentType) !== -1) {

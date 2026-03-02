@@ -1,6 +1,6 @@
 /**
  * ============================================================================
- * JOB SEARCH SCREEN V1 — Local-only job browsing, prompted filters, PathAdvisor
+ * JOB SEARCH SCREEN V1 — Unified search: manual + optional "translate to filters"
  * ============================================================================
  *
  * BOUNDARY RULE: This file MUST NOT import from next/* or electron/*.
@@ -8,14 +8,18 @@
  * TRUST-FIRST: No scraping, no auto-apply. Jobs from local mock; save adds to
  * core saved-jobs store so they appear in Saved Jobs screen.
  *
- * LAYOUT: Title/subtitle, Prompted Filters card, Search row, Filters bar,
+ * UNIFIED SEARCH: One search pipeline. Manual search + filters is primary.
+ * "Describe what you want" is collapsed by default; expands to translate prompt
+ * into filters; Apply sets same filter state and runs the same search.
+ *
+ * LAYOUT: Title/subtitle, Search row + collapsed Describe CTA, Filters bar,
  * Results list (left) + Job details (center). PathAdvisor rail via overrides.
  */
 
 'use client';
 
 import type React from 'react';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   Search,
   ExternalLink,
@@ -28,7 +32,7 @@ import {
   Check,
 } from 'lucide-react';
 import { useNav } from '@pathos/adapters';
-import { storageSetJSON, PROMPT_TO_FILTERS_AUDIT_KEY } from '@pathos/core';
+import { storageSetJSON, storageGetJSON, PROMPT_TO_FILTERS_AUDIT_KEY } from '@pathos/core';
 import {
   createSession,
   addSession,
@@ -43,7 +47,24 @@ import { useDashboardHeroDoNowStore } from '../stores/dashboardHeroDoNowStore';
 import { parsePromptToFilters, type ParsedPromptResult } from '../lib/promptToFiltersParser';
 import { getChecklistForJob } from './jobSearchMockChecklists';
 import { MOCK_JOBS, MOCK_JOB_TAGS } from './jobSearchMockJobs';
+import type { JobWithOverview } from './jobSearchMockJobs';
 import { FilterDropdown } from './_components/FilterDropdown';
+import {
+  buildFitAssessment,
+  fitScoreToStars,
+  effortEstimate as calcEffort,
+  strategicValue as calcStrategic,
+  effortToReward as calcEffortToReward,
+} from '../lib/fitScoring';
+import type { FitAssessment } from '../lib/fitScoring';
+import { chipTooltips, fitTooltips, getChipTooltip, getFilterGroupTooltip, getSortTooltip } from '../lib/tooltipCopy';
+import { useTargetRoleV1Store } from '../stores/targetRoleV1Store';
+import {
+  useDecisionBriefsV1Store,
+  buildDecisionBriefRecord,
+} from '../stores/decisionBriefsV1Store';
+import { usePathAdvisorBriefingStore } from '../stores/pathAdvisorBriefingStore';
+import { Tooltip } from '../components/Tooltip';
 
 const JOB_SEARCH_SUGGESTED_PROMPTS = [
   'Summarize in plain English',
@@ -121,97 +142,249 @@ function getLocationOptions(): Array<{ value: string; label: string }> {
 const AGENCY_OPTIONS = getAgencyOptions();
 const LOCATION_OPTIONS = getLocationOptions();
 
+/** Sort option for results list (deterministic, explainable). */
+export type JobSearchSortKind = 'likelihood' | 'effortToReward' | 'strategic' | 'urgency';
+
+const SORT_OPTIONS: Array<{ value: JobSearchSortKind; label: string }> = [
+  { value: 'likelihood', label: 'Likelihood of success' },
+  { value: 'effortToReward', label: 'Effort-to-reward' },
+  { value: 'strategic', label: 'Strategic value' },
+  { value: 'urgency', label: 'Urgency (close date)' },
+];
+
 export interface JobSearchScreenProps {
   initialQuery?: string;
 }
 
+/** Derive risk flag labels from job overview for compact chips (Travel, Drug test, Clearance). */
+function getRiskFlagLabels(job: Job | JobWithOverview): string[] {
+  const ov = 'overview' in job && job.overview !== undefined ? job.overview : undefined;
+  if (ov === undefined) return [];
+  const out: string[] = [];
+  if (ov.travelRequired !== undefined && ov.travelRequired !== '' && ov.travelRequired.toLowerCase() !== 'no') {
+    out.push('Travel');
+  }
+  if (ov.drugTest === 'Yes') out.push('Drug test');
+  if (ov.securityClearance !== undefined && ov.securityClearance !== '' && ov.securityClearance.toLowerCase() !== 'none' && ov.securityClearance.toLowerCase() !== 'unknown') {
+    out.push('Clearance');
+  }
+  return out;
+}
+
 // ---------------------------------------------------------------------------
-// Job list item (title, agency, location, close date, GS chip, fit, Save, tags)
+// Job list item — Listbox-style row: full-width click selects; compact content; no inline expand
 // ---------------------------------------------------------------------------
 
+/** Derive Remote/Telework label from job overview (token-safe; no hardcoded colors). */
+function getRemoteTeleworkLabel(job: Job | JobWithOverview): string | null {
+  const ov = 'overview' in job && job.overview !== undefined ? job.overview : undefined;
+  if (ov === undefined) return null;
+  if (ov.remoteJob === 'Yes') return 'Remote';
+  if (ov.teleworkEligible === 'Yes') return 'Telework';
+  return null;
+}
+
+/**
+ * Single row: one main click target (selects job) + optional trailing Save icon.
+ * Consistent height; title 1 line, meta Agency • Location, chips (GS, Close date, Remote/Telework, at most one Risk), Fit star + confidence, "Why this fit?" link.
+ */
 function JobListItem(props: {
-  job: Job;
+  job: Job | JobWithOverview;
   isSelected: boolean;
   isSaved: boolean;
-  fitLabel: string;
+  fitAssessment: FitAssessment;
+  riskFlags: string[];
   tag?: 'New' | 'Close date updated';
   onSelect: (id: string) => void;
   onSave: () => void;
+  onWhyFit: (e: React.MouseEvent) => void;
 }) {
+  const stars = fitScoreToStars(props.fitAssessment.score);
+  const closeLabel = props.tag === 'Close date updated' ? 'Closes soon' : 'Closes Apr 1';
+  const closeChipUrgency = props.tag === 'Close date updated';
+  const remoteLabel = getRemoteTeleworkLabel(props.job);
+  const oneRisk = props.riskFlags.length > 0 ? props.riskFlags[0] : null;
+
   return (
     <div
-      className="border-b last:border-b-0"
-      style={{ borderColor: 'var(--p-border)' }}
+      role="option"
+      aria-selected={props.isSelected}
+      className="border-b last:border-b-0 flex items-stretch min-h-[88px]"
+      style={{
+        borderColor: 'var(--p-border)',
+        background: props.isSelected ? 'var(--p-surface2)' : undefined,
+        borderLeft: props.isSelected ? '3px solid var(--p-accent)' : '3px solid transparent',
+      }}
     >
-      <div className="flex items-start gap-2 px-3 py-2">
-        <div className="flex-1 min-w-0">
-          {props.tag !== undefined ? (
-            <span
-              className="text-[10px] font-medium uppercase tracking-wide block mb-0.5"
-              style={{ color: 'var(--p-accent)' }}
-            >
-              {props.tag}
-            </span>
-          ) : null}
-          <button
-            type="button"
-            onClick={function () { props.onSelect(props.job.id); }}
-            className="w-full text-left"
-          >
-            <p className="text-sm font-medium truncate" style={{ color: 'var(--p-text)' }}>
-              {props.job.title}
-            </p>
-          </button>
-          <p className="text-xs truncate mt-0.5" style={{ color: 'var(--p-text-muted)' }}>
-            {props.job.agency}
-          </p>
-          <p className="text-[11px] mt-0.5" style={{ color: 'var(--p-text-dim)' }}>
-            {props.job.location}
-            {props.job.location ? ' — ' : ''}Closes Apr 1
-          </p>
-          <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-            {props.job.grade !== undefined && props.job.grade !== '' ? (
+      <button
+        type="button"
+        onClick={function () { props.onSelect(props.job.id); }}
+        className="flex-1 min-w-0 text-left px-3 py-2 flex flex-col justify-center"
+        style={{ color: 'var(--p-text)' }}
+      >
+        {props.tag !== undefined ? (
+          <span className="text-[10px] font-medium uppercase tracking-wide block mb-0.5" style={{ color: 'var(--p-accent)' }}>
+            {props.tag}
+          </span>
+        ) : null}
+        <p className="text-sm font-medium truncate" style={{ color: 'var(--p-text)' }}>
+          {props.job.title}
+        </p>
+        <p className="text-xs truncate mt-0.5" style={{ color: 'var(--p-text-muted)' }}>
+          {props.job.agency}
+          {props.job.location ? ' • ' + props.job.location : ''}
+        </p>
+        <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+          {props.job.grade !== undefined && props.job.grade !== '' ? (
+            <Tooltip content={chipTooltips.grade} contentId="job-list-chip-grade">
               <span
                 className="text-[10px] font-medium px-1.5 py-0.5 rounded"
                 style={{ background: 'var(--p-accent-bg)', color: 'var(--p-accent)' }}
               >
                 {props.job.grade}
               </span>
-            ) : null}
+            </Tooltip>
+          ) : null}
+          <Tooltip content={getChipTooltip(closeLabel, closeChipUrgency) || chipTooltips.closeDate} contentId="job-list-chip-close">
             <span
-              className="text-[10px]"
-              style={{ color: 'var(--p-text-dim)' }}
+              className="text-[10px] px-1.5 py-0.5 rounded"
+              style={{
+                background: closeChipUrgency ? 'var(--p-accent-bg)' : 'var(--p-surface2)',
+                color: closeChipUrgency ? 'var(--p-accent)' : 'var(--p-text-dim)',
+              }}
             >
-              {props.fitLabel} fit
+              {closeLabel}
             </span>
-          </div>
+          </Tooltip>
+          {remoteLabel !== null ? (
+            (chipTooltips[remoteLabel] !== undefined ? (
+              <Tooltip content={chipTooltips[remoteLabel]} contentId="job-list-chip-remote">
+                <span
+                  className="text-[10px] px-1.5 py-0.5 rounded"
+                  style={{ background: 'var(--p-surface2)', color: 'var(--p-text-dim)' }}
+                >
+                  {remoteLabel}
+                </span>
+              </Tooltip>
+            ) : (
+              <span
+                className="text-[10px] px-1.5 py-0.5 rounded"
+                style={{ background: 'var(--p-surface2)', color: 'var(--p-text-dim)' }}
+              >
+                {remoteLabel}
+              </span>
+            ))
+          ) : null}
+          {oneRisk !== null ? (
+            (chipTooltips[oneRisk] !== undefined ? (
+              <Tooltip content={chipTooltips[oneRisk]} contentId="job-list-chip-risk">
+                <span
+                  className="text-[10px] px-1.5 py-0.5 rounded"
+                  style={{ background: 'var(--p-surface2)', color: 'var(--p-text-dim)' }}
+                >
+                  {oneRisk}
+                </span>
+              </Tooltip>
+            ) : (
+              <span
+                className="text-[10px] px-1.5 py-0.5 rounded"
+                style={{ background: 'var(--p-surface2)', color: 'var(--p-text-dim)' }}
+              >
+                {oneRisk}
+              </span>
+            ))
+          ) : null}
         </div>
+        <div className="flex items-center gap-1.5 mt-1">
+          <Tooltip content={fitTooltips.fitStars} contentId="job-list-fit-stars">
+            <span className="inline-flex gap-0.5" style={{ color: 'var(--p-accent)' }} aria-label={'Fit: ' + stars + ' of 5 stars'}>
+              {Array.from({ length: 5 }, function (_, i) { return i < stars ? '★' : '☆'; }).join('')}
+            </span>
+          </Tooltip>
+          <Tooltip content={fitTooltips.confidence} contentId="job-list-confidence">
+            <span
+              className="text-[10px] px-1.5 py-0.5 rounded"
+              style={{ background: 'var(--p-surface2)', color: 'var(--p-text-dim)' }}
+            >
+              {props.fitAssessment.confidence}
+            </span>
+          </Tooltip>
+          <Tooltip content="Open fit briefing for this job (fit score, reasons, next steps)" contentId="job-list-why-fit">
+          <button
+            type="button"
+            onClick={function (e) {
+              e.preventDefault();
+              e.stopPropagation();
+              props.onWhyFit(e);
+            }}
+            className="text-[10px] font-medium ml-0.5 underline-offset-2 hover:underline"
+            style={{ color: 'var(--p-accent)' }}
+          >
+            Why this fit?
+          </button>
+          </Tooltip>
+        </div>
+      </button>
+      <Tooltip content={props.isSaved ? 'Saved to your list' : 'Save job'} contentId="job-list-save">
         <button
           type="button"
           onClick={props.onSave}
-          className="flex-shrink-0 px-2 py-1 text-xs font-medium rounded"
-          style={{
-            background: props.isSaved ? 'var(--p-accent)' : 'var(--p-surface2)',
-            color: props.isSaved ? 'var(--p-bg)' : 'var(--p-text-muted)',
-            border: props.isSaved ? 'none' : '1px solid var(--p-border)',
-            borderRadius: 'var(--p-radius)',
-          }}
+          className="flex-shrink-0 p-2 self-center"
+          aria-label={props.isSaved ? 'Saved' : 'Save job'}
+          style={{ color: props.isSaved ? 'var(--p-accent)' : 'var(--p-text-muted)' }}
         >
-          {props.isSaved ? 'Saved' : 'Save'}
+          {props.isSaved ? <BookmarkCheck className="w-4 h-4" /> : <BookmarkPlus className="w-4 h-4" />}
         </button>
-      </div>
+      </Tooltip>
     </div>
   );
 }
 
 // ---------------------------------------------------------------------------
-// Job details panel — Executive briefing layout (header, requirements, action bar)
-// Same card rhythm as ModuleCard: p-4, section spacing, line-height. No long paragraphs.
+// Fit stars display: 1–5 ★ from fitScore; confidence as lightweight chip
 // ---------------------------------------------------------------------------
 
+const STAR_FULL = '★';
+const STAR_EMPTY = '☆';
+
+/** Render "Fit: ★★★★☆" (or just stars) from fitAssessment.score; confidence separate. */
+function FitStarsRow(props: { fitAssessment: FitAssessment }) {
+  const stars = fitScoreToStars(props.fitAssessment.score);
+  const parts: string[] = [];
+  for (let i = 0; i < 5; i++) {
+    parts.push(i < stars ? STAR_FULL : STAR_EMPTY);
+  }
+  return (
+    <span className="inline-flex items-center gap-1.5">
+      <Tooltip content={fitTooltips.fitStars} contentId="details-fit-stars">
+        <span style={{ color: 'var(--p-accent)' }} aria-label={'Fit: ' + stars + ' of 5 stars'}>
+          Fit: {parts.join('')}
+        </span>
+      </Tooltip>
+      <Tooltip content={fitTooltips.confidence} contentId="details-confidence">
+        <span
+          className="text-[10px] px-1.5 py-0.5 rounded"
+          style={{ background: 'var(--p-surface2)', color: 'var(--p-text-dim)' }}
+        >
+          {props.fitAssessment.confidence} confidence
+        </span>
+      </Tooltip>
+    </span>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Job details panel — Tabs: Overview & Docs (default), Requirements, PathOS Brief
+// ---------------------------------------------------------------------------
+
+type DetailsTab = 'overview' | 'requirements' | 'pathosBrief';
+
 function JobDetailsPanel(props: {
-  job: Job | undefined;
+  job: Job | JobWithOverview | undefined;
   isSaved: boolean;
+  activeTab: DetailsTab;
+  onTabChange: (tab: DetailsTab) => void;
+  decisionBrief: import('../stores/decisionBriefsV1Store').DecisionBriefRecord | null;
   onSave: () => void;
   onTailor: () => void;
   onAskPathAdvisor: () => void;
@@ -231,6 +404,8 @@ function JobDetailsPanel(props: {
   const job = props.job;
   const usajobsUrl = job.url !== undefined && job.url !== '' ? job.url : 'https://www.usajobs.gov';
   const checklist = getChecklistForJob(job.id);
+  const brief = props.decisionBrief;
+  const hasOverview = 'overview' in job && job.overview !== undefined;
 
   /* Meta chips: GS, Close date, Remote/Telework/Series if present (from summary/location). */
   const hasRemote = job.summary && job.summary.toLowerCase().indexOf('remote') !== -1;
@@ -238,114 +413,263 @@ function JobDetailsPanel(props: {
   const seriesMatch = job.summary && job.summary.match(/\bSeries\s+(\d+)\b/);
   const seriesLabel = seriesMatch ? seriesMatch[1] : null;
 
+  /* Use longhand border only (no shorthand border) to avoid React warning when mixing with borderBottom. */
+  const tabStyle = function (tab: DetailsTab) {
+    const active = props.activeTab === tab;
+    return {
+      background: active ? 'var(--p-surface2)' : 'transparent',
+      color: active ? 'var(--p-text)' : 'var(--p-text-muted)',
+      borderTop: 'none',
+      borderRight: 'none',
+      borderLeft: 'none',
+      borderBottom: active ? '2px solid var(--p-accent)' : '2px solid transparent',
+      padding: '8px 12px',
+      fontSize: '12px',
+      fontWeight: active ? 600 : 400,
+      cursor: 'pointer',
+    } as React.CSSProperties;
+  };
+
   return (
     <div className="flex-1 flex flex-col min-h-0">
-      {/* Scrollable content: executive card padding and section spacing (aligned with ModuleCard rhythm). */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-5" style={{ lineHeight: 'var(--p-line-height-body)' }}>
-        {/* Header block: title (primary), agency + location (secondary), meta chips, 1–2 line summary (muted). */}
-        <div className="space-y-2">
-          <h2 className="text-xl font-semibold" style={{ color: 'var(--p-text)' }}>
-            {job.title}
-          </h2>
-          <p className="text-sm" style={{ color: 'var(--p-text-muted)' }}>
-            {job.agency}
-            {job.location ? ' · ' + job.location : ''}
-          </p>
-          <div className="flex flex-wrap items-center gap-2">
-            {job.grade !== undefined && job.grade !== '' ? (
-              <span
-                className="text-[10px] font-medium px-1.5 py-0.5 rounded"
-                style={{ background: 'var(--p-accent-bg)', color: 'var(--p-accent)' }}
-              >
-                {job.grade}
-              </span>
-            ) : null}
-            <span className="text-[11px]" style={{ color: 'var(--p-text-dim)' }}>
-              Closes Apr 1
-            </span>
-            {hasRemote ? (
-              <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: 'var(--p-surface2)', color: 'var(--p-text-muted)' }}>
-                Remote
-              </span>
-            ) : null}
-            {hasTelework ? (
-              <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: 'var(--p-surface2)', color: 'var(--p-text-muted)' }}>
-                Telework
-              </span>
-            ) : null}
-            {seriesLabel !== null ? (
-              <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: 'var(--p-surface2)', color: 'var(--p-text-muted)' }}>
-                Series {seriesLabel}
-              </span>
-            ) : null}
-          </div>
-          {job.summary !== undefined && job.summary !== '' ? (
-            <p className="text-sm leading-relaxed max-w-none" style={{ color: 'var(--p-text-muted)' }}>
-              {job.summary}
-            </p>
-          ) : null}
-        </div>
-
-        {/* Requirements block: specialized experience (checklist + calm icon), skills as chips, documents compact. */}
-        {checklist !== null ? (
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <h3 className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--p-text-dim)' }}>
-                Specialized experience
-              </h3>
-              <ul className="list-none space-y-1.5">
-                {checklist.specializedExperience.map(function (item, i) {
-                  return (
-                    <li key={i} className="flex items-start gap-2 text-sm" style={{ color: 'var(--p-text-muted)' }}>
-                      <Check className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: 'var(--p-success)' }} aria-hidden />
-                      {item}
-                    </li>
-                  );
-                })}
-              </ul>
-            </div>
-            <div className="space-y-2">
-              <h3 className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--p-text-dim)' }}>
-                Skills & keywords
-              </h3>
-              <div className="flex flex-wrap gap-2">
-                {checklist.skillsKeywords.map(function (item, i) {
-                  return (
-                    <span
-                      key={i}
-                      className="text-[12px] px-2 py-1 rounded"
-                      style={{ background: 'var(--p-surface2)', color: 'var(--p-text-muted)' }}
-                    >
-                      {item}
-                    </span>
-                  );
-                })}
-              </div>
-            </div>
-            <div className="space-y-1.5">
-              <h3 className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--p-text-dim)' }}>
-                Documents needed
-              </h3>
-              <ul className="list-none space-y-1">
-                {checklist.documentsNeeded.map(function (item, i) {
-                  return (
-                    <li key={i} className="flex items-start gap-2 text-sm" style={{ color: 'var(--p-text-muted)' }}>
-                      <Check className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" style={{ color: 'var(--p-success)' }} aria-hidden />
-                      {item}
-                    </li>
-                  );
-                })}
-              </ul>
-            </div>
-          </div>
-        ) : null}
-      </div>
-
-      {/* Action bar pinned to bottom of card: Save (primary), Tailor (secondary), Ask PathAdvisor (secondary). */}
+      {/* Tab row: Overview & Docs (first/default) | Requirements | PathOS Brief */}
       <div
-        className="flex flex-wrap items-center gap-3 p-4 border-t flex-shrink-0"
+        className="flex border-b flex-shrink-0"
         style={{ borderColor: 'var(--p-border)', background: 'var(--p-surface)' }}
       >
+        <button type="button" onClick={function () { props.onTabChange('overview'); }} style={tabStyle('overview')}>
+          Overview & Docs
+        </button>
+        <button type="button" onClick={function () { props.onTabChange('requirements'); }} style={tabStyle('requirements')}>
+          Requirements
+        </button>
+        <button type="button" onClick={function () { props.onTabChange('pathosBrief'); }} style={tabStyle('pathosBrief')}>
+          PathOS Brief
+        </button>
+      </div>
+
+      <div className="flex-1 overflow-y-auto p-4 space-y-5" style={{ lineHeight: 'var(--p-line-height-body)' }}>
+        {props.activeTab === 'pathosBrief' ? (
+          /* PathOS Brief tab: fit stars + confidence, risks, effort, 3 next actions; compact, no paragraphs */
+          <div className="space-y-4">
+            <h2 className="text-lg font-semibold" style={{ color: 'var(--p-text)' }}>
+              {job.title}
+            </h2>
+            {brief !== null ? (
+              <>
+                <div className="flex flex-wrap gap-2 items-center">
+                  <FitStarsRow fitAssessment={brief.fitAssessment} />
+                  <Tooltip content={fitTooltips.effort} contentId="details-effort">
+                    <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: 'var(--p-surface2)', color: 'var(--p-text-muted)' }}>
+                      Effort: {brief.effortEstimate}
+                    </span>
+                  </Tooltip>
+                </div>
+                {brief.risks.length > 0 ? (
+                  <div className="flex flex-wrap gap-1">
+                    {brief.risks.map(function (r, i) {
+                      const tip = chipTooltips[r] !== undefined ? chipTooltips[r] : '';
+                      const chip = (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: 'var(--p-surface2)', color: 'var(--p-text-dim)' }}>
+                          {r}
+                        </span>
+                      );
+                      return tip !== '' ? (
+                        <Tooltip key={i} content={tip} contentId={'details-risk-' + i}>
+                          {chip}
+                        </Tooltip>
+                      ) : (
+                        <span key={i}>{chip}</span>
+                      );
+                    })}
+                  </div>
+                ) : null}
+                <div>
+                  <h3 className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: 'var(--p-text-dim)' }}>
+                    Next actions
+                  </h3>
+                  <ul className="list-none space-y-1">
+                    {brief.nextActions.map(function (a, i) {
+                      return (
+                        <li key={i} className="flex items-start gap-2 text-sm" style={{ color: 'var(--p-text-muted)' }}>
+                          <Check className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: 'var(--p-success)' }} aria-hidden />
+                          {a}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+                <p className="text-[11px]" style={{ color: 'var(--p-text-dim)' }}>
+                  Based on: {brief.fitAssessment.inputsUsed.join(', ') || 'target role and job data'}
+                </p>
+              </>
+            ) : (
+              <p className="text-sm" style={{ color: 'var(--p-text-muted)' }}>
+                Save this job to generate a PathOS Brief (fit, risks, next actions).
+              </p>
+            )}
+          </div>
+        ) : props.activeTab === 'requirements' ? (
+          /* Requirements tab: checklists only (no plain-English toggle) */
+          <>
+            <div className="space-y-2">
+              <h2 className="text-lg font-semibold" style={{ color: 'var(--p-text)' }}>{job.title}</h2>
+            </div>
+            {checklist !== null ? (
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <h3 className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--p-text-dim)' }}>
+                    Specialized experience
+                  </h3>
+                  <ul className="list-none space-y-1.5">
+                    {checklist.specializedExperience.map(function (item, i) {
+                      return (
+                        <li key={i} className="flex items-start gap-2 text-sm" style={{ color: 'var(--p-text-muted)' }}>
+                          <Check className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: 'var(--p-success)' }} aria-hidden />
+                          {item}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+                <div className="space-y-2">
+                  <h3 className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--p-text-dim)' }}>
+                    Skills & keywords
+                  </h3>
+                  <div className="flex flex-wrap gap-2">
+                    {checklist.skillsKeywords.map(function (item, i) {
+                      return (
+                        <span key={i} className="text-[12px] px-2 py-1 rounded" style={{ background: 'var(--p-surface2)', color: 'var(--p-text-muted)' }}>
+                          {item}
+                        </span>
+                      );
+                    })}
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <h3 className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--p-text-dim)' }}>
+                    Documents needed
+                  </h3>
+                  <ul className="list-none space-y-1">
+                    {checklist.documentsNeeded.map(function (item, i) {
+                      return (
+                        <li key={i} className="flex items-start gap-2 text-sm" style={{ color: 'var(--p-text-muted)' }}>
+                          <Check className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" style={{ color: 'var(--p-success)' }} aria-hidden />
+                          {item}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              </div>
+            ) : null}
+          </>
+        ) : (
+          /* Overview & Docs: Key Facts 2-col grid, Risk Flags chips, required docs, View on USAJOBS first */
+          <>
+            <div className="space-y-2">
+              <h2 className="text-lg font-semibold" style={{ color: 'var(--p-text)' }}>{job.title}</h2>
+              <p className="text-sm" style={{ color: 'var(--p-text-muted)' }}>
+                {job.agency}
+                {job.location ? ' · ' + job.location : ''}
+              </p>
+            </div>
+            {hasOverview && job.overview !== undefined ? (
+              <>
+                <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
+                  {job.grade !== undefined && job.grade !== '' ? (
+                    <>
+                      <span style={{ color: 'var(--p-text-dim)' }}>Grade</span>
+                      <span style={{ color: 'var(--p-text)' }}>{job.grade}</span>
+                    </>
+                  ) : null}
+                  {job.overview.payRange !== undefined && job.overview.payRange !== '' ? (
+                    <>
+                      <span style={{ color: 'var(--p-text-dim)' }}>Pay range</span>
+                      <span style={{ color: 'var(--p-text)' }}>{job.overview.payRange}</span>
+                    </>
+                  ) : null}
+                  {job.overview.workSchedule !== undefined && job.overview.workSchedule !== '' ? (
+                    <>
+                      <span style={{ color: 'var(--p-text-dim)' }}>Schedule</span>
+                      <span style={{ color: 'var(--p-text)' }}>{job.overview.workSchedule}</span>
+                    </>
+                  ) : null}
+                  {job.overview.remoteJob !== undefined && job.overview.remoteJob !== '' ? (
+                    <>
+                      <span style={{ color: 'var(--p-text-dim)' }}>Remote</span>
+                      <span style={{ color: 'var(--p-text)' }}>{job.overview.remoteJob}</span>
+                    </>
+                  ) : null}
+                  {job.overview.promotionPotential !== undefined && job.overview.promotionPotential !== '' ? (
+                    <>
+                      <span style={{ color: 'var(--p-text-dim)' }}>Promotion potential</span>
+                      <span style={{ color: 'var(--p-text)' }}>{job.overview.promotionPotential}</span>
+                    </>
+                  ) : null}
+                  {job.overview.appointmentType !== undefined && job.overview.appointmentType !== '' ? (
+                    <>
+                      <span style={{ color: 'var(--p-text-dim)' }}>Appointment type</span>
+                      <span style={{ color: 'var(--p-text)' }}>{job.overview.appointmentType}</span>
+                    </>
+                  ) : null}
+                </div>
+                {getRiskFlagLabels(job).length > 0 ? (
+                  <div className="flex flex-wrap gap-1">
+                    {getRiskFlagLabels(job).map(function (label, i) {
+                      const tip = chipTooltips[label] !== undefined ? chipTooltips[label] : '';
+                      const chip = (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: 'var(--p-surface2)', color: 'var(--p-text-dim)' }}>
+                          {label}
+                        </span>
+                      );
+                      return tip !== '' ? (
+                        <Tooltip key={i} content={tip} contentId={'overview-risk-' + i}>
+                          {chip}
+                        </Tooltip>
+                      ) : (
+                        <span key={i}>{chip}</span>
+                      );
+                    })}
+                  </div>
+                ) : null}
+              </>
+            ) : null}
+            {checklist !== null ? (
+              <div className="space-y-1.5">
+                <h3 className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--p-text-dim)' }}>
+                  Required documents
+                </h3>
+                <ul className="list-none space-y-1">
+                  {checklist.documentsNeeded.map(function (item, i) {
+                    return (
+                      <li key={i} className="flex items-start gap-2 text-sm" style={{ color: 'var(--p-text-muted)' }}>
+                        <Check className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" style={{ color: 'var(--p-success)' }} aria-hidden />
+                        {item}
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            ) : null}
+            <p className="text-[11px]" style={{ color: 'var(--p-text-dim)' }}>
+              View on USAJOBS for full announcement. PathOS does not access your USAJOBS account.
+            </p>
+          </>
+        )}
+      </div>
+
+      {/* Action bar: sticky at bottom of details panel so primary actions stay visible when scrolling. */}
+      <div
+        className="flex flex-wrap items-center gap-3 p-4 border-t flex-shrink-0"
+        style={{
+          position: 'sticky',
+          bottom: 0,
+          borderColor: 'var(--p-border)',
+          background: 'var(--p-surface)',
+        }}
+      >
+        <Tooltip content={props.isSaved ? 'Saved to your list' : 'Save job and create PathOS Brief'} contentId="details-save-btn">
         <button
           type="button"
           onClick={props.isSaved ? function () {} : props.onSave}
@@ -358,8 +682,9 @@ function JobDetailsPanel(props: {
           }}
         >
           {props.isSaved ? <BookmarkCheck className="w-4 h-4" /> : <BookmarkPlus className="w-4 h-4" />}
-          {props.isSaved ? 'Saved' : 'Save job'}
+          {props.isSaved ? 'Saved' : 'Save + Start Tailoring'}
         </button>
+        </Tooltip>
         <button
           type="button"
           onClick={props.onTailor}
@@ -377,6 +702,7 @@ function JobDetailsPanel(props: {
           onClick={props.onAskPathAdvisor}
           tooltipText="Get briefing for this job from PathAdvisor."
         />
+        <Tooltip content="Open full announcement on USAJOBS in your browser" contentId="details-usajobs-link">
         <a
           href={usajobsUrl}
           target="_blank"
@@ -392,10 +718,94 @@ function JobDetailsPanel(props: {
           <ExternalLink className="w-4 h-4" />
           View on USAJOBS
         </a>
+        </Tooltip>
       </div>
       <p className="text-[11px] px-4 pb-2" style={{ color: 'var(--p-text-dim)' }}>
         Opens in your browser. PathOS does not access your USAJOBS account.
       </p>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Applied from prompt — View panel: original prompt, evidence, proposed filters
+// (Auditability: read from PROMPT_TO_FILTERS_AUDIT_KEY when View is open.)
+// ---------------------------------------------------------------------------
+
+interface AuditStored {
+  promptText?: string;
+  proposedFilters?: Record<string, string>;
+  evidence?: Array<{ type: string; value: string; source: string }>;
+  timestamp?: string;
+}
+
+function AppliedFromPromptViewPanel(props: { promptText: string; onClose: () => void }) {
+  const raw = storageGetJSON<AuditStored>(PROMPT_TO_FILTERS_AUDIT_KEY, {});
+  const evidence = Array.isArray(raw.evidence) ? raw.evidence : [];
+  const proposedFilters = raw.proposedFilters !== null && typeof raw.proposedFilters === 'object' ? raw.proposedFilters : {};
+
+  return (
+    <div
+      className="mx-4 mt-2 p-3 rounded border"
+      style={{
+        background: 'var(--p-surface2)',
+        borderColor: 'var(--p-border)',
+        borderRadius: 'var(--p-radius)',
+      }}
+    >
+      <p className="text-xs font-medium" style={{ color: 'var(--p-text)' }}>
+        Original prompt
+      </p>
+      <p className="text-sm mt-1" style={{ color: 'var(--p-text-muted)' }}>
+        {props.promptText}
+      </p>
+      {evidence.length > 0 ? (
+        <>
+          <p className="text-xs font-medium mt-3" style={{ color: 'var(--p-text)' }}>
+            Extracted evidence
+          </p>
+          <ul className="list-none mt-1 space-y-0.5 text-[11px]" style={{ color: 'var(--p-text-muted)' }}>
+            {evidence.map(function (e, i) {
+              return (
+                <li key={i}>
+                  {e.type}: {e.value} (from &quot;{e.source}&quot;)
+                </li>
+              );
+            })}
+          </ul>
+        </>
+      ) : null}
+      {Object.keys(proposedFilters).length > 0 ? (
+        <>
+          <p className="text-xs font-medium mt-2" style={{ color: 'var(--p-text)' }}>
+            Proposed filters applied
+          </p>
+          <div className="flex flex-wrap gap-1.5 mt-1">
+            {Object.keys(proposedFilters).map(function (k) {
+              const v = proposedFilters[k];
+              if (v === undefined || v === '') return null;
+              return (
+                <span
+                  key={k}
+                  className="text-[11px] px-2 py-0.5 rounded"
+                  style={{ background: 'var(--p-surface)', color: 'var(--p-text-muted)' }}
+                >
+                  {k}: {v}
+                </span>
+              );
+            })}
+          </div>
+        </>
+      ) : null}
+      <button
+        type="button"
+        onClick={props.onClose}
+        className="mt-3 text-xs flex items-center gap-1"
+        style={{ color: 'var(--p-text-dim)' }}
+      >
+        <X className="w-3 h-3" />
+        Close
+      </button>
     </div>
   );
 }
@@ -415,12 +825,25 @@ export function JobSearchScreen(props: JobSearchScreenProps) {
   });
 
   const [mounted, setMounted] = useState(false);
+  /** Describe panel: collapsed by default so search feels like one system. */
+  const [describePanelExpanded, setDescribePanelExpanded] = useState(false);
   const [promptInput, setPromptInput] = useState('');
   const [proposed, setProposed] = useState<ParsedPromptResult | null>(null);
   const [viewAuditOpen, setViewAuditOpen] = useState(false);
+  const [sortBy, setSortBy] = useState<JobSearchSortKind>('urgency');
+  const [detailsTab, setDetailsTab] = useState<DetailsTab>('overview');
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [targetRoleModalOpen, setTargetRoleModalOpen] = useState(false);
+  /** Undo applied-from-prompt: show toast and allow one-click revert. */
+  const [showUndoAppliedPrompt, setShowUndoAppliedPrompt] = useState(false);
+
+  const targetRoleStore = useTargetRoleV1Store();
+  const decisionBriefsStore = useDecisionBriefsV1Store();
 
   useEffect(function () {
     store.loadFromStorage();
+    targetRoleStore.loadFromStorage();
+    decisionBriefsStore.loadFromStorage();
     if (props.initialQuery !== undefined && props.initialQuery !== '') {
       store.setLastQuery({ keywords: props.initialQuery });
     }
@@ -429,6 +852,10 @@ export function JobSearchScreen(props: JobSearchScreenProps) {
     });
   }, []);
 
+  const openFitBriefing = usePathAdvisorBriefingStore(function (s) {
+    return s.openBriefing;
+  });
+
   useEffect(function () {
     setOverrides({
       viewingLabel: 'Job Search',
@@ -436,16 +863,124 @@ export function JobSearchScreen(props: JobSearchScreenProps) {
       briefingLabel: 'From Job Search',
       helperParagraph:
         'Use this workspace to decode job requirements and decide your next best move. Ask about specialized experience, keywords, and what to do next.',
+      onFitBriefingPrimaryAction: function () {
+        const briefing = usePathAdvisorBriefingStore.getState().briefing;
+        if (briefing === null || typeof briefing !== 'object' || (briefing as { type?: string }).type !== 'fit') return;
+        const fit = briefing as import('../stores/pathAdvisorBriefingStore').PathAdvisorBriefingFit;
+        const results = useJobSearchV1Store.getState().results;
+        let job: Job | JobWithOverview | undefined;
+        for (let i = 0; i < results.length; i++) {
+          if (results[i] !== undefined && results[i].id === fit.jobId) {
+            job = results[i];
+            break;
+          }
+        }
+        if (job !== undefined && !fit.isJobSaved) {
+          useJobSearchV1Store.getState().saveJob(job);
+          const tr = useTargetRoleV1Store.getState();
+          const targetRole = {
+            series: tr.series,
+            gsTarget: tr.gsTarget,
+            location: tr.location,
+            remotePreference: tr.remotePreference,
+          };
+          const record = buildDecisionBriefRecord(job.id, job, targetRole, { skillsKeywords: [] });
+          useDecisionBriefsV1Store.getState().saveBrief(record);
+        }
+        nav.push('/dashboard/resume-readiness');
+      },
     });
     return function () {
       setOverrides(null);
       setHeroDoNow(null);
     };
-  }, [setOverrides, setHeroDoNow]);
+  }, [setOverrides, setHeroDoNow, nav]);
+
+  const targetRole = useMemo(
+    function () {
+      return {
+        series: targetRoleStore.series,
+        gsTarget: targetRoleStore.gsTarget,
+        location: targetRoleStore.location,
+        remotePreference: targetRoleStore.remotePreference,
+      };
+    },
+    [targetRoleStore.series, targetRoleStore.gsTarget, targetRoleStore.location, targetRoleStore.remotePreference]
+  );
+
+  const sortedResults = useMemo(
+    function () {
+      const list = store.results;
+      if (list.length === 0) return list;
+      const withScores: Array<{ job: Job | JobWithOverview; score: number; effortToReward: string; strategic: string }> = [];
+      for (let i = 0; i < list.length; i++) {
+        const job = list[i];
+        if (job === undefined) continue;
+        const fit = buildFitAssessment({
+          job,
+          targetRole,
+          profile: { skillsKeywords: [] },
+          checklistCounts: (function () {
+            const c = getChecklistForJob(job.id);
+            if (c === null) return undefined;
+            return { specialized: c.specializedExperience.length, skills: c.skillsKeywords.length, documents: c.documentsNeeded.length };
+          })(),
+        });
+        const effort = calcEffort(fit, (function () {
+          const c = getChecklistForJob(job.id);
+          if (c === null) return undefined;
+          return { specialized: c.specializedExperience.length, skills: c.skillsKeywords.length, documents: c.documentsNeeded.length };
+        })());
+        const strat = calcStrategic(job, fit);
+        const etr = calcEffortToReward(job, effort, strat);
+        withScores.push({
+          job,
+          score: fit.score,
+          effortToReward: etr,
+          strategic: strat,
+        });
+      }
+      const out: Array<Job | JobWithOverview> = [];
+      if (sortBy === 'urgency') {
+        for (let i = 0; i < list.length; i++) {
+          if (list[i] !== undefined) out.push(list[i]);
+        }
+        return out;
+      }
+      if (sortBy === 'likelihood') {
+        withScores.sort(function (a, b) { return b.score - a.score; });
+        for (let i = 0; i < withScores.length; i++) {
+          const x = withScores[i];
+          if (x !== undefined) out.push(x.job);
+        }
+        return out;
+      }
+      if (sortBy === 'effortToReward') {
+        const ord = function (s: string) { return s === 'High' ? 3 : s === 'Medium' ? 2 : 1; };
+        withScores.sort(function (a, b) { return ord(b.effortToReward) - ord(a.effortToReward); });
+        for (let i = 0; i < withScores.length; i++) {
+          const x = withScores[i];
+          if (x !== undefined) out.push(x.job);
+        }
+        return out;
+      }
+      if (sortBy === 'strategic') {
+        const ord = function (s: string) { return s === 'High' ? 3 : s === 'Medium' ? 2 : 1; };
+        withScores.sort(function (a, b) { return ord(b.strategic) - ord(a.strategic); });
+        for (let i = 0; i < withScores.length; i++) {
+          const x = withScores[i];
+          if (x !== undefined) out.push(x.job);
+        }
+        return out;
+      }
+      return list;
+    },
+    [store.results, sortBy, targetRole]
+  );
 
   const selectedJob =
     store.selectedJobId !== null
-      ? store.results.find(function (j) {
+      ? sortedResults.find(function (j) {
           return j.id === store.selectedJobId;
         })
       : undefined;
@@ -484,7 +1019,12 @@ export function JobSearchScreen(props: JobSearchScreenProps) {
       timestamp: new Date().toISOString(),
     });
     setProposed(null);
+    setDescribePanelExpanded(false);
     store.runSearch();
+    setShowUndoAppliedPrompt(true);
+    setTimeout(function () {
+      setShowUndoAppliedPrompt(false);
+    }, 6000);
   }, [proposed, promptInput, store]);
 
   const handleDiscardProposed = useCallback(function () {
@@ -500,7 +1040,12 @@ export function JobSearchScreen(props: JobSearchScreenProps) {
     store.clearAllFilters();
     store.setAppliedFromPrompt(null);
     store.setFilters({});
+    store.setSelectedJob(null);
     store.persist();
+    setProposed(null);
+    setDescribePanelExpanded(false);
+    setViewAuditOpen(false);
+    setShowUndoAppliedPrompt(false);
   }, [store]);
 
   const handleSelectJob = useCallback(
@@ -511,10 +1056,25 @@ export function JobSearchScreen(props: JobSearchScreenProps) {
   );
 
   const handleSaveJob = useCallback(
-    function (job: Job) {
+    function (job: Job | JobWithOverview) {
       store.saveJob(job);
+      const targetRole = {
+        series: targetRoleStore.series,
+        gsTarget: targetRoleStore.gsTarget,
+        location: targetRoleStore.location,
+        remotePreference: targetRoleStore.remotePreference,
+      };
+      const record = buildDecisionBriefRecord(job.id, job, targetRole, {
+        skillsKeywords: [],
+      });
+      decisionBriefsStore.saveBrief(record);
+      setToastMessage('Saved. PathOS Brief created.');
+      setDetailsTab('pathosBrief');
+      setTimeout(function () {
+        setToastMessage(null);
+      }, 3000);
     },
-    [store]
+    [store, targetRoleStore, decisionBriefsStore]
   );
 
   const handleStartGuidedApply = useCallback(
@@ -562,8 +1122,11 @@ export function JobSearchScreen(props: JobSearchScreenProps) {
     );
   }
 
+  /* Scroll Invariant v1: workspace viewport is fixed-height under controls; results and details scroll internally; rail stays fixed. */
   return (
-    <div className="flex flex-col h-full" style={{ color: 'var(--p-text)' }}>
+    <div className="flex flex-col h-full min-h-0 w-full" style={{ color: 'var(--p-text)' }}>
+      {/* Top controls: natural height; stay above workspace viewport. */}
+      <div className="flex-shrink-0">
       <div className="px-4 pt-4 pb-2">
         <h1 className="text-xl font-semibold" style={{ color: 'var(--p-text)' }}>
           Job Search
@@ -572,163 +1135,18 @@ export function JobSearchScreen(props: JobSearchScreenProps) {
           Explore roles, save targets, and reduce uncertainty.
         </p>
       </div>
-
-      {/* Prompted Filters card */}
-      <div
-        className="mx-4 mt-2 p-4 rounded-lg border"
-        style={{
-          background: 'var(--p-surface)',
-          borderColor: 'var(--p-border)',
-          borderRadius: 'var(--p-radius-lg)',
-        }}
-      >
-        <label className="flex items-center gap-1.5 text-sm font-medium" style={{ color: 'var(--p-text)' }}>
-          <Sparkles className="w-4 h-4" style={{ color: 'var(--p-accent)' }} />
-          Describe what you&apos;re looking for (optional)
-        </label>
-        <input
-          type="text"
-          placeholder={PLACEHOLDER_PROMPT}
-          value={promptInput}
-          onChange={function (e: React.ChangeEvent<HTMLInputElement>) {
-            setPromptInput(e.target.value);
-          }}
-          className="w-full mt-2 px-3 py-2 text-sm rounded border bg-transparent outline-none placeholder:opacity-60"
-          style={{
-            borderColor: 'var(--p-border)',
-            color: 'var(--p-text)',
-            borderRadius: 'var(--p-radius)',
-          }}
-        />
-        <p className="text-[12px] mt-1.5" style={{ color: 'var(--p-text-dim)' }}>
-          PathOS will translate this into filters you can review and edit before searching.
-        </p>
-        <button
-          type="button"
-          onClick={function () {
-            setPromptInput(PLACEHOLDER_PROMPT);
-          }}
-          className="text-[12px] mt-1 block"
-          style={{ color: 'var(--p-accent)' }}
+      {toastMessage !== null && toastMessage !== '' ? (
+        <div
+          className="mx-4 mt-2 px-3 py-2 rounded text-sm"
+          style={{ background: 'var(--p-accent-bg)', color: 'var(--p-accent)' }}
         >
-          Use example prompt
-        </button>
-        <button
-          type="button"
-          disabled={promptInput.trim() === ''}
-          onClick={handleTranslate}
-          className="mt-3 px-4 py-2 text-sm font-medium rounded"
-          style={{
-            background: promptInput.trim() === '' ? 'var(--p-surface2)' : 'var(--p-surface2)',
-            color: promptInput.trim() === '' ? 'var(--p-text-dim)' : 'var(--p-text)',
-            border: '1px solid var(--p-border)',
-            borderRadius: 'var(--p-radius)',
-          }}
-        >
-          Translate to filters
-        </button>
+          {toastMessage}
+        </div>
+      ) : null}
 
-        {proposed !== null ? (
-          <div className="mt-4 pt-3 border-t" style={{ borderColor: 'var(--p-border)' }}>
-            <p className="text-xs font-medium mb-2" style={{ color: 'var(--p-text-dim)' }}>
-              Proposed filters
-            </p>
-            <div className="flex flex-wrap gap-1.5 mb-2">
-              {proposed.filters.gradeBand !== undefined && proposed.filters.gradeBand !== '' ? (
-                <span
-                  className="text-[11px] px-2 py-0.5 rounded"
-                  style={{ background: 'var(--p-surface2)', color: 'var(--p-text-muted)' }}
-                >
-                  {proposed.filters.gradeBand}
-                </span>
-              ) : null}
-              {proposed.filters.agency !== undefined && proposed.filters.agency !== '' ? (
-                <span
-                  className="text-[11px] px-2 py-0.5 rounded"
-                  style={{ background: 'var(--p-surface2)', color: 'var(--p-text-muted)' }}
-                >
-                  {proposed.filters.agency}
-                </span>
-              ) : null}
-              {proposed.filters.remoteType !== undefined && proposed.filters.remoteType !== '' ? (
-                <span
-                  className="text-[11px] px-2 py-0.5 rounded"
-                  style={{ background: 'var(--p-surface2)', color: 'var(--p-text-muted)' }}
-                >
-                  {proposed.filters.remoteType}
-                </span>
-              ) : null}
-              {proposed.filters.location !== undefined && proposed.filters.location !== '' ? (
-                <span
-                  className="text-[11px] px-2 py-0.5 rounded"
-                  style={{ background: 'var(--p-surface2)', color: 'var(--p-text-muted)' }}
-                >
-                  {proposed.filters.location}
-                </span>
-              ) : null}
-              {proposed.keywords.trim() !== '' ? (
-                <span
-                  className="text-[11px] px-2 py-0.5 rounded"
-                  style={{ background: 'var(--p-surface2)', color: 'var(--p-text-muted)' }}
-                >
-                  {proposed.keywords.trim()}
-                </span>
-              ) : null}
-            </div>
-            <p className="text-[11px] mb-3" style={{ color: 'var(--p-text-dim)' }}>
-              {interpretationLine}
-            </p>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={handleApplyProposed}
-                className="px-3 py-1.5 text-sm font-medium rounded"
-                style={{
-                  background: 'var(--p-accent)',
-                  color: 'var(--p-bg)',
-                  border: 'none',
-                  borderRadius: 'var(--p-radius)',
-                }}
-              >
-                Apply filters
-              </button>
-              <button
-                type="button"
-                onClick={function () {
-                  setProposed(null);
-                  setViewAuditOpen(false);
-                }}
-                className="px-3 py-1.5 text-sm font-medium rounded"
-                style={{
-                  background: 'var(--p-surface2)',
-                  color: 'var(--p-text-muted)',
-                  border: '1px solid var(--p-border)',
-                  borderRadius: 'var(--p-radius)',
-                }}
-              >
-                Edit filters
-              </button>
-              <button
-                type="button"
-                onClick={handleDiscardProposed}
-                className="px-3 py-1.5 text-sm font-medium rounded"
-                style={{
-                  background: 'var(--p-surface2)',
-                  color: 'var(--p-text-muted)',
-                  border: '1px solid var(--p-border)',
-                  borderRadius: 'var(--p-radius)',
-                }}
-              >
-                Discard
-              </button>
-            </div>
-          </div>
-        ) : null}
-      </div>
-
-      {/* Search row */}
+      {/* Search row: primary controls. Single Search button runs search (manual or after Apply). */}
       <div
-        className="mx-4 mt-4 flex flex-wrap items-center gap-3"
+        className="mx-4 mt-3 flex flex-wrap items-center gap-3"
         style={{ borderBottom: '1px solid var(--p-border)', paddingBottom: '12px' }}
       >
         <div className="flex items-center gap-2 flex-1 min-w-[200px]">
@@ -796,13 +1214,294 @@ export function JobSearchScreen(props: JobSearchScreenProps) {
         >
           Reset
         </button>
+        {/* Collapsed Describe CTA: subtle, secondary; expands to translate-to-filters panel. */}
+        <button
+          type="button"
+          onClick={function () { setDescribePanelExpanded(!describePanelExpanded); }}
+          className="text-[12px] flex items-center gap-1"
+          style={{ color: 'var(--p-text-dim)' }}
+        >
+          <Sparkles className="w-3.5 h-3.5" style={{ color: 'var(--p-accent)' }} />
+          Describe what you want (optional)
+        </button>
       </div>
-      <p className="text-[11px] mx-4 mt-1" style={{ color: 'var(--p-text-dim)' }}>
-        Results shown from saved snapshots (mock) for now.
+      <p className="text-[11px] mx-4 mt-0.5" style={{ color: 'var(--p-text-dim)' }}>
+        PathOS will translate it into filters you can review.
       </p>
 
-      {/* Filters bar: token-styled portaled dropdowns (Overlay Rule v1). */}
+      {/* Expanded Describe panel: same component as before, compact; no duplicate Search button. */}
+      {describePanelExpanded ? (
+        <div
+          className="mx-4 mt-2 p-3 rounded-lg border"
+          style={{
+            background: 'var(--p-surface)',
+            borderColor: 'var(--p-border)',
+            borderRadius: 'var(--p-radius-lg)',
+          }}
+        >
+          <input
+            type="text"
+            placeholder={PLACEHOLDER_PROMPT}
+            value={promptInput}
+            onChange={function (e: React.ChangeEvent<HTMLInputElement>) {
+              setPromptInput(e.target.value);
+            }}
+            className="w-full px-3 py-2 text-sm rounded border bg-transparent outline-none placeholder:opacity-60"
+            style={{
+              borderColor: 'var(--p-border)',
+              color: 'var(--p-text)',
+              borderRadius: 'var(--p-radius)',
+            }}
+          />
+          <div className="flex items-center gap-2 mt-2 flex-wrap">
+            <button
+              type="button"
+              onClick={function () { setPromptInput(PLACEHOLDER_PROMPT); }}
+              className="text-[12px]"
+              style={{ color: 'var(--p-accent)' }}
+            >
+              Use example prompt
+            </button>
+            <span className="text-[12px]" style={{ color: 'var(--p-text-dim)' }}>·</span>
+            <button
+              type="button"
+              onClick={function () { setTargetRoleModalOpen(true); }}
+              className="text-[12px]"
+              style={{ color: 'var(--p-accent)' }}
+            >
+              Set target role
+            </button>
+          </div>
+          {targetRoleModalOpen ? (
+            <div
+              className="mt-3 p-3 rounded border"
+              style={{
+                background: 'var(--p-surface2)',
+                borderColor: 'var(--p-border)',
+                borderRadius: 'var(--p-radius)',
+              }}
+            >
+              <p className="text-xs font-medium mb-2" style={{ color: 'var(--p-text)' }}>Target role (for fit scoring)</p>
+              <div className="grid grid-cols-2 gap-2 text-sm">
+                <input
+                  type="text"
+                  placeholder="Series (e.g. 2210)"
+                  value={targetRoleStore.series !== undefined ? targetRoleStore.series : ''}
+                  onChange={function (e: React.ChangeEvent<HTMLInputElement>) {
+                    targetRoleStore.setTargetRole({
+                      series: e.target.value.trim() !== '' ? e.target.value : undefined,
+                      gsTarget: targetRoleStore.gsTarget,
+                      location: targetRoleStore.location,
+                      remotePreference: targetRoleStore.remotePreference,
+                    });
+                  }}
+                  className="px-2 py-1.5 rounded border bg-transparent"
+                  style={{ borderColor: 'var(--p-border)', color: 'var(--p-text)' }}
+                />
+                <input
+                  type="text"
+                  placeholder="GS target (e.g. GS-12)"
+                  value={targetRoleStore.gsTarget !== undefined ? targetRoleStore.gsTarget : ''}
+                  onChange={function (e: React.ChangeEvent<HTMLInputElement>) {
+                    targetRoleStore.setTargetRole({
+                      series: targetRoleStore.series,
+                      gsTarget: e.target.value.trim() !== '' ? e.target.value : undefined,
+                      location: targetRoleStore.location,
+                      remotePreference: targetRoleStore.remotePreference,
+                    });
+                  }}
+                  className="px-2 py-1.5 rounded border bg-transparent"
+                  style={{ borderColor: 'var(--p-border)', color: 'var(--p-text)' }}
+                />
+                <input
+                  type="text"
+                  placeholder="Location"
+                  value={targetRoleStore.location !== undefined ? targetRoleStore.location : ''}
+                  onChange={function (e: React.ChangeEvent<HTMLInputElement>) {
+                    targetRoleStore.setTargetRole({
+                      series: targetRoleStore.series,
+                      gsTarget: targetRoleStore.gsTarget,
+                      location: e.target.value.trim() !== '' ? e.target.value : undefined,
+                      remotePreference: targetRoleStore.remotePreference,
+                    });
+                  }}
+                  className="px-2 py-1.5 rounded border bg-transparent"
+                  style={{ borderColor: 'var(--p-border)', color: 'var(--p-text)' }}
+                />
+                <input
+                  type="text"
+                  placeholder="Remote preference"
+                  value={targetRoleStore.remotePreference !== undefined ? targetRoleStore.remotePreference : ''}
+                  onChange={function (e: React.ChangeEvent<HTMLInputElement>) {
+                    targetRoleStore.setTargetRole({
+                      series: targetRoleStore.series,
+                      gsTarget: targetRoleStore.gsTarget,
+                      location: targetRoleStore.location,
+                      remotePreference: e.target.value.trim() !== '' ? e.target.value : undefined,
+                    });
+                  }}
+                  className="px-2 py-1.5 rounded border bg-transparent"
+                  style={{ borderColor: 'var(--p-border)', color: 'var(--p-text)' }}
+                />
+              </div>
+              <button
+                type="button"
+                onClick={function () { setTargetRoleModalOpen(false); }}
+                className="mt-2 text-xs"
+                style={{ color: 'var(--p-text-dim)' }}
+              >
+                Done
+              </button>
+            </div>
+          ) : null}
+          <button
+            type="button"
+            disabled={promptInput.trim() === ''}
+            onClick={handleTranslate}
+            className="mt-3 px-4 py-2 text-sm font-medium rounded"
+            style={{
+              background: promptInput.trim() === '' ? 'var(--p-surface2)' : 'var(--p-surface2)',
+              color: promptInput.trim() === '' ? 'var(--p-text-dim)' : 'var(--p-text)',
+              border: '1px solid var(--p-border)',
+              borderRadius: 'var(--p-radius)',
+            }}
+          >
+            Translate to filters
+          </button>
+
+          {proposed !== null ? (
+            <div className="mt-4 pt-3 border-t" style={{ borderColor: 'var(--p-border)' }}>
+              <p className="text-xs font-medium mb-2" style={{ color: 'var(--p-text-dim)' }}>
+                Proposed filters
+              </p>
+              <div className="flex flex-wrap gap-1.5 mb-2">
+                {proposed.filters.gradeBand !== undefined && proposed.filters.gradeBand !== '' ? (
+                  <span
+                    className="text-[11px] px-2 py-0.5 rounded"
+                    style={{ background: 'var(--p-surface2)', color: 'var(--p-text-muted)' }}
+                  >
+                    {proposed.filters.gradeBand}
+                  </span>
+                ) : null}
+                {proposed.filters.agency !== undefined && proposed.filters.agency !== '' ? (
+                  <span
+                    className="text-[11px] px-2 py-0.5 rounded"
+                    style={{ background: 'var(--p-surface2)', color: 'var(--p-text-muted)' }}
+                  >
+                    {proposed.filters.agency}
+                  </span>
+                ) : null}
+                {proposed.filters.remoteType !== undefined && proposed.filters.remoteType !== '' ? (
+                  <span
+                    className="text-[11px] px-2 py-0.5 rounded"
+                    style={{ background: 'var(--p-surface2)', color: 'var(--p-text-muted)' }}
+                  >
+                    {proposed.filters.remoteType}
+                  </span>
+                ) : null}
+                {proposed.filters.location !== undefined && proposed.filters.location !== '' ? (
+                  <span
+                    className="text-[11px] px-2 py-0.5 rounded"
+                    style={{ background: 'var(--p-surface2)', color: 'var(--p-text-muted)' }}
+                  >
+                    {proposed.filters.location}
+                  </span>
+                ) : null}
+                {proposed.keywords.trim() !== '' ? (
+                  <span
+                    className="text-[11px] px-2 py-0.5 rounded"
+                    style={{ background: 'var(--p-surface2)', color: 'var(--p-text-muted)' }}
+                  >
+                    {proposed.keywords.trim()}
+                  </span>
+                ) : null}
+              </div>
+              <p className="text-[11px] mb-3" style={{ color: 'var(--p-text-dim)' }}>
+                {interpretationLine}
+              </p>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={handleApplyProposed}
+                  className="px-3 py-1.5 text-sm font-medium rounded"
+                  style={{
+                    background: 'var(--p-accent)',
+                    color: 'var(--p-bg)',
+                    border: 'none',
+                    borderRadius: 'var(--p-radius)',
+                  }}
+                >
+                  Apply filters
+                </button>
+                <button
+                  type="button"
+                  onClick={function () {
+                    setProposed(null);
+                    setViewAuditOpen(false);
+                  }}
+                  className="px-3 py-1.5 text-sm font-medium rounded"
+                  style={{
+                    background: 'var(--p-surface2)',
+                    color: 'var(--p-text-muted)',
+                    border: '1px solid var(--p-border)',
+                    borderRadius: 'var(--p-radius)',
+                  }}
+                >
+                  Edit filters
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDiscardProposed}
+                  className="px-3 py-1.5 text-sm font-medium rounded"
+                  style={{
+                    background: 'var(--p-surface2)',
+                    color: 'var(--p-text-muted)',
+                    border: '1px solid var(--p-border)',
+                    borderRadius: 'var(--p-radius)',
+                  }}
+                >
+                  Discard
+                </button>
+              </div>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+
+      {showUndoAppliedPrompt && store.appliedFromPrompt !== null && store.appliedFromPrompt !== undefined ? (
+        <div className="mx-4 mt-2 flex items-center gap-2 px-3 py-2 rounded text-sm" style={{ background: 'var(--p-surface2)', color: 'var(--p-text-muted)' }}>
+          <span>Filters applied from your description.</span>
+          <button
+            type="button"
+            onClick={function () {
+              store.clearAllFilters();
+              store.setAppliedFromPrompt(null);
+              store.setFilters({});
+              store.persist();
+              setShowUndoAppliedPrompt(false);
+            }}
+            className="font-medium"
+            style={{ color: 'var(--p-accent)' }}
+          >
+            Undo
+          </button>
+        </div>
+      ) : null}
+
+      <p className="text-[11px] mx-4 mt-1" style={{ color: 'var(--p-text-dim)' }} title="Sorted by selected option; order is deterministic and reproducible.">
+        Results shown from saved snapshots (mock). Sorted by {sortBy === 'likelihood' ? 'Likelihood of success (fit score)' : sortBy === 'effortToReward' ? 'Effort-to-reward' : sortBy === 'strategic' ? 'Strategic value' : 'Urgency (close date)'}.
+      </p>
+
+      {/* Sort by + Filters bar: token-styled portaled dropdowns (Overlay Rule v1). */}
       <div className="mx-4 mt-3 flex flex-wrap items-center gap-2">
+        <span className="text-xs" style={{ color: 'var(--p-text-dim)' }}>Sort by</span>
+        <FilterDropdown
+          label="Sort"
+          value={sortBy}
+          options={SORT_OPTIONS.map(function (o) { return { value: o.value, label: o.label }; })}
+          onSelect={function (v) { setSortBy(v as JobSearchSortKind); }}
+          tooltip={getSortTooltip(sortBy)}
+        />
         <FilterDropdown
           label="Grades"
           value={store.filters.gradeBand !== undefined ? store.filters.gradeBand : ''}
@@ -813,6 +1512,7 @@ export function JobSearchScreen(props: JobSearchScreenProps) {
             else next.gradeBand = v;
             store.setFilters(next);
           }}
+          tooltip={getFilterGroupTooltip('Grades')}
         />
         <FilterDropdown
           label="Series"
@@ -824,6 +1524,7 @@ export function JobSearchScreen(props: JobSearchScreenProps) {
             else next.series = v;
             store.setFilters(next);
           }}
+          tooltip={getFilterGroupTooltip('Series')}
         />
         <FilterDropdown
           label="Agencies"
@@ -835,6 +1536,7 @@ export function JobSearchScreen(props: JobSearchScreenProps) {
             else next.agency = v;
             store.setFilters(next);
           }}
+          tooltip={getFilterGroupTooltip('Agencies')}
         />
         <FilterDropdown
           label="Location"
@@ -846,6 +1548,7 @@ export function JobSearchScreen(props: JobSearchScreenProps) {
             else next.location = v;
             store.setFilters(next);
           }}
+          tooltip={getFilterGroupTooltip('Location')}
         />
         <FilterDropdown
           label="Types"
@@ -857,7 +1560,9 @@ export function JobSearchScreen(props: JobSearchScreenProps) {
             else next.appointmentType = v;
             store.setFilters(next);
           }}
+          tooltip={getFilterGroupTooltip('Types')}
         />
+        <Tooltip content="Remove all filter selections (grades, series, agency, location, type)" contentId="clear-all-filters">
         <button
           type="button"
           onClick={store.clearAllFilters}
@@ -866,9 +1571,11 @@ export function JobSearchScreen(props: JobSearchScreenProps) {
         >
           Clear all filters
         </button>
+        </Tooltip>
         {store.appliedFromPrompt !== null && store.appliedFromPrompt !== undefined ? (
           <span className="text-[11px] flex items-center gap-1" style={{ color: 'var(--p-text-dim)' }}>
             Applied from prompt
+            <Tooltip content="View proposed filters and evidence applied from your description" contentId="applied-from-prompt-view">
             <button
               type="button"
               onClick={function () {
@@ -878,55 +1585,42 @@ export function JobSearchScreen(props: JobSearchScreenProps) {
             >
               View
             </button>
+            </Tooltip>
           </span>
         ) : null}
       </div>
 
       {viewAuditOpen && store.appliedFromPrompt !== null && store.appliedFromPrompt !== undefined ? (
-        <div
-          className="mx-4 mt-2 p-3 rounded border"
-          style={{
-            background: 'var(--p-surface2)',
-            borderColor: 'var(--p-border)',
-            borderRadius: 'var(--p-radius)',
-          }}
-        >
-          <p className="text-xs font-medium" style={{ color: 'var(--p-text)' }}>
-            Prompt
-          </p>
-          <p className="text-sm mt-1" style={{ color: 'var(--p-text-muted)' }}>
-            {store.appliedFromPrompt.promptText}
-          </p>
-          <button
-            type="button"
-            onClick={function () {
-              setViewAuditOpen(false);
-            }}
-            className="mt-2 text-xs flex items-center gap-1"
-            style={{ color: 'var(--p-text-dim)' }}
-          >
-            <X className="w-3 h-3" />
-            Close
-          </button>
-        </div>
+        <AppliedFromPromptViewPanel
+          promptText={store.appliedFromPrompt.promptText}
+          onClose={function () { setViewAuditOpen(false); }}
+        />
       ) : null}
 
-      {/* Main: 2-column grid — results (340–460px) + details (min 560px, 1fr). Scroll Invariant v1: min-h-0 so flex children can shrink. */}
+      </div>
+
+      {/* Workspace viewport: fills remaining height (flex-1 min-h-0 CRITICAL so panes can scroll). */}
       <div
-        className="flex-1 min-h-0 mt-4 grid gap-4"
+        className="mt-4 grid gap-4 flex-1 min-h-0"
         style={{
-          gridTemplateColumns: 'minmax(340px, min(460px, 400px)) minmax(560px, 1fr)',
+          gridTemplateColumns: 'clamp(480px, 38vw, 560px) minmax(420px, 1fr)',
         }}
       >
+        {/* Results pane: fixed-height column; list scrolls independently. */}
         <div
-          className="flex flex-col rounded-lg border overflow-hidden min-w-0"
+          className="flex flex-col rounded-lg border min-w-0 h-full min-h-0"
           style={{
             borderColor: 'var(--p-border)',
             background: 'var(--p-surface)',
             borderRadius: 'var(--p-radius-lg)',
           }}
         >
-          <div className="flex-1 min-h-0 overflow-y-auto">
+          <div
+            role="listbox"
+            aria-label="Job search results"
+            className="h-full min-h-0 overflow-y-auto"
+            style={{ overscrollBehavior: 'contain' }}
+          >
             {store.loading ? (
               <div className="p-4 space-y-3">
                 {[1, 2, 3, 4].map(function (i) {
@@ -970,46 +1664,59 @@ export function JobSearchScreen(props: JobSearchScreenProps) {
                 <p className="text-xs">Try broadening keywords or clearing filters.</p>
               </div>
             ) : (
-              store.results.map(function (job, idx) {
+              sortedResults.map(function (job) {
                 const tag = MOCK_JOB_TAGS[job.id];
-                const fitLabels = ['High', 'Medium', 'Low'];
-                const fitLabel = fitLabels[idx % 3];
+                const fitAssessment = buildFitAssessment({
+                  job,
+                  targetRole,
+                  profile: { skillsKeywords: [] },
+                  checklistCounts: (function () {
+                    const c = getChecklistForJob(job.id);
+                    if (c === null) return undefined;
+                    return { specialized: c.specializedExperience.length, skills: c.skillsKeywords.length, documents: c.documentsNeeded.length };
+                  })(),
+                });
+                const riskFlags = getRiskFlagLabels(job);
                 return (
-                  <div
+                  <JobListItem
                     key={job.id}
-                    style={{
-                      background:
-                        store.selectedJobId === job.id ? 'var(--p-surface2)' : undefined,
-                      borderLeft:
-                        store.selectedJobId === job.id
-                          ? '3px solid var(--p-accent)'
-                          : '3px solid transparent',
+                    job={job}
+                    isSelected={store.selectedJobId === job.id}
+                    isSaved={store.isJobSaved(job.id)}
+                    fitAssessment={fitAssessment}
+                    riskFlags={riskFlags}
+                    tag={tag}
+                    onSelect={handleSelectJob}
+                    onSave={function () {
+                      if (store.isJobSaved(job.id)) {
+                        store.removeSavedJob(job.id);
+                      } else {
+                        handleSaveJob(job);
+                      }
                     }}
-                  >
-                    <JobListItem
-                      job={job}
-                      isSelected={store.selectedJobId === job.id}
-                      isSaved={store.isJobSaved(job.id)}
-                      fitLabel={fitLabel}
-                      tag={tag}
-                      onSelect={handleSelectJob}
-                      onSave={function () {
-                        if (store.isJobSaved(job.id)) {
-                          store.removeSavedJob(job.id);
-                        } else {
-                          handleSaveJob(job);
-                        }
-                      }}
-                    />
-                  </div>
+                    onWhyFit={function () {
+                      openFitBriefing({
+                        type: 'fit',
+                        jobId: job.id,
+                        jobTitle: job.title,
+                        stars: fitScoreToStars(fitAssessment.score),
+                        confidence: fitAssessment.confidence,
+                        reasons: fitAssessment.reasons,
+                        inputsUsed: fitAssessment.inputsUsed,
+                        missingInputs: fitAssessment.missingInputs !== undefined ? fitAssessment.missingInputs : [],
+                        isJobSaved: store.isJobSaved(job.id),
+                      });
+                    }}
+                  />
                 );
               })
             )}
           </div>
         </div>
 
+        {/* Details pane: fixed-height column; content scrolls internally; action bar sticky at bottom. */}
         <div
-          className="flex flex-col rounded-lg border overflow-hidden min-w-0"
+          className="flex flex-col rounded-lg border min-w-0 h-full min-h-0"
           style={{
             borderColor: 'var(--p-border)',
             background: 'var(--p-surface)',
@@ -1019,6 +1726,9 @@ export function JobSearchScreen(props: JobSearchScreenProps) {
           <JobDetailsPanel
             job={selectedJob}
             isSaved={selectedJob !== undefined ? store.isJobSaved(selectedJob.id) : false}
+            activeTab={detailsTab}
+            onTabChange={setDetailsTab}
+            decisionBrief={selectedJob !== undefined ? decisionBriefsStore.getBrief(selectedJob.id) : null}
             onSave={function () {
               if (selectedJob !== undefined) handleSaveJob(selectedJob);
             }}

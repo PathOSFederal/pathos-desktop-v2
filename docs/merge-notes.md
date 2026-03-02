@@ -1,3 +1,337 @@
+# Job Search — Tooltips v1
+
+(Do not commit or push. Branch: feature/job-search-tooltips-v1.)
+
+## What changed
+
+1. **Centralized tooltip copy map**  
+   Added `packages/ui/src/lib/tooltipCopy.ts` exporting `chipTooltips`, `sortTooltips`, `fitTooltips`, `filterGroupTooltips`, and helpers `getChipTooltip`, `getSortTooltip`, `getFilterGroupTooltip`. Copy for chips (GS, close date, Closes soon, Remote, Telework, appointment types, Clearance, Drug test, Travel), fit signals (fit stars, confidence, effort), sort options (likelihood, effortToReward, strategic, urgency), and filter groups (Sort, Grades, Series, Agencies, Location, Types). All strings ≤ 140 chars.
+
+2. **Chips/tags wrapped with canonical Tooltip**  
+   Job list rows: grade, close date, Remote/Telework, risk (Travel/Drug test/Clearance), fit stars, confidence chip, "Why this fit?" link, Save icon — each wrapped in `Tooltip` with copy from tooltipCopy. Details panel: FitStarsRow (fit stars + confidence), effort chip, risk chips (Overview and PathOS Brief), Save button, View on USAJOBS link. Applied-from-prompt "View" and "Clear all filters" button have tooltips. Tooltips use existing overlay container (OverlayRoot); no inline `role="tooltip"` DOM; no Tailwind z-*.
+
+3. **Filter/sort dropdown tooltips**  
+   `FilterDropdown` accepts optional `tooltip?: string`. When set, a small Info icon is rendered next to the trigger; hovering the icon shows the tooltip. JobSearchScreen passes `getSortTooltip(sortBy)` for Sort dropdown and `getFilterGroupTooltip('Grades')` etc. for Grades, Series, Agencies, Location, Types so each filter group has an explainer.
+
+4. **Icon button tooltips**  
+   Save/bookmark in list ("Save job" / "Saved to your list"), details Save button ("Save job and create PathOS Brief" / "Saved to your list"), View on USAJOBS ("Open full announcement on USAJOBS in your browser"), Why this fit? ("Open fit briefing for this job (fit score, reasons, next steps)"), Clear all filters ("Remove all filter selections (grades, series, agency, location, type)").
+
+5. **Minimal test**  
+   `packages/ui/src/lib/tooltipCopy.test.ts` — verifies chipTooltips/sortTooltips/fitTooltips and getters return non-empty strings (and ≤ 140 chars where asserted), getChipTooltip/getSortTooltip/getFilterGroupTooltip behavior.
+
+## Files changed (this run)
+
+- `packages/ui/src/lib/tooltipCopy.ts` — New: chipTooltips, sortTooltips, fitTooltips, filterGroupTooltips, getChipTooltip, getSortTooltip, getFilterGroupTooltip.
+- `packages/ui/src/lib/tooltipCopy.test.ts` — New: tests for tooltip copy module.
+- `packages/ui/src/screens/JobSearchScreen.tsx` — Import Tooltip + tooltipCopy; wrap list chips (grade, close, remote, risk), fit stars, confidence, Why this fit?, Save icon; wrap details FitStarsRow, effort, risk chips, Save button, USAJOBS link; tooltip for View (applied from prompt), Clear all filters; pass tooltip to each FilterDropdown.
+- `packages/ui/src/screens/_components/FilterDropdown.tsx` — Optional `tooltip` prop; when set, render Info icon next to trigger wrapped in Tooltip; wrapper div for trigger + icon.
+
+## Commands run + results summaries
+
+- **git status** — On branch feature/job-search-tooltips-v1; modified: docs/merge-notes.md, JobSearchScreen.tsx, JobSearchScreen.test.tsx, FilterDropdown.tsx, jobSearchMockJobs.ts, PathAdvisorCard.tsx, pathAdvisorBriefingStore.ts, pathAdvisorScreenOverridesStore.ts; untracked: tooltipCopy.ts, tooltipCopy.test.ts, fitScoring.ts, fitScoring.test.ts, decisionBriefsV1Store.ts, decisionBriefsV1Store.test.ts, targetRoleV1Store.ts.
+- **git branch --show-current** — feature/job-search-tooltips-v1.
+- **git diff --name-status develop...HEAD** — N/A (no local develop). **git diff --name-status main...HEAD** — includes many files from branch history (JobSearchScreen, FilterDropdown, PathAdvisorCard, stores, etc.).
+- **git diff --stat develop...HEAD** — N/A. **git diff --stat main -- . ':(exclude)docs/merge-notes.md'** — 21 files changed, 3439 insertions, 288 deletions (branch cumulative).
+- **pnpm -r typecheck** — Passed (packages/adapters, packages/core, packages/ui, apps/desktop).
+- **pnpm test** — Passed (745 tests, 51 files; includes tooltipCopy.test.ts 10 tests).
+- **pnpm routes:check** — OK (all Sidebar routes resolve in Desktop and Next).
+- **pnpm overlays:check** — Passed (Overlay Rule v1 / OverlayRoot).
+
+## Manual checks
+
+- Hover chips in list and details: tooltips appear, not clipped by results list or details panel or PathAdvisor rail.
+- Hover Sort dropdown info icon: explains current sort (deterministic vs mocked). Hover Grades/Series/etc. info icons: explain filter meaning.
+- Tooltips stay readable and short (≤ 140 chars). Token-only styling; no hardcoded colors.
+
+---
+
+# Job Search — Unify search entry v1
+
+(Do not commit or push. Branch: feature/job-search-unify-search-entry-v1.)
+
+## What changed
+
+1. **Unified search: one pipeline, two entry styles**  
+   Manual search + filters remain primary (default). "Describe what you're looking for" is collapsed by default and framed as an optional accelerator: "Describe what you want (optional)" with helper "PathOS will translate it into filters you can review." Clicking the link expands a compact panel (same Translate → Apply flow). No "two methods" feeling; one Search button runs search for both manual and describe lanes.
+
+2. **Collapsed Describe by default**  
+   Replaced the always-visible Prompted Filters card with a subtle inline CTA near the main search row: label "Describe what you want (optional)" and microcopy "PathOS will translate it into filters you can review." Expanded panel contains: text input, "Use example prompt" link, "Translate to filters" button; after translation: proposed filter chips, interpretation line, Apply filters / Edit / Discard. No duplicate Search button in the describe panel.
+
+3. **Same search pipeline**  
+   Manual: Search button runs search with keywords/location + current filters. Describe: "Translate to filters" produces proposed filters; "Apply filters" sets the same store filters and triggers one automatic runSearch() so results appear immediately. Undo (toast/inline) reverts applied-from-prompt filters.
+
+4. **Applied from prompt + View**  
+   When prompt-derived filters are active, a small "Applied from prompt" note with "View" link appears near the filters bar. View shows: original prompt, extracted evidence, proposed filters (auditability). Uses existing PROMPT_TO_FILTERS_AUDIT_KEY for evidence/proposedFilters.
+
+5. **Reset clears full search state**  
+   Reset now clears: keywords/location, filters, selectedJobId, proposed preview state, appliedFromPrompt indicator, and view-audit open state. Does not wipe saved jobs or decision briefs.
+
+6. **Token-only styling; scroll and overlay rules unchanged**  
+   Results pane scrolls, details pane scrolls, PathAdvisor rail fixed with internal scroll. Overlay Rule v1: portaled dropdowns/tooltips; no inline tooltip DOM; no Tailwind z-*.
+
+## Files changed (this run)
+
+- `packages/ui/src/screens/JobSearchScreen.tsx` — Describe panel collapsed by default (describePanelExpanded state); inline CTA "Describe what you want (optional)" near search row; expanded panel has Translate to filters / Apply filters (no Search in panel); Apply runs store.runSearch() and shows Undo; Reset clears selectedJobId, proposed, viewAuditOpen, showUndoAppliedPrompt; AppliedFromPromptViewPanel shows prompt + evidence + proposed filters (reads from PROMPT_TO_FILTERS_AUDIT_KEY); import storageGetJSON for View panel.
+- `packages/ui/src/screens/JobSearchScreen.test.tsx` — Tests: prompt panel collapsed by default (CTA or loading), single Search button when mounted, manual search runSearch hasSearched, applyProposedFiltersFromPrompt + runSearch sets filters and appliedFromPrompt, Applied from prompt indicator when set, Reset clears selectedJobId/appliedFromPrompt/filters.
+
+## Commands run (summaries)
+
+- **git status** — On branch feature/job-search-unify-search-entry-v1; modified: docs/merge-notes.md, JobSearchScreen.tsx, JobSearchScreen.test.tsx (plus existing modified/untracked from prior branch).
+- **git branch --show-current** — feature/job-search-unify-search-entry-v1.
+- **git diff --name-status develop...HEAD** — N/A (no develop in repo). **git diff --name-status main...HEAD** — includes JobSearchScreen.tsx, JobSearchScreen.test.tsx, and other branch files.
+- **git diff --stat develop...HEAD** — N/A. **git diff --stat main -- .** — 22 files (cumulative from main; this run touched JobSearchScreen.tsx, JobSearchScreen.test.tsx, docs/merge-notes.md).
+- **pnpm -r typecheck** — Passed (packages/adapters, packages/core, packages/ui, apps/desktop).
+- **pnpm test** — Passed (735 tests, 50 files).
+- **pnpm routes:check** — OK (all Sidebar routes resolve in Desktop and Next).
+- **pnpm overlays:check** — Passed (Overlay Rule v1 / OverlayRoot).
+
+## Manual checks
+
+- Page feels like one search system; prompt flow is clearly "translate to filters."
+- No duplicate search buttons (only the main Search button).
+- Results/details/rail scrolling still correct.
+- Overlays are not clipped.
+- Describe panel is collapsed by default; clicking "Describe what you want (optional)" expands it.
+- Translate → Apply sets filters and runs search; results appear; "Applied from prompt" + View visible; Reset clears everything including applied-from-prompt.
+
+---
+
+# Job Search — Results list reduce clickable v1
+
+(Do not commit or push. Branch: feature/job-search-results-list-reduce-clickable-v1.)
+
+## What changed
+
+1. **Results list as a real selectable listbox**  
+   Each row is a single full-width click target (main button) plus an optional trailing Save icon. Clicking anywhere on the row selects the job. Selected row: left accent bar (`3px solid var(--p-accent)`) and subtle background (`var(--p-surface2)`). List container has `role="listbox"`, each row `role="option"` and `aria-selected`.
+
+2. **Consistent row height and reduced content**  
+   Rows use `min-h-[88px]` and fixed layout: title (1 line, truncate), meta line (Agency • Location, truncate), chips row (GS + Close date + Remote/Telework + at most one Risk chip), Fit: star indicator + confidence mini chip + "Why this fit?" link. Removed from list rows: fit reasons sentences, "Save + Start Tailoring" big CTA, any expanded "Why this fit" panel. Primary CTA lives in the details pane only.
+
+3. **Chips token-safe**  
+   Neutral (default), urgency (close soon — uses `var(--p-accent-bg)` / `var(--p-accent)`), risk (same as neutral). No hardcoded colors.
+
+4. **"Why this fit?" → PathAdvisor briefing**  
+   Replaced inline expander with a small "Why this fit?" link in the row. On click, a deterministic fit briefing payload is dispatched to the PathAdvisor briefing store (`type: 'fit'`, jobId, stars, confidence, reasons, inputsUsed, missingInputs, isJobSaved). PathAdvisor rail shows a "Fit explanation" section when briefing is fit type: stars, confidence, top 2–3 reasons, inputs used/missing, and one CTA (Save + Start Tailoring or Tailor resume). Overrides store has `onFitBriefingPrimaryAction` so Job Search can wire save + nav when the user clicks the rail CTA.
+
+5. **Primary CTA in details pane**  
+   "Save + Start Tailoring" / "Saved" and "Tailor resume" remain in the details pane action bar. List row has only the compact Save icon.
+
+6. **Workspace viewport unchanged**  
+   Results pane scrolls, details pane scrolls, rail fixed; token-only styling; Overlay Rule v1 (portaled dropdowns/tooltips, no inline tooltip DOM, no z-* for overlays).
+
+## Files changed (this run)
+
+- `packages/ui/src/screens/JobSearchScreen.tsx` — JobListItem refactored to listbox row (full-row button + save icon), compact content, chips (GS, close date, remote/telework, one risk), "Why this fit?" opens PathAdvisor fit briefing; removed whyFitJobId state and inline "Why this fit" panel; overrides set with onFitBriefingPrimaryAction; details primary button label "Save + Start Tailoring".
+- `packages/ui/src/stores/pathAdvisorBriefingStore.ts` — Added PathAdvisorBriefingFit and PathAdvisorBriefingPayload union; openBriefing accepts payload; isFitBriefing type guard.
+- `packages/ui/src/stores/pathAdvisorScreenOverridesStore.ts` — Added optional onFitBriefingPrimaryAction to overrides.
+- `packages/ui/src/shell/PathAdvisorCard.tsx` — Renders "Fit explanation" when briefing.type === 'fit' (stars, confidence, reasons, inputs, CTA); uses overrides.onFitBriefingPrimaryAction for CTA.
+- `packages/ui/src/screens/JobSearchScreen.test.tsx` — Tests for listbox/option/min-height when results shown, PathAdvisor fit briefing store (type fit, isOpen), saveJob no-throw.
+
+## Commands run (summaries)
+
+- **git status** — On branch feature/job-search-results-list-reduce-clickable-v1; modified: docs/merge-notes.md, JobSearchScreen.tsx, JobSearchScreen.test.tsx, PathAdvisorCard.tsx, pathAdvisorBriefingStore.ts, pathAdvisorScreenOverridesStore.ts (plus jobSearchMockJobs from prior); untracked: fitScoring*, decisionBriefsV1Store*, targetRoleV1Store*.
+- **git branch --show-current** — feature/job-search-results-list-reduce-clickable-v1.
+- **git diff --name-status develop...HEAD** — N/A (no develop in repo). **git diff --name-status main -- . ':(exclude)artifacts'** — 22 files (JobSearchScreen, PathAdvisorCard, pathAdvisorBriefingStore, pathAdvisorScreenOverridesStore, etc.).
+- **git diff --stat develop...HEAD** — N/A. **git diff --stat main -- .** — 22 files changed, 6321 insertions, 2990 deletions (includes prior branch work).
+- **pnpm -r typecheck** — Passed (packages/adapters, packages/core, packages/ui, apps/desktop).
+- **pnpm test** — Passed (729 tests, 50 files).
+- **pnpm routes:check** — OK (all Sidebar routes resolve in Desktop and Next).
+- **pnpm overlays:check** — Passed (Overlay Rule v1 / OverlayRoot).
+
+## Manual checks (recommended)
+
+- Results list scrolls, details scrolls, rail fixed.
+- Row selection is obvious and full-row clickable.
+- No "expanded panel" appears under filters when clicking "Why this fit?"; PathAdvisor rail shows Fit explanation briefing when triggered.
+- List rows feel calmer and less cluttered (no fit reasons or big CTA in each row).
+- Save icon in row and "Save + Start Tailoring" in details pane both work; Save persists (create-button rule).
+
+---
+
+# Job Search — Workspace scroll v1
+
+(No commit or push. Branch: feature/job-search-workspace-scroll-v1.)
+
+## What changed
+
+1. **Fixed-height workspace viewport under filter bar**  
+   Screen root: `flex flex-col h-full min-h-0 w-full` so it fills the shell. Top controls (title, toast, Prompted Filters card, search row, sort/filters bar, view-audit, why-fit panel) wrapped in a `flex-shrink-0` section so they stay above the workspace. The results+details grid sits in a workspace section with `flex-1 min-h-0` (CRITICAL so the flex child can shrink and panes get a fixed height).
+
+2. **Results and details panes independently scrollable**  
+   Workspace grid: `flex-1 min-h-0` with same column sizes. Results pane: outer column `h-full min-h-0`; inner list wrapper `h-full min-h-0 overflow-y-auto` with `overscroll-behavior: contain`. Details pane: outer column `h-full min-h-0`; JobDetailsPanel already `flex-1 flex-col min-h-0` with tab content `overflow-y-auto`. Both columns scroll internally; expanding content does not resize the whole page.
+
+3. **Sticky action bar in details panel**  
+   Details panel action bar (Save job, Tailor resume, Ask PathAdvisor, View on USAJOBS) uses `position: sticky; bottom: 0` with `background: var(--p-surface)` and `border-top: var(--p-border)` so primary actions stay visible when scrolling long details.
+
+4. **Scroll Invariant v1**  
+   The workspace viewport is the fixed-height job board area; no trapped scrolling on the page root. PathAdvisor rail remains fixed and scrolls internally (unchanged). Token-only styling; overlay rule v1 unchanged (dropdowns/tooltips portaled).
+
+## Files changed
+
+- `packages/ui/src/screens/JobSearchScreen.tsx` — Screen root `h-full`; top controls wrapped in flex-shrink-0; workspace section flex-1 min-h-0; results column and inner list h-full min-h-0 overflow-y-auto overscroll-behavior contain; details column h-full min-h-0; JobDetailsPanel action bar sticky bottom with token background/border.
+
+## Commands run and results
+
+- **git status** — On branch feature/job-search-workspace-scroll-v1; modified: JobSearchScreen.tsx, docs/merge-notes.md (plus existing untracked/modified from prior branch).
+- **git branch --show-current** — feature/job-search-workspace-scroll-v1. (No develop in repo; branch created from feature/job-search-layout-scroll-fit-tabs-v1.)
+- **pnpm -r typecheck** — Passed (packages/adapters, packages/core, packages/ui, apps/desktop).
+- **pnpm test** — Passed (726 tests, 50 files).
+- **pnpm routes:check** — OK (all Sidebar routes resolve in Desktop and Next).
+- **pnpm overlays:check** — Passed (Overlay Rule v1 / OverlayRoot).
+
+## Manual checks (expected)
+
+- With many jobs, the left results list scrolls independently and does not resize the whole page.
+- With long details (e.g. Requirements or Overview), the details panel scrolls internally.
+- Top controls (prompt, search, filters, sort) stay visible above the workspace viewport.
+- Action bar (Save job, Tailor resume, View on USAJOBS) stays visible at bottom of details panel when scrolling details (sticky).
+- Expanding content (e.g. "Why this fit?" or "View" audit) does not break layout; if any expander currently increases page height awkwardly, it should be converted to overlay/drawer per existing overlay system (no change in this run).
+- PathAdvisor rail remains fixed and scrolls internally.
+
+## Human Simulation Gate
+
+| Item | Value |
+|------|-------|
+| Required | No |
+| Triggers hit | none (layout/scroll only; no new persistence or create actions) |
+| Why | Scroll and viewport layout only; no store or persistence changes. |
+
+---
+
+# Job Search — Layout, Scroll, Fit Stars, Tabs v1
+
+(No commit or push. Branch: feature/job-search-layout-scroll-fit-tabs-v1.)
+
+## What changed
+
+1. **Layout width ratio**  
+   Results column: `clamp(480px, 38vw, 560px)`. Details column: `minmax(420px, 1fr)`. Job list wider; details panel can be smaller. No overall max-width constraint on this screen; `w-full` with consistent padding.
+
+2. **Page scroll behavior**  
+   Single main scroll container; PathAdvisor rail stays fixed. Removed fixed heights and inner `overflow-y-auto` on the results list so the page scrolls vertically. Results list is normal flow; details panel tab content keeps `overflow-y-auto` only for long tab body. Main wrapper: `flex flex-col min-h-0 w-full`.
+
+3. **Fit indicator — stars (1–5)**  
+   Added `fitScoreToStars(score: 0–100)` in `fitScoring.ts` (deterministic bands: 80+ → 5, 60–79 → 4, 40–59 → 3, 20–39 → 2, 0–19 → 1). Replaced "Strong/Moderate/Stretch fit" text with star display: "★★★★☆" (★/☆) and confidence as separate lightweight chip (Low/Medium/High). JobListItem and PathOS Brief tab use stars; "Why this fit?" panel uses `FitStarsRow`. Kept 2–3 reasons as explainability.
+
+4. **Removed "Translate to plain English"**  
+   Toggle and all references removed from the details pane. Requirements tab shows raw checklist items only. Deleted `toPlainEnglishChecklistItem` and `plainEnglishRequirements` state.
+
+5. **Tabs order + naming**  
+   Order: (1) **Overview & Docs** (default selected), (2) **Requirements**, (3) **PathOS Brief** (renamed from "Design Brief" / "Decision Brief"). Default tab is `overview`. PathOS Brief tab: fit stars + confidence, top risks chips, effort estimate, 3 next actions checklist; compact, no paragraphs. "Decision Brief" wording in toast changed to "PathOS Brief created."
+
+6. **Dropdowns**  
+   Existing `FilterDropdown` remains portaled and token-styled (Overlay Rule v1). No changes; verified themed and not clipped.
+
+## Files changed (this run)
+
+- `packages/ui/src/lib/fitScoring.ts` — Added `fitScoreToStars(score)`; export.
+- `packages/ui/src/lib/fitScoring.test.ts` — Added test for `fitScoreToStars` (0–100 → 1–5).
+- `packages/ui/src/screens/JobSearchScreen.tsx` — Layout grid (clamp/minmax), single page scroll (no overflow on results column), `FitStarsRow` component, JobListItem stars + confidence chip, PathOS Brief tab (stars, risks, effort, next actions), tab order Overview & Docs first/default, Requirements, PathOS Brief; removed plainEnglish toggle and state; removed `toPlainEnglishChecklistItem`.
+- `packages/ui/src/screens/JobSearchScreen.test.tsx` — Test label "PathOS Brief tab content fields" (was "Decision Brief").
+- `docs/merge-notes.md` — This section.
+
+## Commands run (summaries)
+
+- **git status** — On branch feature/job-search-layout-scroll-fit-tabs-v1; modified: docs/merge-notes.md, JobSearchScreen.tsx, JobSearchScreen.test.tsx, jobSearchMockJobs.ts; untracked: fitScoring*.ts, decisionBriefsV1Store*.ts, targetRoleV1Store.ts.
+- **git branch --show-current** — feature/job-search-layout-scroll-fit-tabs-v1.
+- **git diff --name-status main...HEAD** — (branch was created from feature/job-search-career-intel-layer-v1; no develop branch in repo.)
+- **git diff --stat develop...HEAD** — N/A (no develop). **git diff --stat main -- . ':(exclude)artifacts'** — 21 files (see repo state).
+- **pnpm -r typecheck** — Passed (packages/adapters, packages/core, packages/ui, apps/desktop).
+- **pnpm test** — Passed (726 tests, 50 files).
+- **pnpm routes:check** — OK (all Sidebar routes resolve in Desktop and Next).
+- **pnpm overlays:check** — Passed (Overlay Rule v1 / OverlayRoot).
+
+## Manual checks (recommended)
+
+- At ~1366px width: results list is not cramped, details still readable.
+- Whole page scrolls; no trapped scroll panes in results list.
+- Overview & Docs is the default tab and first in order.
+- No "Translate to plain English" remains.
+- Fit uses stars (e.g. ★★★★☆) and is quick to read; confidence shown separately.
+- Dropdown menus (Sort, filters) are themed and not clipped by the rail.
+
+## Human Simulation Gate
+
+| Item | Value |
+|------|-------|
+| Required | No |
+| Triggers hit | none (layout, scroll, UI labels, tab order; no new persistence or create actions) |
+| Why | Cosmetic/layout and tab reorder; fit stars are display-only from existing score. |
+
+---
+
+# Job Search Career Intelligence Layer v1
+
+(No commit or push. Branch: feature/job-search-career-intel-layer-v1.)
+
+## What changed
+
+1. **Fit Intelligence Layer on each JobCard**  
+   Each result card shows: Strong/Moderate/Stretch fit badge, confidence chip (Low/Medium/High), 2–3 plain-English reasons, primary CTA "Save + Start Tailoring", secondary "Why this fit?" (opens structured explanation panel). One-row risk-flag chips (Travel, Drug test, Clearance) when present. "Brief ready" indicator when a decision brief exists for that job.
+
+2. **Decision Brief (auto-generated on Save)**  
+   Local-only, deterministic artifact. On Save: create/update record in `pathos_decision_briefs_v1`; toast "Saved. Decision Brief created."; switch details tab to Decision Brief. Brief contains: fit verdict + confidence, key risks (chips), effort estimate, primary gap, recommended resume emphasis (1–2 bullets), 3 Next Actions checklist, "Based on: …" inputsUsed.
+
+3. **USAJOBS Overview → Key Facts grid + Risk Flags**  
+   Details panel has tabs: **Decision Brief** (default after Save), **Requirements**, **Overview & Docs**. Overview & Docs tab: 2-column Key Facts grid (Grade, Pay range, Schedule, Remote, Promotion potential, Appointment type), Risk Flags as chips, required documents checklist, "View on USAJOBS" link-first microcopy.
+
+4. **Sorting (decision-driven, deterministic)**  
+   "Sort by" dropdown near filters: Likelihood of success (fit score), Effort-to-reward, Strategic value, Urgency (close date). Sort is reproducible. Helper text: "Sorted by X based on Y inputs."
+
+5. **Target Role (local-only)**  
+   Store `pathos_target_role_v1`: series, gsTarget, location, remotePreference. "Set target role" CTA in Prompted Filters card opens inline form (Series, GS target, Location, Remote preference). Used by fit scoring for personalized reasons.
+
+6. **Requirements tab: "Translate to plain English" toggle**  
+   Template-based short summaries of checklist items (no LLM); deterministic.
+
+## Files changed
+
+- `packages/ui/src/screens/jobSearchMockJobs.ts` — Added `JobOverview` and `JobWithOverview`; each mock job has `overview` (openTo, appointmentType, teleworkEligible, remoteJob, workSchedule, travelRequired, securityClearance, drugTest, financialDisclosure, supervisoryStatus, bargainingUnitStatus, promotionPotential, payRange). `mockSearchJobs` typed to `JobWithOverview[]`.
+- `packages/ui/src/lib/fitScoring.ts` — **NEW.** Deterministic `buildFitAssessment`, `effortEstimate`, `strategicValue`, `effortToReward`. Types: FitAssessment, TargetRoleInput, FitProfileInput.
+- `packages/ui/src/lib/fitScoring.test.ts` — **NEW.** Tests for series/grade/remote rules, badge + reasons, confidence, effort/strategic/effortToReward.
+- `packages/ui/src/stores/targetRoleV1Store.ts` — **NEW.** localStorage key `pathos_target_role_v1`; fields series, gsTarget, location, remotePreference.
+- `packages/ui/src/stores/decisionBriefsV1Store.ts` — **NEW.** localStorage key `pathos_decision_briefs_v1`; `buildDecisionBriefRecord`, saveBrief, getBrief, hasBrief. DecisionBriefRecord includes fitAssessment, effortEstimate, strategicValue, effortToReward, keyFactsSummary, risks, nextActions, resumeEmphasis.
+- `packages/ui/src/stores/decisionBriefsV1Store.test.ts` — **NEW.** save/load and overwrite behavior.
+- `packages/ui/src/screens/JobSearchScreen.tsx` — JobListItem: fit badge, confidence, reasons, risk flags, "Save + Start Tailoring", "Why this fit?". Details panel: tabs Decision Brief / Requirements / Overview & Docs; Decision Brief content; Requirements with plain-English toggle; Overview Key Facts grid + Risk Flags. Sort dropdown (Likelihood, Effort-to-reward, Strategic, Urgency). Target role modal (Set target role). Save creates brief, toast, switch to Decision Brief. Why-fit explanation panel. Toast message UI.
+- `packages/ui/src/screens/JobSearchScreen.test.tsx` — Extended: loadSampleJobs store state, saveBrief/getBrief, decision brief record fields.
+
+## Validation commands (summarize results)
+
+- **pnpm -r typecheck** — Passed (packages/adapters, packages/core, packages/ui, apps/desktop).
+- **pnpm test** — Passed (725 tests, 50 files).
+- **pnpm routes:check** — OK (all Sidebar routes resolve).
+- **pnpm overlays:check** — Passed (Overlay Rule v1 / OverlayRoot).
+
+## Manual test checklist
+
+- Load sample jobs → see fit badge + confidence + reasons on cards.
+- Save + Start Tailoring → decision brief created; toast "Saved. Decision Brief created."; details tab switches to Decision Brief; refresh → brief still present. Verify localStorage keys: `pathos_decision_briefs_v1`, `pathos_job_search_v1`, existing saved-jobs key.
+- Sort by each option (Likelihood, Effort-to-reward, Strategic, Urgency) → order changes deterministically.
+- Set target role (Series, GS target, Location, Remote) → fit reasons update.
+- "Why this fit?" → explanation panel shows fit + reasons + inputsUsed.
+- Overlay sanity: dropdowns (Sort, filters) and tooltips not clipped by rail.
+
+## Human Simulation Gate
+
+| Item | Value |
+|------|-------|
+| Required | Yes |
+| Triggers hit | Adds Save action that creates persisted decision brief; changes store logic (targetRole, decisionBriefs); new localStorage keys. |
+| Why | Save + Start Tailoring creates decision brief and persists to pathos_decision_briefs_v1; create-button rule applies. |
+
+## AI Acceptance Checklist
+
+| Item | Value |
+|------|-------|
+| Flow | Save + Start Tailoring → job saved to core saved-jobs → buildDecisionBriefRecord → decisionBriefsV1Store.saveBrief → pathos_decision_briefs_v1; details tab → Decision Brief; toast shown. |
+| Store(s) | jobSearchV1Store, targetRoleV1Store, decisionBriefsV1Store |
+| Storage key(s) | pathos_job_search_v1, pathos_target_role_v1, pathos_decision_briefs_v1, pathos-saved-jobs (core) |
+| Failure mode | Brief not created or not persisted; tab not switching; fit reasons empty if target role missing. |
+| How tested | Unit: fitScoring.test, decisionBriefsV1Store.test, JobSearchScreen.test. Manual: load sample jobs → save → refresh → verify keys and brief. |
+
+---
+
 # Job Search v1 — Layout, Executive Briefing, Token Dropdowns
 
 (No commit or push. Validation run and summary below.)

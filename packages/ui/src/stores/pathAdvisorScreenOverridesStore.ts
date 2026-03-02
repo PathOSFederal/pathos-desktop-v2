@@ -21,6 +21,8 @@ export interface PathAdvisorScreenOverrides {
   briefingLabel?: string;
   /** When set, empty-state body copy in the rail uses this instead of default (e.g. Job Search avoids compensation copy). */
   helperParagraph?: string;
+  /** When user clicks primary CTA in Fit explanation briefing (Save + Start Tailoring or Tailor resume). Job Search sets this so the rail can invoke save + nav. */
+  onFitBriefingPrimaryAction?: () => void;
 }
 
 interface PathAdvisorScreenOverridesState {
