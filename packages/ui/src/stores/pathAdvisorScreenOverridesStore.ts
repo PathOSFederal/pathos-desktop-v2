@@ -19,6 +19,10 @@ export interface PathAdvisorScreenOverrides {
   suggestedPrompts: string[];
   /** Label above the "Do now" block (e.g. "From Resume Readiness"). When unset, card uses "From Today's Focus". */
   briefingLabel?: string;
+  /** Optional helper text for Job Search screen context. */
+  helperParagraph?: string;
+  /** Optional callback when user takes primary action from fit briefing (e.g. Save + Start Tailoring). */
+  onFitBriefingPrimaryAction?: () => void;
 }
 
 interface PathAdvisorScreenOverridesState {

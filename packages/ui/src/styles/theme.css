@@ -16,6 +16,24 @@
 @import './themes/theme-mix.css';
 @import './themes/theme-legacy.css';
 
+/* ---- Interactive Hover v1 (executive-grade, token-only) ---- */
+/* Applied to buttons, dropdown triggers, tabs, icon buttons. Hover/active/focus-visible only; disabled has no hover. */
+.pathos-interactive-hover {
+  transition: background-color 180ms ease-out, border-color 180ms ease-out;
+}
+.pathos-interactive-hover:not(:disabled):hover {
+  background: var(--p-surface2);
+  border-color: var(--p-border-light);
+}
+.pathos-interactive-hover:not(:disabled):active {
+  background: var(--p-surface2);
+  border-color: var(--p-border-strong);
+}
+.pathos-interactive-hover:focus-visible {
+  outline: none;
+  box-shadow: var(--p-focus-ring);
+}
+
 /* ---- Interaction affordances (instrument panel) ---- */
 /* Prompt rows: default surface2; hover lifts to surface for clear hierarchy. */
 .pathos-prompt-row {
