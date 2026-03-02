@@ -1,3 +1,118 @@
+# Job Search — Filter guides polish v1
+
+(Do not commit or push. Branch: feature/job-search-guides-polish-v1.)
+
+## What changed
+
+1. **Drawer vertical layout**  
+   FilterGuideDrawer: drawer container is column flex with full height. Results wrapper uses `flex flex-col` and `flex-1 min-h-0`; the list scroller uses `flex-1 min-h-0 overflow-y-auto` (removed `max-h-[50vh]`) so content uses full available height above the footer with no clipping.
+
+2. **Scrollbar styling (desktop)**  
+   ScrollbarsStyle.tsx: added scope `[data-scroll-container="filter-guide-drawer"]` with the same dark scrollbar rules as main and pathos (Chromium + Firefox). Drawer list div has `data-scroll-container="filter-guide-drawer"` so its scrollbar matches desktop (dark, token-safe).
+
+3. **Row hover + keyboard affordances**  
+   Series rows: `cursor-pointer`; hover background `var(--p-surface)` via onMouseEnter/onMouseLeave; `focus-visible:ring-2 focus-visible:ring-[var(--p-accent)]` for keyboard nav. No selected-row state (optional left accent omitted to keep minimal).
+
+4. **Drawer visual hierarchy (token-safe)**  
+   Header: stronger typography (`text-base font-semibold tracking-tight`), consistent padding (`px-4 py-3`), border `var(--p-border)`. Search block: spacing tightened (`space-y-2`, `pb-2`). Category chips: `gap-2 items-center`. Table header row: `font-medium`, sticky, `var(--p-border)`. All dividers use `var(--p-border)`.
+
+5. **De-clutter guide affordances**  
+   Replaced "Series guide" / "Agency guide" / "Location guide" text links with one consistent small icon button (BookOpen) to the right of each filter trigger (Series, Agencies, Location). Tooltips: "Open series guide...", "Open agency guide...", "Open location picker...". Buttons: 7×7, token border/surface/text-muted, aria-label. No separate "?" icons; tooltips on the icon button only.
+
+## Files changed (this run)
+
+- `packages/ui/src/components/filter-guides/FilterGuideDrawer.tsx` — Layout (flex-1 min-h-0 scroller), scroll container attribute, row hover/focus styles, header/search/chips/table hierarchy.
+- `packages/ui/src/shell/ScrollbarsStyle.tsx` — New scope `filter-guide-drawer` for dark scrollbar; header comment updated.
+- `packages/ui/src/screens/JobSearchScreen.tsx` — BookOpen import; Series/Agencies/Location each wrapped in `<span className="flex items-center gap-1">` with FilterDropdown + Tooltip + icon button; removed three text links.
+
+## Commands run summaries
+
+- **git status** — On branch feature/job-search-guides-polish-v1. Modified: docs/merge-notes.md, packages/ui/package.json, JobSearchScreen.tsx, ScrollbarsStyle.tsx, pnpm-lock.yaml. Untracked: packages/ui/src/components/filter-guides/.
+- **git branch --show-current** — feature/job-search-guides-polish-v1.
+- **git diff --name-status develop...HEAD** — No local develop branch; branch was created from feature/job-search-filter-guides-drawer-v1.
+- **git diff --name-status HEAD -- packages/ui/...** — M JobSearchScreen.tsx, M ScrollbarsStyle.tsx (filter-guides/ untracked; FilterGuideDrawer.tsx edited in that tree).
+- **git diff --stat HEAD -- packages/ui/...** — JobSearchScreen.tsx 145 insertions 38 deletions; ScrollbarsStyle.tsx 29 insertions 1 deletion.
+- **pnpm -r typecheck** — Passed (packages/adapters, packages/core, packages/ui, apps/desktop).
+- **pnpm test** — Passed (755 tests, 53 files).
+- **pnpm routes:check** — OK (all Sidebar routes resolve in Desktop and Next).
+- **pnpm overlays:check** — Passed (Overlay Rule v1 / OverlayRoot).
+
+## Manual checks
+
+- Drawer list uses full height, not cut off (scroller expands to bottom above footer).
+- Drawer scrollbar matches desktop (dark, same as main/pathos).
+- Row hover highlight is obvious (background change on hover).
+- Guide icons feel integrated (one BookOpen per filter, no text links in the way).
+- Drawer still portaled correctly and not clipped (OverlayRoot; no Tailwind z-*).
+
+## Human Simulation Gate
+
+| Item | Value |
+|------|-------|
+| Required | No |
+| Triggers hit | None |
+| Why | Layout, scrollbar, hover, and guide-icon polish only; no new store logic or persistence. |
+
+---
+
+# Job Search — Filter guides drawer v1
+
+(Do not commit or push. Branch: feature/job-search-filter-guides-drawer-v1.)
+
+## What changed
+
+1. **FilterGuideDrawer component**  
+   New right-side drawer panel (portaled overlay) in `packages/ui/src/components/filter-guides/`. Uses Radix Dialog portaled to OverlayRoot; token-only styling (var(--p-*)); shared zIndex constants (no Tailwind z-*). Header (title + close), search input, category chips, results list with scroll, footer helper "Click a row to apply to filters.", Close button. Accessible: focus trap, ESC closes, aria labels.
+
+2. **Series & role guide (full)**  
+   Deterministic local dataset `seriesGuideData.ts`: 15 entries (seriesCode, title, typicalRoles, commonGrades, category). Pure `filterSeriesGuide(data, query, category)` for search (seriesCode/title/typicalRoles, case-insensitive) and category filter. "Series guide" button next to Series filter opens drawer titled "Series & role guide"; selecting a row applies that series to filters, closes drawer, calls `store.runSearch()`.
+
+3. **Agency and Location guides (stubs)**  
+   "Agency guide" and "Location guide" buttons next to those filters. Clicking opens same drawer with stub title and message "Agency guide (coming next)" / "Location picker (coming next)." Data interfaces in `filterGuideTypes.ts`: AgencyGuideEntry (id, name, aliases, parentAgency?), LocationGuideEntry (id, label, aliases, type: metro|state|remote).
+
+4. **Tooltip**  
+   Series guide button tooltip: "Browse common federal series codes and apply one to your search."
+
+## Files changed (this run)
+
+- `packages/ui/package.json` — Added @radix-ui/react-dialog.
+- `packages/ui/src/components/filter-guides/seriesGuideData.ts` — New: SERIES_GUIDE_DATA, SERIES_CATEGORIES, filterSeriesGuide.
+- `packages/ui/src/components/filter-guides/seriesGuideData.test.ts` — New: unit tests for filterSeriesGuide (2210 → IT Management, category filter).
+- `packages/ui/src/components/filter-guides/filterGuideTypes.ts` — New: FilterGuideKind, AgencyGuideEntry, LocationGuideEntry.
+- `packages/ui/src/components/filter-guides/FilterGuideDrawer.tsx` — New: portaled drawer (series full UI, agency/location stubs).
+- `packages/ui/src/components/filter-guides/FilterGuideDrawer.test.tsx` — New: smoke tests (component renders without throwing).
+- `packages/ui/src/components/filter-guides/index.ts` — New: barrel export.
+- `packages/ui/src/screens/JobSearchScreen.tsx` — filterGuideKind state; Series/Agency/Location guide buttons; FilterGuideDrawer; onApplySeries → setFilters + runSearch; Series guide tooltip.
+
+## Commands run summaries
+
+- **git status** — On branch feature/job-search-filter-guides-drawer-v1; modified: packages/ui/package.json, JobSearchScreen.tsx, pnpm-lock.yaml; untracked: packages/ui/src/components/filter-guides/ (all new files).
+- **git branch --show-current** — feature/job-search-filter-guides-drawer-v1.
+- **git diff --name-status develop...HEAD** — N/A (no develop in repo). **git diff --name-status main...HEAD** — includes branch history; this run adds filter-guides/* and touches JobSearchScreen.tsx, package.json.
+- **git diff --stat develop...HEAD** — N/A. **git diff --stat main -- . ':(exclude)artifacts' ':(exclude)docs/merge-notes.md'** — branch cumulative (30 files from main); this run: filter-guides/* (8 files), JobSearchScreen.tsx, package.json, pnpm-lock.yaml.
+- **pnpm -r typecheck** — Passed (packages/adapters, packages/core, packages/ui, apps/desktop).
+- **pnpm test** — Passed (755 tests, 53 files; includes seriesGuideData.test.ts 7 tests, FilterGuideDrawer.test.tsx 3 tests).
+- **pnpm routes:check** — OK (all Sidebar routes resolve in Desktop and Next).
+- **pnpm overlays:check** — Passed (Overlay Rule v1 / OverlayRoot). Comment in FilterGuideDrawer.tsx adjusted so " z-" does not appear (overlays script matches substring in file).
+
+## Manual checks (to verify)
+
+- Open Series guide → drawer not clipped by scroll panes or rail; scroll works inside drawer.
+- Select a series row → filter updates (Series dropdown); results refresh (runSearch).
+- Drawer closes with ESC and Close button.
+- Agency guide / Location guide open drawer with stub "coming next" message.
+- overlays:check passes.
+
+## Human Simulation Gate
+
+| Item | Value |
+|------|-------|
+| Required | Yes |
+| Triggers hit | Changes Zustand store usage (apply series → setFilters + runSearch); Adds UI that affects filter state |
+| Why | User action (select series) updates job search filters and triggers search; manual flow verification recommended. |
+
+---
+
 # Job Search — Tooltips v1
 
 (Do not commit or push. Branch: feature/job-search-tooltips-v1.)

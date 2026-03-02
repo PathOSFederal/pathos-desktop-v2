@@ -30,6 +30,7 @@ import {
   Sparkles,
   X,
   Check,
+  BookOpen,
 } from 'lucide-react';
 import { useNav } from '@pathos/adapters';
 import { storageSetJSON, storageGetJSON, PROMPT_TO_FILTERS_AUDIT_KEY } from '@pathos/core';
@@ -65,6 +66,8 @@ import {
 } from '../stores/decisionBriefsV1Store';
 import { usePathAdvisorBriefingStore } from '../stores/pathAdvisorBriefingStore';
 import { Tooltip } from '../components/Tooltip';
+import { FilterGuideDrawer } from '../components/filter-guides';
+import type { FilterGuideKind } from '../components/filter-guides';
 
 const JOB_SEARCH_SUGGESTED_PROMPTS = [
   'Summarize in plain English',
@@ -836,6 +839,8 @@ export function JobSearchScreen(props: JobSearchScreenProps) {
   const [targetRoleModalOpen, setTargetRoleModalOpen] = useState(false);
   /** Undo applied-from-prompt: show toast and allow one-click revert. */
   const [showUndoAppliedPrompt, setShowUndoAppliedPrompt] = useState(false);
+  /** Which filter guide drawer is open (series | agency | location); null = closed. */
+  const [filterGuideKind, setFilterGuideKind] = useState<FilterGuideKind | null>(null);
 
   const targetRoleStore = useTargetRoleV1Store();
   const decisionBriefsStore = useDecisionBriefsV1Store();
@@ -1514,42 +1519,93 @@ export function JobSearchScreen(props: JobSearchScreenProps) {
           }}
           tooltip={getFilterGroupTooltip('Grades')}
         />
-        <FilterDropdown
-          label="Series"
-          value={store.filters.series !== undefined ? store.filters.series : ''}
-          options={SERIES_OPTIONS}
-          onSelect={function (v) {
-            const next = Object.assign({}, store.filters);
-            if (v === '') delete next.series;
-            else next.series = v;
-            store.setFilters(next);
-          }}
-          tooltip={getFilterGroupTooltip('Series')}
-        />
-        <FilterDropdown
-          label="Agencies"
-          value={store.filters.agency !== undefined ? store.filters.agency : ''}
-          options={AGENCY_OPTIONS}
-          onSelect={function (v) {
-            const next = Object.assign({}, store.filters);
-            if (v === '') delete next.agency;
-            else next.agency = v;
-            store.setFilters(next);
-          }}
-          tooltip={getFilterGroupTooltip('Agencies')}
-        />
-        <FilterDropdown
-          label="Location"
-          value={store.filters.location !== undefined ? store.filters.location : ''}
-          options={LOCATION_OPTIONS}
-          onSelect={function (v) {
-            const next = Object.assign({}, store.filters);
-            if (v === '') delete next.location;
-            else next.location = v;
-            store.setFilters(next);
-          }}
-          tooltip={getFilterGroupTooltip('Location')}
-        />
+        <span className="flex items-center gap-1">
+          <FilterDropdown
+            label="Series"
+            value={store.filters.series !== undefined ? store.filters.series : ''}
+            options={SERIES_OPTIONS}
+            onSelect={function (v) {
+              const next = Object.assign({}, store.filters);
+              if (v === '') delete next.series;
+              else next.series = v;
+              store.setFilters(next);
+            }}
+            tooltip={getFilterGroupTooltip('Series')}
+          />
+          <Tooltip content="Open series guide. Browse federal series codes and apply one to your search." contentId="series-guide-btn">
+            <button
+              type="button"
+              onClick={function () { setFilterGuideKind('series'); }}
+              className="inline-flex items-center justify-center w-7 h-7 rounded border shrink-0"
+              style={{
+                borderColor: 'var(--p-border)',
+                background: 'var(--p-surface)',
+                color: 'var(--p-text-muted)',
+              }}
+              aria-label="Open series guide"
+            >
+              <BookOpen className="w-3.5 h-3.5" aria-hidden />
+            </button>
+          </Tooltip>
+        </span>
+        <span className="flex items-center gap-1">
+          <FilterDropdown
+            label="Agencies"
+            value={store.filters.agency !== undefined ? store.filters.agency : ''}
+            options={AGENCY_OPTIONS}
+            onSelect={function (v) {
+              const next = Object.assign({}, store.filters);
+              if (v === '') delete next.agency;
+              else next.agency = v;
+              store.setFilters(next);
+            }}
+            tooltip={getFilterGroupTooltip('Agencies')}
+          />
+          <Tooltip content="Open agency guide. Browse agencies (coming next)." contentId="agency-guide-btn">
+            <button
+              type="button"
+              onClick={function () { setFilterGuideKind('agency'); }}
+              className="inline-flex items-center justify-center w-7 h-7 rounded border shrink-0"
+              style={{
+                borderColor: 'var(--p-border)',
+                background: 'var(--p-surface)',
+                color: 'var(--p-text-muted)',
+              }}
+              aria-label="Open agency guide"
+            >
+              <BookOpen className="w-3.5 h-3.5" aria-hidden />
+            </button>
+          </Tooltip>
+        </span>
+        <span className="flex items-center gap-1">
+          <FilterDropdown
+            label="Location"
+            value={store.filters.location !== undefined ? store.filters.location : ''}
+            options={LOCATION_OPTIONS}
+            onSelect={function (v) {
+              const next = Object.assign({}, store.filters);
+              if (v === '') delete next.location;
+              else next.location = v;
+              store.setFilters(next);
+            }}
+            tooltip={getFilterGroupTooltip('Location')}
+          />
+          <Tooltip content="Open location picker. Browse locations (coming next)." contentId="location-guide-btn">
+            <button
+              type="button"
+              onClick={function () { setFilterGuideKind('location'); }}
+              className="inline-flex items-center justify-center w-7 h-7 rounded border shrink-0"
+              style={{
+                borderColor: 'var(--p-border)',
+                background: 'var(--p-surface)',
+                color: 'var(--p-text-muted)',
+              }}
+              aria-label="Open location picker"
+            >
+              <BookOpen className="w-3.5 h-3.5" aria-hidden />
+            </button>
+          </Tooltip>
+        </span>
         <FilterDropdown
           label="Types"
           value={store.filters.appointmentType !== undefined ? store.filters.appointmentType : ''}
@@ -1594,6 +1650,23 @@ export function JobSearchScreen(props: JobSearchScreenProps) {
         <AppliedFromPromptViewPanel
           promptText={store.appliedFromPrompt.promptText}
           onClose={function () { setViewAuditOpen(false); }}
+        />
+      ) : null}
+
+      {/* Filter guide drawer: portaled to OverlayRoot; Series applies to filters and triggers search. */}
+      {filterGuideKind !== null ? (
+        <FilterGuideDrawer
+          kind={filterGuideKind}
+          open={true}
+          onOpenChange={function (open) {
+            if (!open) setFilterGuideKind(null);
+          }}
+          onApplySeries={filterGuideKind === 'series' ? function (seriesCode) {
+            const next = Object.assign({}, store.filters);
+            next.series = seriesCode;
+            store.setFilters(next);
+            store.runSearch();
+          } : undefined}
         />
       ) : null}
 
