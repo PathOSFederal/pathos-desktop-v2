@@ -16,10 +16,7 @@
 import type React from 'react';
 import { useCallback, useMemo, useEffect, useState } from 'react';
 import {
-  FolderOpen,
   FileText,
-  HelpCircle,
-  Eye,
   Bell,
   TrendingUp,
   Clock,
@@ -38,7 +35,18 @@ import { mockDashboardData } from './dashboard/mockDashboardData';
 import { buildDashboardViewModel } from './dashboard/buildDashboardViewModel';
 import { useDashboardSnapshot } from './dashboard/useDashboardSnapshot';
 import type { FocusItem } from './dashboard/dashboardModel';
-import { JOB_SEARCH, IMPORT, RESUME_BUILDER } from '../routes/routes';
+import { JOB_SEARCH, IMPORT, RESUME_BUILDER, CAREER_READINESS, SAVED_JOBS } from '../routes/routes';
+import { getCareerReadinessSummary } from './careerReadiness/careerReadinessMockData';
+import * as PopoverPrimitive from '@radix-ui/react-popover';
+import { Info } from 'lucide-react';
+import { OVERLAY_ROOT_ID, Z_POPOVER } from '../styles/zIndex';
+
+/** Resolve portal container for Popover (OverlayRoot when available, else body). */
+function getPopoverContainer(): HTMLElement | undefined {
+  if (typeof document === 'undefined') return undefined;
+  const el = document.getElementById(OVERLAY_ROOT_ID);
+  return el !== null ? el : document.body;
+}
 
 /** Data shape for dashboard content; app passes mock or real data. */
 export interface DashboardData {
@@ -180,22 +188,53 @@ function SectionHeader(props: { title: string; lastUpdated?: string }) {
 // Briefing: 4 compact tiles (Saved Jobs, Tracked Apps, Readiness, Next Milestone).
 // Same card treatment as Resume Readiness tiles: border, radius, surface,
 // 1px top accent; no left accent strip. Emphasis via content (value + subtext/deltas).
+// All four tiles share a consistent height contract so one tile cannot expand the row.
 // ---------------------------------------------------------------------------
 
-const BRIEFING_ICONS: Record<string, React.ReactNode> = {
-  'Saved Jobs': <FolderOpen className="w-4 h-4" style={{ color: 'var(--p-text-muted)' }} />,
-  'Tracked Apps': <FileText className="w-4 h-4" style={{ color: 'var(--p-text-muted)' }} />,
-  Readiness: <HelpCircle className="w-4 h-4" style={{ color: 'var(--p-text-muted)' }} />,
-  'Next Milestone': <Eye className="w-4 h-4" style={{ color: 'var(--p-text-muted)' }} />,
+/** Minimum height (px) for all Briefing row tiles. Prevents Readiness from stretching others. */
+const BRIEFING_TILE_MIN_H = 160;
+
+/**
+ * Shared PrimaryMetric styling for briefing row tiles (instrument panel emphasis).
+ * Primary value: 26–28px equivalent, bold/heavy, compact line-height.
+ * Secondary label: 11–12px muted. No ~18px so numbers read as key markers.
+ */
+const PRIMARY_METRIC_VALUE_STYLE: React.CSSProperties = {
+  color: 'var(--p-text)',
+  fontSize: '1.625rem',
+  fontWeight: 'bold',
+  lineHeight: 1.2,
 };
+/** Next Milestone value is text (e.g. "Referral review"): headline size so it reads as primary value. */
+const PRIMARY_METRIC_HEADLINE_STYLE: React.CSSProperties = {
+  color: 'var(--p-text)',
+  fontSize: '1.125rem',
+  fontWeight: 600,
+  lineHeight: 1.25,
+};
+const PRIMARY_METRIC_LABEL_STYLE: React.CSSProperties = {
+  color: 'var(--p-text-muted)',
+  fontSize: '11px',
+};
+const PRIMARY_METRIC_STATUS_STYLE: React.CSSProperties = {
+  color: 'var(--p-text-dim)',
+  fontSize: '11px',
+};
+/** CTA: same slot in every tile; muted accent, hover underline; shared class for alignment. */
+const BRIEFING_TILE_CTA_CLASS =
+  'w-full text-left rounded-[var(--p-radius)] mt-1 p-0 border-0 bg-transparent cursor-pointer text-[11px] font-medium hover:underline focus:outline focus-visible:ring-2 focus-visible:ring-offset-1';
 
 function BriefingTile(props: {
   label: string;
   value: string;
   subtext: string;
   subtextPositive?: boolean;
+  /** When true, value is text (e.g. Next Milestone) and uses headline style. */
+  valueAsHeadline?: boolean;
+  ctaLabel?: string;
+  onCtaClick?: () => void;
 }) {
-  const icon = BRIEFING_ICONS[props.label];
+  const valueStyle = props.valueAsHeadline === true ? PRIMARY_METRIC_HEADLINE_STYLE : PRIMARY_METRIC_VALUE_STYLE;
   return (
     <div
       className="rounded-[var(--p-radius-lg)] flex flex-col"
@@ -205,9 +244,10 @@ function BriefingTile(props: {
         borderRadius: 'var(--p-radius-lg)',
         boxShadow: 'var(--p-shadow-elev-1)',
         borderTop: '1px solid var(--p-accent-muted)',
+        minHeight: BRIEFING_TILE_MIN_H,
       }}
     >
-      <div className="p-3 flex flex-col gap-0.5">
+      <div className="p-3 flex flex-col gap-0.5 flex-1">
         <div className="flex items-start justify-between gap-2">
           <span
             className="text-[11px] uppercase tracking-wide"
@@ -215,19 +255,151 @@ function BriefingTile(props: {
           >
             {props.label}
           </span>
-          {icon != null ? <span className="flex-shrink-0">{icon}</span> : null}
         </div>
-        <p className="font-semibold" style={{ color: 'var(--p-text)', fontSize: '1rem' }}>
+        <p style={valueStyle}>
           {props.value}
         </p>
         <p
-          className="text-[11px]"
+          className="text-[11px] font-medium"
           style={{
             color: props.subtextPositive ? 'var(--p-success)' : 'var(--p-text-muted)',
           }}
         >
           {props.subtext}
         </p>
+        {props.ctaLabel !== undefined && props.ctaLabel !== '' && props.onCtaClick !== undefined ? (
+          <button
+            type="button"
+            className={BRIEFING_TILE_CTA_CLASS}
+            style={{ color: 'var(--p-accent-muted)' }}
+            onClick={props.onCtaClick}
+            aria-label={props.ctaLabel}
+          >
+            {props.ctaLabel}
+          </button>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Readiness briefing tile — Compact summary only; Details popover for context
+// ---------------------------------------------------------------------------
+//
+// Single source of truth: getCareerReadinessSummary() from careerReadinessMockData.
+// Tile body: primary metric (74/100), label, CTA "Open Career Readiness" only.
+// "Target: General readiness" and "Local-only • Updated 2 min ago" live in the Details popover.
+// Exactly ONE top-right icon: Details (Info) with aria-label "Readiness details".
+
+function ReadinessBriefingTile(props: { onOpenCareerReadiness: () => void }) {
+  const summary = useMemo(function () {
+    return getCareerReadinessSummary();
+  }, []);
+  const scorePart = String(summary.score);
+  const scoreMaxPart = '/' + String(summary.scoreMax);
+  const targetLabel =
+    summary.targetRoleLabel !== undefined && summary.targetRoleLabel !== null && summary.targetRoleLabel !== ''
+      ? summary.targetRoleLabel
+      : 'General readiness';
+  const popoverContainer = getPopoverContainer();
+
+  return (
+    <div
+      className="rounded-[var(--p-radius-lg)] flex flex-col"
+      style={{
+        background: 'var(--p-surface)',
+        border: '1px solid var(--p-border)',
+        borderRadius: 'var(--p-radius-lg)',
+        boxShadow: 'var(--p-shadow-elev-1)',
+        borderTop: '1px solid var(--p-accent-muted)',
+        minHeight: BRIEFING_TILE_MIN_H,
+      }}
+    >
+      <div className="p-3 flex flex-col gap-0.5 flex-1">
+        <div className="flex items-start justify-between gap-2">
+          <span
+            className="text-[11px] uppercase tracking-wide"
+            style={{ color: 'var(--p-text-dim)' }}
+          >
+            Readiness
+          </span>
+          <PopoverPrimitive.Root>
+            <PopoverPrimitive.Trigger asChild>
+              <button
+                type="button"
+                className="rounded p-0.5 hover:opacity-80 focus:outline focus-visible:ring-2 focus-visible:ring-offset-1 flex-shrink-0"
+                style={{ color: 'var(--p-text-muted)' }}
+                aria-label="Readiness details"
+                onClick={function (e) {
+                  e.stopPropagation();
+                }}
+              >
+                <Info className="w-3.5 h-3.5" />
+              </button>
+            </PopoverPrimitive.Trigger>
+            <PopoverPrimitive.Portal container={popoverContainer}>
+              <PopoverPrimitive.Content
+                side="bottom"
+                sideOffset={6}
+                collisionPadding={12}
+                className="rounded-[var(--p-radius)] border p-3 text-left w-[240px]"
+                style={{
+                  background: 'var(--p-surface)',
+                  borderColor: 'var(--p-border)',
+                  zIndex: Z_POPOVER,
+                }}
+              >
+                <p className="font-semibold text-[12px]" style={{ color: 'var(--p-text)' }}>
+                  Readiness details
+                </p>
+                <p className="text-[11px] mt-1.5" style={{ color: 'var(--p-text-muted)' }}>
+                  Target: {targetLabel}
+                </p>
+                <p className="text-[11px] mt-0.5" style={{ color: 'var(--p-text-muted)' }}>
+                  Privacy: Local-only
+                </p>
+                <p className="text-[11px] mt-0.5" style={{ color: 'var(--p-text-muted)' }}>
+                  Updated: {summary.updatedAt}
+                </p>
+                <p className="text-[11px] mt-1.5" style={{ color: 'var(--p-text-muted)' }}>
+                  Next best action: {summary.nextBestActionText}
+                </p>
+                <p className="text-[10px] uppercase mt-2" style={{ color: 'var(--p-text-dim)' }}>
+                  Top gaps
+                </p>
+                <ul className="mt-0.5 space-y-0.5 list-none pl-0">
+                  {summary.topGaps.slice(0, 3).map(function (g, idx) {
+                    return (
+                      <li key={idx} className="text-[11px]" style={{ color: 'var(--p-text-muted)' }}>
+                        {g.name} (+{g.impact})
+                      </li>
+                    );
+                  })}
+                </ul>
+                <p className="text-[10px] mt-2 pt-2 border-t" style={{ color: 'var(--p-text-dim)', borderColor: 'var(--p-border)' }}>
+                  Computed locally from profile + resume evidence.
+                </p>
+              </PopoverPrimitive.Content>
+            </PopoverPrimitive.Portal>
+          </PopoverPrimitive.Root>
+        </div>
+        <p className="inline" style={{ margin: 0 }}>
+          <span style={PRIMARY_METRIC_VALUE_STYLE}>{scorePart}</span>
+          <span className="text-[11px]" style={{ color: 'var(--p-text-muted)' }}>{scoreMaxPart}</span>
+        </p>
+        <p style={PRIMARY_METRIC_LABEL_STYLE}>
+          {summary.label}
+        </p>
+        <button
+          type="button"
+          className={BRIEFING_TILE_CTA_CLASS}
+          style={{ color: 'var(--p-accent-muted)' }}
+          onClick={props.onOpenCareerReadiness}
+          aria-label="Open Career Readiness"
+        >
+          Open Career Readiness
+        </button>
       </div>
     </div>
   );
@@ -1011,7 +1183,9 @@ export function DashboardScreen(props: DashboardScreenProps) {
   const handleDoNow = useCallback(
     function (path: string) {
       if (path !== null && path !== undefined && path !== '') {
-        nav.push(path);
+        const pathWithHash =
+          path === CAREER_READINESS ? path + '#action-plan' : path;
+        nav.push(pathWithHash);
       }
     },
     [nav]
@@ -1066,6 +1240,30 @@ export function DashboardScreen(props: DashboardScreenProps) {
           ) : null}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             {data.briefing.map(function (tile, i) {
+              if (tile.label === 'Readiness') {
+                return (
+                  <ReadinessBriefingTile
+                    key={i}
+                    onOpenCareerReadiness={function () {
+                      nav.push(CAREER_READINESS);
+                    }}
+                  />
+                );
+              }
+              const ctaLabel =
+                tile.label === 'Saved Jobs'
+                  ? 'Open Saved Jobs'
+                  : tile.label === 'Tracked Apps'
+                    ? 'Open Applications'
+                    : tile.label === 'Next Milestone'
+                      ? 'Open Status'
+                      : undefined;
+              const ctaRoute =
+                tile.label === 'Saved Jobs'
+                  ? SAVED_JOBS
+                  : tile.label === 'Tracked Apps' || tile.label === 'Next Milestone'
+                    ? IMPORT
+                    : undefined;
               return (
                 <BriefingTile
                   key={i}
@@ -1073,6 +1271,15 @@ export function DashboardScreen(props: DashboardScreenProps) {
                   value={tile.value}
                   subtext={tile.subtext}
                   subtextPositive={tile.subtextPositive}
+                  valueAsHeadline={tile.label === 'Next Milestone'}
+                  ctaLabel={ctaLabel}
+                  onCtaClick={
+                    ctaRoute !== undefined
+                      ? function () {
+                          nav.push(ctaRoute);
+                        }
+                      : undefined
+                  }
                 />
               );
             })}

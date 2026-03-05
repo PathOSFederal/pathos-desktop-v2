@@ -3567,3 +3567,158 @@ no changes added to commit
 **git diff --stat main -- .:** 28 files changed, 2663 insertions(+), 261 deletions(-).
 
 Do not commit or push.
+
+---
+
+# Day 60 — Dashboard Career Readiness metrics v1
+
+**Branch:** `feature/day-60-dashboard-readiness-metrics-v1`  
+**Date:** March 5, 2026  
+**Status:** In progress
+
+## Goal
+
+Update Dashboard so it reflects the new Career Readiness system (metrics + gaps + action link), keeping trust-first UX and local-only posture.
+
+## Summary of changes
+
+- **B) Shared local mock snapshot:** `CareerReadinessSummary` and `getCareerReadinessSummary()` in `packages/ui/src/screens/careerReadiness/careerReadinessMockData.ts`. Single source of truth for score, label, updatedAt, top gaps, next best action.
+- **C) Readiness tile (Option A refactor):** Briefing row uses shared `BRIEFING_TILE_MIN_H` (160px) so all four tiles (Saved Jobs, Tracked Apps, Readiness, Next Milestone) share the same height contract; Readiness tile no longer expands the row. Readiness tile is compact only: score, label, target, status line, CTA "Open Career Readiness". Inline "Top gaps" list removed from the tile.
+- **D) Details popover:** Small "Details" affordance (Info icon button, aria-label "Readiness details") on the Readiness tile opens a Radix Popover with: header "Readiness details", next best action line, "Top gaps" section (3 items: name + impact), footer trust note "Computed locally from profile + resume evidence." Popover trigger is keyboard reachable; portaled to OverlayRoot; Z_POPOVER.
+- **E) Do now / Next best move:** focusHero in mockDashboardData driven by `getCareerReadinessSummary().nextBestActionText`; buildDashboardViewModel uses `CAREER_READINESS` for hero actionRoute; handleDoNow appends `#action-plan` when navigating to Career Readiness; CareerReadinessScreen has `id="action-plan"` and scroll-into-view on hash. Hero CTA and tile CTA both route to Career Readiness (hero → #action-plan).
+- **F) Tests:** DashboardScreen.test.tsx: Readiness tile shows 74/100, "Open Career Readiness", no inline "Top gaps" list, Details trigger (aria-label "Readiness details"); careerReadinessMockData.test.ts; buildDashboardViewModel (hero route CAREER_READINESS). pnpm test: 767 passed.
+
+## Gates
+
+- **pnpm lint:** 0 errors, 26 warnings.
+- **pnpm -r typecheck:** Pass.
+- **pnpm test:** 767 tests passed.
+- **pnpm build:** Pass.
+
+## Human Simulation Gate
+
+| Item | Value |
+|------|--------|
+| Required | No |
+| Triggers hit | none |
+
+## Accessibility (Readiness tile + Details popover)
+
+| Item | Value |
+|------|--------|
+| Details trigger | Icon button with aria-label "Readiness details"; keyboard reachable (Tab, Enter/Space to open). |
+| Popover | Radix Popover; focus management and escape close by default. |
+
+## Patch Artifacts (FINAL)
+
+- **Cumulative:** `artifacts/day-60.patch` (main → working tree; develop not in repo). UTF-8. Excludes artifacts/.
+- **Incremental:** `artifacts/day-60-this-run.patch` (HEAD → working tree). UTF-8. Excludes artifacts/.
+
+**Get-Item output (day-60 patches):** day-60.patch Length 30618; day-60-this-run.patch Length 30618.
+
+**ls artifacts (day-60):** day-60.patch 30618 bytes; day-60-this-run.patch 30618 bytes.
+
+**Post-change logging:**
+
+**git status:** On branch feature/day-60-dashboard-readiness-metrics-v1; changes not staged (docs/change-briefs/day-60.md new, docs/merge-notes.md M, docs/merge-notes/current.md M, packages/ui/package.json M, CareerReadinessScreen.tsx M, DashboardScreen.test.tsx A, DashboardScreen.tsx M, careerReadinessMockData.test.ts A, careerReadinessMockData.ts M, buildDashboardViewModel.test.ts M, buildDashboardViewModel.ts M, mockDashboardData.ts M).
+
+**git diff --name-status main -- .:** 12 files (A: docs/change-briefs/day-60.md, DashboardScreen.test.tsx, careerReadinessMockData.test.ts; M: docs/merge-notes.md, docs/merge-notes/current.md, packages/ui/package.json, CareerReadinessScreen.tsx, DashboardScreen.tsx, careerReadinessMockData.ts, buildDashboardViewModel.test.ts, buildDashboardViewModel.ts, mockDashboardData.ts). (develop not in repo; baseline main.)
+
+**git diff --stat main -- .:** 13 files changed, 489 insertions(+), 14 deletions(-) (includes pnpm-lock.yaml if present).
+
+Do not commit or push.
+
+---
+
+# Day 60 (run 2) — Briefing row primary metrics emphasis
+
+**Branch:** `feature/day-60-dashboard-readiness-metrics-v1`  
+**Date:** March 5, 2026  
+**Goal:** Make briefing row primary metrics stand out more (numbers as key markers) while keeping design restrained and consistent across tiles.
+
+## Summary of changes
+
+- **Shared PrimaryMetric style:** Added `PRIMARY_METRIC_VALUE_STYLE` (1.125rem, bold, --p-text), `PRIMARY_METRIC_LABEL_STYLE` (11px, --p-text-muted), `PRIMARY_METRIC_STATUS_STYLE` (11px, --p-text-dim), and `BRIEFING_TILE_CTA_CLASS` (muted accent, hover underline). No new theme colors.
+- **BriefingTile:** Primary value uses PRIMARY_METRIC_VALUE_STYLE; subtext (deltas) uses font-medium and --p-success when subtextPositive, else --p-text-muted.
+- **ReadinessBriefingTile:** Readiness score split into score (bold, larger) + "/100" (muted, smaller) on one line; label/target/status use shared styles; CTA uses BRIEFING_TILE_CTA_CLASS and --p-accent-muted.
+- **Tests:** DashboardScreen.test.tsx updated: Readiness score assertion looks for score and "/100" separately; added assertion for Saved Jobs and Tracked Apps tiles in briefing row.
+
+## Gates (this run)
+
+- **pnpm lint:** 0 errors, 26 warnings.
+- **pnpm -r typecheck:** Pass.
+- **pnpm test:** 768 tests passed (DashboardScreen 7 tests).
+- **pnpm build:** Pass.
+
+## Human Simulation Gate
+
+| Item | Value |
+|------|--------|
+| Required | No |
+| Triggers hit | none |
+| Why | Styling/typography only; no store, persistence, or create/save flows. |
+
+## Patch Artifacts (FINAL)
+
+- **Cumulative:** `artifacts/day-60.patch` (main → working tree). UTF-8. Excludes artifacts/.
+- **Incremental:** `artifacts/day-60-this-run.patch` (HEAD → working tree). UTF-8. Excludes artifacts/.
+
+**Get-Item output (day-60 patches):** day-60.patch Length 38877; day-60-this-run.patch Length 38877.
+
+**ls artifacts:** day-60.patch 38877 bytes; day-60-this-run.patch 38877 bytes (dir artifacts listed).
+
+**ls docs/change-briefs:** day-60.md present (dir docs/change-briefs listed).
+
+## Post-change logging
+
+**git status:** On branch feature/day-60-dashboard-readiness-metrics-v1; changes not staged (docs/change-briefs/day-60.md new, docs/merge-notes.md M, docs/merge-notes/current.md M, packages/ui M, CareerReadinessScreen.tsx M, DashboardScreen.test.tsx A, DashboardScreen.tsx M, careerReadinessMockData* M/A, buildDashboardViewModel* M, mockDashboardData.ts M, pnpm-lock.yaml M).
+
+**git diff --name-status main -- .:** 13 files (A: docs/change-briefs/day-60.md, DashboardScreen.test.tsx, careerReadinessMockData.test.ts; M: docs/merge-notes.md, docs/merge-notes/current.md, packages/ui/package.json, CareerReadinessScreen.tsx, DashboardScreen.tsx, careerReadinessMockData.ts, buildDashboardViewModel.test.ts, buildDashboardViewModel.ts, mockDashboardData.ts, pnpm-lock.yaml). (develop not in repo; baseline main.)
+
+**git diff --stat main -- .:** 13 files changed, 573 insertions(+), 16 deletions(-).
+
+---
+
+# Day 60 (run 3) — Briefing tiles uniform; Details popover; primary metrics enlarged; CTAs standardized
+
+**Branch:** `feature/day-60-dashboard-readiness-metrics-v1`  
+**Date:** March 5, 2026  
+**Goal:** Refine Dashboard BRIEFING tiles: uniform header (title left, optional single Details icon right), larger primary metrics, standardized CTA slot, Readiness context in Details popover only, exactly one icon on Readiness tile.
+
+## Summary of changes
+
+- **Header unified:** All briefing tiles: left = title (Saved Jobs / Tracked Apps / Readiness / Next Milestone); right = optional single Details icon (Readiness only). Removed decorative icons (FolderOpen, FileText, HelpCircle, Eye) from headers; removed duplicate Info + HelpCircle on Readiness so exactly one Details (Info) icon with aria-label "Readiness details".
+- **Primary metrics enlarged:** `PRIMARY_METRIC_VALUE_STYLE` set to 1.625rem (26px), bold, compact line-height. Next Milestone value (text) uses `PRIMARY_METRIC_HEADLINE_STYLE` (18px semibold). Saved Jobs "3", Tracked Apps "2", Readiness "74/100" all visibly large.
+- **Readiness tile body simplified:** Removed "Target: General readiness" and "Local-only • Updated 2 min ago" from tile body. Details popover now includes: Target, Privacy: Local-only, Updated: {timestamp}, Next best action, Top gaps (3), footer "Computed locally from profile + resume evidence."
+- **CTAs standardized:** All four tiles use same CTA slot and `BRIEFING_TILE_CTA_CLASS`. Text: "Open Saved Jobs", "Open Applications", "Open Career Readiness", "Open Status". Routes: SAVED_JOBS, IMPORT, CAREER_READINESS, IMPORT.
+- **Tests:** DashboardScreen.test.tsx — titles (all four), Readiness "74" and "/100", CTAs (Open Career Readiness, Open Saved Jobs, one more Open …), exactly one aria-label "Readiness details"; removed unstable popover-content assertion (portaled content not in renderToString).
+
+## Gates (this run)
+
+- **pnpm lint:** Pass (0 new errors).
+- **pnpm -r typecheck:** Pass.
+- **pnpm test:** 767 tests passed (DashboardScreen 6 tests).
+- **pnpm build:** Pass.
+
+## Human Simulation Gate
+
+| Item | Value |
+|------|--------|
+| Required | No |
+| Triggers hit | none |
+| Why | UI/layout and styling only; no store or persistence change. |
+
+## Patch Artifacts (FINAL)
+
+- **Cumulative:** `artifacts/day-60.patch` (main → working tree). UTF-8. Excludes artifacts/.
+- **Incremental:** `artifacts/day-60-this-run.patch` (HEAD → working tree). UTF-8. Excludes artifacts/.
+
+**Get-Item output (day-60 patches):** day-60.patch Length 47144; day-60-this-run.patch Length 47144.
+
+## Post-change logging
+
+**git status:** On branch feature/day-60-dashboard-readiness-metrics-v1; changes not staged (docs/change-briefs/day-60.md new, docs/merge-notes.md M, docs/merge-notes/current.md M, packages/ui M, CareerReadinessScreen.tsx M, DashboardScreen.test.tsx A, DashboardScreen.tsx M, careerReadinessMockData* M/A, buildDashboardViewModel* M, mockDashboardData.ts M, pnpm-lock.yaml M).
+
+**git diff --name-status main -- .:** 13 files (A: docs/change-briefs/day-60.md, DashboardScreen.test.tsx, careerReadinessMockData.test.ts; M: docs/merge-notes.md, docs/merge-notes/current.md, packages/ui/package.json, CareerReadinessScreen.tsx, DashboardScreen.tsx, careerReadinessMockData.ts, buildDashboardViewModel.test.ts, buildDashboardViewModel.ts, mockDashboardData.ts, pnpm-lock.yaml).
+
+**git diff --stat main -- .:** 13 files changed, 668 insertions(+), 27 deletions(-).

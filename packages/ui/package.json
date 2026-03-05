@@ -12,6 +12,7 @@
     "@pathos/adapters": "workspace:*",
     "@pathos/core": "workspace:*",
     "@radix-ui/react-dropdown-menu": "latest",
+    "@radix-ui/react-popover": "latest",
     "@radix-ui/react-tooltip": "latest",
     "echarts": "^5.5.0",
     "echarts-for-react": "^3.0.2",

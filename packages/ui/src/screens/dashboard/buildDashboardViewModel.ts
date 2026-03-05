@@ -18,6 +18,7 @@ import {
   SAVED_JOBS,
   GUIDED_APPLY_CANON,
   IMPORT,
+  CAREER_READINESS,
 } from '../../routes/routes';
 
 const FOCUS_MAX = 3;
@@ -83,7 +84,7 @@ function buildFocusItems(data: DashboardData): FocusItem[] {
       title: data.focusHero.title,
       reason: data.focusHero.reason,
       actionLabel: data.focusHero.ctaLabel,
-      actionRoute: RESUME_BUILDER,
+      actionRoute: CAREER_READINESS,
       updatedAt: data.lastUpdated !== undefined ? data.lastUpdated : '',
     });
   }
