@@ -8,25 +8,31 @@
  */
 
 /**
- * Agency guide entry (stub for future implementation).
- * id: stable id; name: display name; aliases: alternate names; parentAgency: optional parent.
+ * Agency guide entry. id: stable id; name: canonical display name (same as filter value);
+ * aliases: e.g. VA, DHS; optional parent and tags (Popular, Cabinet, Independent).
  */
 export interface AgencyGuideEntry {
   id: string;
   name: string;
-  aliases: string[];
-  parentAgency?: string;
+  aliases?: string[];
+  parent?: string;
+  tags?: string[];
 }
 
 /**
- * Location guide entry (stub for future implementation).
- * id: stable id; label: "City, ST"; aliases: e.g. DMV/NCR; type: metro | state | remote.
+ * Location guide entry. id: stable id; label: display text; applyValue: value
+ * to set in store (defaults to label). Use applyValue when label is a synonym
+ * (e.g. "Washington, DC (DMV)" applies "Washington, DC" for dropdown/match).
  */
 export interface LocationGuideEntry {
   id: string;
   label: string;
-  aliases: string[];
-  type: 'metro' | 'state' | 'remote';
+  city?: string;
+  state?: string;
+  aliases?: string[];
+  type?: 'metro' | 'state' | 'remote' | 'other';
+  /** Value to apply to store; when undefined, use label. */
+  applyValue?: string;
 }
 
 /** Which guide drawer is open: series (full), agency (stub), location (stub). */

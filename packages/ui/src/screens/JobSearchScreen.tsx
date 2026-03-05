@@ -56,6 +56,7 @@ import {
   effortEstimate as calcEffort,
   strategicValue as calcStrategic,
   effortToReward as calcEffortToReward,
+  primaryBlocker,
 } from '../lib/fitScoring';
 import type { FitAssessment } from '../lib/fitScoring';
 import { chipTooltips, fitTooltips, getChipTooltip, getFilterGroupTooltip, getSortTooltip } from '../lib/tooltipCopy';
@@ -396,7 +397,23 @@ function FitStarsRow(props: { fitAssessment: FitAssessment }) {
 }
 
 // ---------------------------------------------------------------------------
-// Job details panel — Tabs: Overview & Docs (default), Requirements, PathOS Brief
+// Qualification snapshot — Deterministic alignment summary for details pane header
+// ---------------------------------------------------------------------------
+
+/** Snapshot data computed from fit assessment + job; passed into JobDetailsPanel. */
+export interface QualificationSnapshot {
+  stars: number;
+  confidence: string;
+  blocker: string;
+  effort: string;
+  reasons: string[];
+  risks: string[];
+  inputsUsed: string[];
+  missingInputs: string[];
+}
+
+// ---------------------------------------------------------------------------
+// Job details panel — PathOS Snapshot (above tabs) + Tabs: Overview & Docs (default), Requirements, PathOS Brief
 // ---------------------------------------------------------------------------
 
 type DetailsTab = 'overview' | 'requirements' | 'pathosBrief';
@@ -407,9 +424,13 @@ function JobDetailsPanel(props: {
   activeTab: DetailsTab;
   onTabChange: (tab: DetailsTab) => void;
   decisionBrief: import('../stores/decisionBriefsV1Store').DecisionBriefRecord | null;
+  /** Qualification snapshot for Snapshot panel; undefined when no job selected. */
+  snapshot: QualificationSnapshot | undefined;
   onSave: () => void;
   onTailor: () => void;
   onAskPathAdvisor: () => void;
+  /** Open PathAdvisor rail with qualification briefing (no inline expansion). */
+  onExplainInPathAdvisor: (snapshot: QualificationSnapshot) => void;
 }) {
   if (props.job === undefined || props.job === null) {
     return (
@@ -427,6 +448,7 @@ function JobDetailsPanel(props: {
   const usajobsUrl = job.url !== undefined && job.url !== '' ? job.url : 'https://www.usajobs.gov';
   const checklist = getChecklistForJob(job.id);
   const brief = props.decisionBrief;
+  const snapshot = props.snapshot;
   const hasOverview = 'overview' in job && job.overview !== undefined;
 
   /* Meta chips: GS, Close date, Remote/Telework/Series if present (from summary/location). */
@@ -454,6 +476,102 @@ function JobDetailsPanel(props: {
 
   return (
     <div className="flex-1 flex flex-col min-h-0">
+      {/* PathOS Snapshot: alignment + blocker + effort + risk chips + next action; above tabs, always visible when job selected. */}
+      {snapshot !== undefined ? (
+        <div
+          className="flex-shrink-0 px-4 pt-3 pb-3 border-b"
+          style={{
+            borderColor: 'var(--p-border)',
+            background: 'var(--p-surface)',
+          }}
+        >
+          <h3 className="text-[11px] font-semibold uppercase tracking-wider mb-2" style={{ color: 'var(--p-text-dim)' }}>
+            PathOS Snapshot
+          </h3>
+          <div className="space-y-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <Tooltip content={fitTooltips.fitStars} contentId="snapshot-fit-stars">
+                <span className="text-sm font-medium" style={{ color: 'var(--p-text)' }}>
+                  {'★'.repeat(snapshot.stars)}{'☆'.repeat(5 - snapshot.stars)}
+                </span>
+              </Tooltip>
+              <Tooltip content={fitTooltips.confidence} contentId="snapshot-confidence">
+                <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: 'var(--p-surface2)', color: 'var(--p-text-muted)' }}>
+                  {snapshot.confidence}
+                </span>
+              </Tooltip>
+              <Tooltip content={fitTooltips.effort} contentId="snapshot-effort">
+                <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: 'var(--p-surface2)', color: 'var(--p-text-muted)' }}>
+                  Effort: {snapshot.effort}
+                </span>
+              </Tooltip>
+            </div>
+            {snapshot.blocker !== '' ? (
+              <p className="text-[11px]" style={{ color: 'var(--p-text-muted)' }}>
+                Primary blocker: {snapshot.blocker}
+              </p>
+            ) : null}
+            {snapshot.risks.length > 0 ? (
+              <div className="flex flex-wrap gap-1">
+                {snapshot.risks.slice(0, 3).map(function (r, i) {
+                  const tip = chipTooltips[r] !== undefined ? chipTooltips[r] : '';
+                  const chip = (
+                    <span key={i} className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: 'var(--p-surface2)', color: 'var(--p-text-dim)' }}>
+                      {r}
+                    </span>
+                  );
+                  return tip !== '' ? (
+                    <Tooltip key={i} content={tip} contentId={'snapshot-risk-' + i}>
+                      {chip}
+                    </Tooltip>
+                  ) : (
+                    chip
+                  );
+                })}
+                {snapshot.risks.length > 3 ? (
+                  <span className="text-[10px] px-1.5 py-0.5" style={{ color: 'var(--p-text-dim)' }}>
+                    +{snapshot.risks.length - 3} more
+                  </span>
+                ) : null}
+              </div>
+            ) : null}
+            <div className="flex flex-wrap items-center gap-2 pt-1">
+              {props.isSaved ? (
+                <button
+                  type="button"
+                  onClick={props.onTailor}
+                  className={INTERACTIVE_HOVER_CLASS + ' text-[11px] font-medium'}
+                  style={{ color: 'var(--p-accent)' }}
+                >
+                  Start Tailoring
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={props.onSave}
+                  className={INTERACTIVE_HOVER_CLASS + ' text-[11px] font-medium'}
+                  style={{ color: 'var(--p-accent)' }}
+                >
+                  Save + Start Tailoring
+                </button>
+              )}
+              <Tooltip content="Open PathAdvisor rail with alignment summary, reasons, and next action." contentId="snapshot-explain-pathadvisor">
+                <button
+                  type="button"
+                  onClick={function () {
+                    props.onExplainInPathAdvisor(snapshot);
+                  }}
+                  className={INTERACTIVE_HOVER_CLASS + ' text-[11px]'}
+                  style={{ color: 'var(--p-text-muted)' }}
+                >
+                  Explain this in PathAdvisor
+                </button>
+              </Tooltip>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       {/* Tab row: Overview & Docs (first/default) | Requirements | PathOS Brief */}
       <div
         className="flex border-b flex-shrink-0"
@@ -1010,6 +1128,41 @@ export function JobSearchScreen(props: JobSearchScreenProps) {
           return j.id === store.selectedJobId;
         })
       : undefined;
+
+  /** Qualification snapshot for the selected job (deterministic: stars, blocker, effort, reasons, risks). */
+  const qualificationSnapshot = useMemo(
+    function (): QualificationSnapshot | undefined {
+      if (selectedJob === undefined) return undefined;
+      const fit = buildFitAssessment({
+        job: selectedJob,
+        targetRole,
+        profile: { skillsKeywords: [] },
+        checklistCounts: (function () {
+          const c = getChecklistForJob(selectedJob.id);
+          if (c === null) return undefined;
+          return { specialized: c.specializedExperience.length, skills: c.skillsKeywords.length, documents: c.documentsNeeded.length };
+        })(),
+      });
+      const effort = calcEffort(fit, (function () {
+        const c = getChecklistForJob(selectedJob.id);
+        if (c === null) return undefined;
+        return { specialized: c.specializedExperience.length, skills: c.skillsKeywords.length, documents: c.documentsNeeded.length };
+      })());
+      const blocker = primaryBlocker(selectedJob, targetRole, fit);
+      const risks = getRiskFlagLabels(selectedJob);
+      return {
+        stars: fitScoreToStars(fit.score),
+        confidence: fit.confidence,
+        blocker,
+        effort,
+        reasons: fit.reasons,
+        risks,
+        inputsUsed: fit.inputsUsed,
+        missingInputs: fit.missingInputs !== undefined ? fit.missingInputs : [],
+      };
+    },
+    [selectedJob, targetRole]
+  );
 
   useEffect(function () {
     if (selectedJob !== undefined) {
@@ -1586,7 +1739,7 @@ export function JobSearchScreen(props: JobSearchScreenProps) {
             }}
             tooltip={getFilterGroupTooltip('Agencies')}
           />
-          <Tooltip content="Open agency guide. Browse agencies (coming next)." contentId="agency-guide-btn">
+          <Tooltip content="Browse agencies and apply one to your search." contentId="agency-guide-btn">
             <button
               type="button"
               onClick={function () { setFilterGuideKind('agency'); }}
@@ -1615,7 +1768,7 @@ export function JobSearchScreen(props: JobSearchScreenProps) {
             }}
             tooltip={getFilterGroupTooltip('Location')}
           />
-          <Tooltip content="Open location picker. Browse locations (coming next)." contentId="location-guide-btn">
+          <Tooltip content="Browse locations and apply one to your search." contentId="location-guide-btn">
             <button
               type="button"
               onClick={function () { setFilterGuideKind('location'); }}
@@ -1694,6 +1847,18 @@ export function JobSearchScreen(props: JobSearchScreenProps) {
           onApplySeries={filterGuideKind === 'series' ? function (seriesCode) {
             const next = Object.assign({}, store.filters);
             next.series = seriesCode;
+            store.setFilters(next);
+            store.runSearch();
+          } : undefined}
+          onApplyAgency={filterGuideKind === 'agency' ? function (agencyName) {
+            const next = Object.assign({}, store.filters);
+            next.agency = agencyName;
+            store.setFilters(next);
+            store.runSearch();
+          } : undefined}
+          onApplyLocation={filterGuideKind === 'location' ? function (locationValue) {
+            const next = Object.assign({}, store.filters);
+            next.location = locationValue;
             store.setFilters(next);
             store.runSearch();
           } : undefined}
@@ -1815,6 +1980,11 @@ export function JobSearchScreen(props: JobSearchScreenProps) {
                       }
                     }}
                     onWhyFit={function () {
+                      const effortForList = calcEffort(fitAssessment, (function () {
+                        const c = getChecklistForJob(job.id);
+                        if (c === null) return undefined;
+                        return { specialized: c.specializedExperience.length, skills: c.skillsKeywords.length, documents: c.documentsNeeded.length };
+                      })());
                       openFitBriefing({
                         type: 'fit',
                         jobId: job.id,
@@ -1822,6 +1992,9 @@ export function JobSearchScreen(props: JobSearchScreenProps) {
                         stars: fitScoreToStars(fitAssessment.score),
                         confidence: fitAssessment.confidence,
                         reasons: fitAssessment.reasons,
+                        blocker: primaryBlocker(job, targetRole, fitAssessment),
+                        effort: effortForList,
+                        risks: getRiskFlagLabels(job),
                         inputsUsed: fitAssessment.inputsUsed,
                         missingInputs: fitAssessment.missingInputs !== undefined ? fitAssessment.missingInputs : [],
                         isJobSaved: store.isJobSaved(job.id),
@@ -1877,6 +2050,7 @@ export function JobSearchScreen(props: JobSearchScreenProps) {
             activeTab={detailsTab}
             onTabChange={setDetailsTab}
             decisionBrief={selectedJob !== undefined ? decisionBriefsStore.getBrief(selectedJob.id) : null}
+            snapshot={qualificationSnapshot}
             onSave={function () {
               if (selectedJob !== undefined) handleSaveJob(selectedJob);
             }}
@@ -1884,6 +2058,23 @@ export function JobSearchScreen(props: JobSearchScreenProps) {
               nav.push('/dashboard/resume-readiness');
             }}
             onAskPathAdvisor={function () {}}
+            onExplainInPathAdvisor={function (snap: QualificationSnapshot) {
+              if (selectedJob === undefined) return;
+              openFitBriefing({
+                type: 'fit',
+                jobId: selectedJob.id,
+                jobTitle: selectedJob.title,
+                stars: snap.stars,
+                confidence: snap.confidence,
+                reasons: snap.reasons,
+                blocker: snap.blocker,
+                effort: snap.effort,
+                risks: snap.risks,
+                inputsUsed: snap.inputsUsed,
+                missingInputs: snap.missingInputs,
+                isJobSaved: store.isJobSaved(selectedJob.id),
+              });
+            }}
           />
         </div>
       </div>

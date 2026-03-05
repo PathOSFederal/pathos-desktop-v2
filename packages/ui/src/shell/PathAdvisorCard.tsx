@@ -460,8 +460,11 @@ export function PathAdvisorCard(props: PathAdvisorCardProps) {
               </div>
               {isFitBriefing(briefing) ? (
                 <div className="text-[11px]" style={{ color: 'var(--p-text-dim)' }}>
-                  <p className="mb-1">Fit: {briefing.jobTitle}</p>
-                  <p className="mb-1">{briefing.stars} stars · {briefing.confidence} confidence</p>
+                  <p className="mb-1 font-medium" style={{ color: 'var(--p-text-muted)' }}>Alignment: {briefing.jobTitle}</p>
+                  <p className="mb-1">{briefing.stars} stars · {briefing.confidence} confidence · Effort: {briefing.effort}</p>
+                  {briefing.blocker !== undefined && briefing.blocker !== '' ? (
+                    <p className="mb-1">Primary blocker: {briefing.blocker}</p>
+                  ) : null}
                   {briefing.reasons.length > 0 ? (
                     <ul className="list-disc list-inside mt-1">
                       {briefing.reasons.slice(0, 3).map(function (r, i) {
@@ -469,6 +472,12 @@ export function PathAdvisorCard(props: PathAdvisorCardProps) {
                       })}
                     </ul>
                   ) : null}
+                  {briefing.missingInputs !== undefined && briefing.missingInputs.length > 0 ? (
+                    <p className="mt-1">What is missing: {briefing.missingInputs.join(', ')}</p>
+                  ) : null}
+                  <p className="mt-2 font-medium" style={{ color: 'var(--p-text-muted)' }}>
+                    {briefing.isJobSaved ? 'Next: Open Decision Brief or Start Tailoring.' : 'Next: Save + Start Tailoring.'}
+                  </p>
                 </div>
               ) : (
                 <>

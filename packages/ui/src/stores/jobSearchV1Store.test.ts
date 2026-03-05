@@ -152,6 +152,20 @@ describe('jobSearchV1Store', function () {
     expect(afterClear.filters.series === undefined || afterClear.filters.series === '').toBe(true);
   });
 
+  it('applyFilters with agency updates filters.agency (dropdown trigger label reflects this)', function () {
+    const store = useJobSearchV1Store.getState();
+    store.applyFilters({ agency: 'Department of Veterans Affairs' });
+    const after = useJobSearchV1Store.getState();
+    expect(after.filters.agency).toBe('Department of Veterans Affairs');
+  });
+
+  it('applyFilters with location updates filters.location (dropdown trigger label reflects this)', function () {
+    const store = useJobSearchV1Store.getState();
+    store.applyFilters({ location: 'Washington, DC' });
+    const after = useJobSearchV1Store.getState();
+    expect(after.filters.location).toBe('Washington, DC');
+  });
+
   it('saveJob adds job to core saved-jobs and isJobSaved returns true', function () {
     useJobSearchV1Store.getState().runSearch();
     vi.useFakeTimers();

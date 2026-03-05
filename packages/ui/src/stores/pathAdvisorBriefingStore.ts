@@ -44,8 +44,9 @@ export interface PathAdvisorBriefing {
 
 /**
  * Fit explanation briefing: deterministic "Why this fit?" from Job Search.
- * Dispatched when user clicks "Why this fit?" in results list; rail shows
- * stars, confidence, top reasons, inputs used/missing, and one CTA.
+ * Dispatched when user clicks "Explain this in PathAdvisor" in details Snapshot
+ * or "Why this fit?" in results list; rail shows alignment summary, reasons,
+ * what's missing, and recommended next action.
  */
 export interface PathAdvisorBriefingFit {
   type: 'fit';
@@ -54,9 +55,15 @@ export interface PathAdvisorBriefingFit {
   stars: number;
   confidence: string;
   reasons: string[];
+  /** Single primary blocker line (e.g. series mismatch, grade gap). Empty if none. */
+  blocker: string;
+  /** Effort level for tailoring: Low | Medium | High. */
+  effort: string;
+  /** Risk flag labels (Travel, Drug test, Clearance, etc.). */
+  risks: string[];
   inputsUsed: string[];
   missingInputs: string[];
-  /** When true, show "Save + Start Tailoring"; when false, show "Tailor resume". */
+  /** When true, show "Open Decision Brief" or "Start Tailoring"; when false, "Save + Start Tailoring". */
   isJobSaved: boolean;
 }
 

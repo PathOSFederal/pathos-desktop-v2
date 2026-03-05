@@ -78,6 +78,45 @@ describe('JobSearchScreen', function () {
     expect(state.results[0].title.indexOf('IT Specialist') !== -1 || state.results[0].title.indexOf('Cybersecurity') !== -1).toBe(true);
   });
 
+  it('selecting a job yields details pane content: PathOS Snapshot appears when job selected (or loading on first paint)', function () {
+    useJobSearchV1Store.getState().loadSampleJobs();
+    const state = useJobSearchV1Store.getState();
+    expect(state.selectedJobId).not.toBeNull();
+    expect(state.results.length).toBeGreaterThan(0);
+    const output = renderJobSearch();
+    expect(
+      output.indexOf('PathOS Snapshot') !== -1 || output.indexOf('Loading job search') !== -1
+    ).toBe(true);
+  });
+
+  it('Explain this in PathAdvisor sets rail briefing state (store has type fit and isOpen)', function () {
+    usePathAdvisorBriefingStore.getState().clearBriefing();
+    useJobSearchV1Store.getState().loadSampleJobs();
+    const openBriefing = usePathAdvisorBriefingStore.getState().openBriefing;
+    openBriefing({
+      type: 'fit',
+      jobId: 'mock-js-1',
+      jobTitle: 'IT Specialist (Cybersecurity)',
+      stars: 4,
+      confidence: 'High',
+      reasons: ['Series matches your target (2210)', 'Grade aligned with target (GS-12)'],
+      blocker: '',
+      effort: 'Low',
+      risks: ['Travel', 'Drug test'],
+      inputsUsed: ['target series', 'target grade'],
+      missingInputs: [],
+      isJobSaved: false,
+    });
+    const state = usePathAdvisorBriefingStore.getState();
+    expect(state.briefing).not.toBeNull();
+    expect(state.isOpen).toBe(true);
+    if (state.briefing !== null && typeof state.briefing === 'object') {
+      expect((state.briefing as { type?: string }).type).toBe('fit');
+      expect((state.briefing as { blocker?: string }).blocker).toBeDefined();
+      expect((state.briefing as { effort?: string }).effort).toBe('Low');
+    }
+  });
+
   it('loadSampleJobs then store has results usable for fit scoring', function () {
     useJobSearchV1Store.getState().loadSampleJobs();
     const state = useJobSearchV1Store.getState();
@@ -138,6 +177,9 @@ describe('JobSearchScreen', function () {
       stars: 4,
       confidence: 'High',
       reasons: ['Grade match', 'Series alignment'],
+      blocker: '',
+      effort: 'Medium',
+      risks: [],
       inputsUsed: ['target role', 'job data'],
       missingInputs: [],
       isJobSaved: false,

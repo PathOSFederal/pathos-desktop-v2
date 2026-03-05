@@ -1,6 +1,6 @@
 /**
- * Filter guides: Series (full), Agency/Location (stubs).
- * Drawer is portaled to OverlayRoot; token-only styling; shared zIndex.
+ * Filter guides: Series, Agency, Location (all full). Drawer portaled to OverlayRoot;
+ * token-only styling; shared zIndex.
  */
 
 export { FilterGuideDrawer, type FilterGuideDrawerProps } from './FilterGuideDrawer';
@@ -11,3 +11,12 @@ export {
   filterSeriesGuide,
   type SeriesGuideEntry,
 } from './seriesGuideData';
+export {
+  AGENCY_GUIDE_DATA,
+  AGENCY_CATEGORIES,
+  filterAgencyGuide,
+} from './agencyGuideData';
+export {
+  LOCATION_GUIDE_DATA,
+  filterLocationGuide,
+} from './locationGuideData';

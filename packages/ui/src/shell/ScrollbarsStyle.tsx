@@ -19,6 +19,7 @@ import type React from 'react';
 
 const SCOPE_MAIN = '[data-scroll-container="main"]';
 const SCOPE_PATHOS = '.pathos-scroll';
+const SCOPE_FILTER_GUIDE = '[data-scroll-container="filter-guide-drawer"]';
 
 /**
  * CSS for scoped scrollbars. Thumb uses --p-surface2 (dark, token-safe).
@@ -63,12 +64,35 @@ const scrollbarCSS = `
     background-clip: padding-box;
   }
 
+  /* Chromium: filter guide drawer list (same dark scrollbar as main/pathos) */
+  ${SCOPE_FILTER_GUIDE}::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  ${SCOPE_FILTER_GUIDE}::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ${SCOPE_FILTER_GUIDE}::-webkit-scrollbar-thumb {
+    background: var(--p-surface2);
+    border-radius: 4px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+  }
+  ${SCOPE_FILTER_GUIDE}::-webkit-scrollbar-thumb:hover {
+    background: var(--p-border-strong);
+    background-clip: padding-box;
+  }
+
   /* Firefox: thumb and track (best effort; scrollbar-width thin) */
   ${SCOPE_MAIN} {
     scrollbar-width: thin;
     scrollbar-color: var(--p-surface2) transparent;
   }
   ${SCOPE_PATHOS} {
+    scrollbar-width: thin;
+    scrollbar-color: var(--p-surface2) transparent;
+  }
+  ${SCOPE_FILTER_GUIDE} {
     scrollbar-width: thin;
     scrollbar-color: var(--p-surface2) transparent;
   }

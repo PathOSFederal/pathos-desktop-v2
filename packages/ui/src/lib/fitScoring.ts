@@ -280,6 +280,56 @@ export function buildFitAssessment(args: BuildFitAssessmentArgs): FitAssessment 
 }
 
 // ---------------------------------------------------------------------------
+// primaryBlocker: single best mismatch for Snapshot "Primary blocker" line
+// ---------------------------------------------------------------------------
+
+/**
+ * Deterministic primary blocker from fit assessment and job/target.
+ * Used by Job Details Snapshot panel. Priority: no target role > series mismatch >
+ * grade gap > location/remote mismatch > none (no single blocker).
+ */
+export function primaryBlocker(
+  job: Job | JobWithOverview,
+  targetRole: TargetRoleInput,
+  fitAssessment: FitAssessment
+): string {
+  const wantSeries = targetRole.series !== undefined && targetRole.series !== '' ? targetRole.series.trim() : null;
+  const jobSeries = seriesFromJob(job);
+  const jobGradeNum = parseGradeLevel(job.grade);
+  const wantGradeNum = parseGradeLevel(targetRole.gsTarget);
+  const jobGradeLabel = job.grade !== undefined && job.grade !== '' ? job.grade : (jobGradeNum !== null ? 'GS-' + jobGradeNum : null);
+  const wantGradeLabel = targetRole.gsTarget !== undefined && targetRole.gsTarget !== '' ? targetRole.gsTarget : (wantGradeNum !== null ? 'GS-' + wantGradeNum : null);
+
+  if (wantSeries === null && (targetRole.gsTarget === undefined || targetRole.gsTarget === '')) {
+    return 'Set a Target Role to get alignment signals.';
+  }
+  if (wantSeries !== null && jobSeries !== null && jobSeries !== wantSeries) {
+    return 'Target series mismatch (your target: ' + wantSeries + ', job: ' + jobSeries + ')';
+  }
+  if (wantGradeNum !== null && jobGradeNum !== null && jobGradeNum !== wantGradeNum) {
+    const targetStr = wantGradeLabel !== null ? wantGradeLabel : 'target GS-' + wantGradeNum;
+    const jobStr = jobGradeLabel !== null ? jobGradeLabel : 'job GS-' + jobGradeNum;
+    return 'Grade gap (target ' + targetStr + ', job ' + jobStr + ')';
+  }
+  const remote = jobIsRemote(job);
+  const wantRemote =
+    targetRole.remotePreference !== undefined &&
+    targetRole.remotePreference !== '' &&
+    targetRole.remotePreference.toLowerCase().indexOf('remote') !== -1;
+  if (wantRemote && !remote) {
+    return 'Job is not remote; may not match your preference.';
+  }
+  if (
+    targetRole.location !== undefined &&
+    targetRole.location !== '' &&
+    (job.location === undefined || job.location.toLowerCase().indexOf(targetRole.location.toLowerCase().trim()) === -1)
+  ) {
+    return 'Location may not match your search area.';
+  }
+  return '';
+}
+
+// ---------------------------------------------------------------------------
 // fitScoreToStars: deterministic 0–100 → 1–5 stars (for display)
 // ---------------------------------------------------------------------------
 

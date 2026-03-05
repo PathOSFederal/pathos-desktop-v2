@@ -1,3 +1,118 @@
+# Job Search — Qualification feedback on job selection v1
+
+(Do not commit or push. Branch: feature/job-search-qualification-feedback-v1.)
+
+## What changed
+
+1. **PathOS Snapshot panel (Job Details pane)**  
+   - New panel above the tabs (Overview & Docs, Requirements, PathOS Brief), visible immediately on job selection and when switching tabs.  
+   - **Alignment:** Fit stars (1–5 from fitScoreToStars), Confidence chip (Low/Medium/High), Effort chip (Low/Medium/High); all with tooltips (fitTooltips).  
+   - **Primary blocker:** Single line (e.g. "Target series mismatch (your target: 2210, job: 0343)", "Grade gap (target GS-12, job GS-14)", or "Set a Target Role to get alignment signals.").  
+   - **Risk flags:** Up to 3 chips + "+N more" from existing overview/risk data (Travel, Drug test, Clearance); chips have tooltips (chipTooltips).  
+   - **Next action:** Single CTA — "Save + Start Tailoring" if not saved, "Start Tailoring" if saved.  
+   - **Explain in PathAdvisor:** Secondary link "Explain this in PathAdvisor" opens the PathAdvisor rail briefing (no inline expansion, no modal).
+
+2. **PathAdvisor explanation routing**  
+   - "Explain this in PathAdvisor" (and list "Why this fit?") set PathAdvisor briefing store with a structured payload: type "qualification", jobId, stars, confidence, reasons, blocker, effort, risks, inputsUsed, missingInputs.  
+   - PathAdvisorCard renders fit briefing: alignment summary, top 2–3 reasons, primary blocker, effort, what's missing, recommended next action.  
+   - No inline expanders in list or details; all "why" flows go to the rail.
+
+3. **Deterministic scoring and blocker**  
+   - Reused buildFitAssessment, fitScoreToStars, effortEstimate from fitScoring.  
+   - **New:** `primaryBlocker(job, targetRole, fitAssessment)` in fitScoring.ts — returns single best mismatch (no target role > series mismatch > grade gap > remote/location).  
+   - Snapshot built in JobSearchScreen via useMemo (qualificationSnapshot) from selectedJob + targetRole; passed as `snapshot` prop to JobDetailsPanel.
+
+4. **PathAdvisorBriefingFit extended**  
+   - pathAdvisorBriefingStore: PathAdvisorBriefingFit now includes `blocker`, `effort`, `risks` (required) so the rail can show full qualification briefing.
+
+5. **Tests**  
+   - fitScoring.test.ts: buildFitAssessment stars 1–5, reasons length 2–3, primaryBlocker (no target / series mismatch / grade gap / empty when match), fitScoreToStars bands, effortEstimate.  
+   - JobSearchScreen.test.tsx: selecting a job yields details pane content (PathOS Snapshot or loading); Explain opens briefing with type fit and store isOpen; existing fit briefing test updated with blocker, effort, risks.
+
+## Files changed (this run)
+
+- **Modified:** packages/ui/src/lib/fitScoring.ts (primaryBlocker), packages/ui/src/screens/JobSearchScreen.tsx (QualificationSnapshot type, Snapshot panel, qualificationSnapshot useMemo, onExplainInPathAdvisor, list onWhyFit with blocker/effort/risks), packages/ui/src/stores/pathAdvisorBriefingStore.ts (PathAdvisorBriefingFit blocker, effort, risks), packages/ui/src/shell/PathAdvisorCard.tsx (fit briefing: blocker, effort, missingInputs, next action), packages/ui/src/screens/JobSearchScreen.test.tsx (snapshot + Explain rail tests), docs/merge-notes.md.
+- **New:** packages/ui/src/lib/fitScoring.test.ts.
+
+## Commands run summaries
+
+- **git status** — On branch feature/job-search-qualification-feedback-v1. Modified: merge-notes, fitScoring, JobSearchScreen, JobSearchScreen.test, PathAdvisorCard, pathAdvisorBriefingStore; plus existing filter-guides/scroll/store files from base branch. New: fitScoring.test.ts.
+- **git branch --show-current** — feature/job-search-qualification-feedback-v1.
+- **git diff --name-status develop...HEAD** — N/A (develop branch does not exist).
+- **git diff --name-status main -- . ':(exclude)artifacts'** — (branch includes prior work; this run adds Snapshot panel, primaryBlocker, PathAdvisor fit briefing extension, tests.)
+- **git diff --stat develop...HEAD** — N/A.
+- **git diff --stat main -- . ':(exclude)artifacts'** — (cumulative branch vs main.)
+- **pnpm -r typecheck** — Passed (packages/adapters, packages/core, packages/ui, apps/desktop).
+- **pnpm test** — Passed (751 tests, 51 files; includes fitScoring.test, JobSearchScreen snapshot + Explain tests).
+- **pnpm routes:check** — OK (all Sidebar routes resolve in Desktop and Next).
+- **pnpm overlays:check** — Passed (Overlay Rule v1 / OverlayRoot).
+
+## Manual checks
+
+- Select a job → PathOS Snapshot appears immediately above tabs (stars, confidence, effort, blocker line, risk chips, Save/Start Tailoring, Explain this in PathAdvisor).  
+- Switch tabs (Overview & Docs, Requirements, PathOS Brief) → Snapshot stays visible.  
+- Click "Explain this in PathAdvisor" → PathAdvisor rail shows qualification briefing (alignment, reasons, blocker, effort, what's missing, next action); no inline expansion, no modal.  
+- Tooltips on stars, confidence, effort, risk chips present and not clipped (portaled).
+
+---
+
+# Job Search — Agency + Location filter guides v1
+
+(Do not commit or push. Branch: feature/job-search-agency-location-guides-v1.)
+
+## What changed
+
+1. **Agency guide (full)**  
+   - **Data:** `packages/ui/src/components/filter-guides/agencyGuideData.ts` — agencies derived from MOCK_JOBS plus curated set (DHS, VA, DoD, HHS, IRS, SSA, USDA, DOJ, GSA, DOC, DOT, OPM). Each entry: id, name, aliases (e.g. VA → Department of Veterans Affairs), optional tags (Popular, Cabinet, Independent).  
+   - **Drawer:** Title "Agency guide"; search matches acronym, name, aliases (case-insensitive); optional category chips (All, Popular, Cabinet, Independent); columns Agency | Acronym | Notes. Row click applies agency filter (store.filters.agency = entry.name), closes drawer, triggers runSearch.  
+   - **State feedback:** Agency dropdown trigger label updates immediately (All Agencies → selected agency name). Tooltip on guide icon: "Browse agencies and apply one to your search."
+
+2. **Location guide (full)**  
+   - **Data:** `packages/ui/src/components/filter-guides/locationGuideData.ts` — locations derived from MOCK_JOBS; aliases DC, Washington DC, DMV, NCR → Washington, DC (DMV) with applyValue "Washington, DC" for dropdown/match. Remote/Nationwide as special. Entry: id, label, aliases, type (metro|state|remote|other), optional applyValue.  
+   - **Drawer:** Title "Location picker"; search matches label + aliases; optional quick chips (Remote, DC/DMV, Florida, Texas). Columns Location | Type. Row click applies location filter (store.filters.location = entry.applyValue or entry.label), closes drawer, triggers runSearch.  
+   - **State feedback:** Location dropdown trigger label updates immediately (Any Location → selected label).
+
+3. **Filter row integration**  
+   - Single guide icon (BookOpen) next to each dropdown; tooltips updated. No new clutter; same hover affordance as other interactive components.
+
+4. **Consistency with Series guide**  
+   - Drawer list uses full height (flex-1 min-h-0), scrolls properly; row hover highlight (var(--p-surface)); full-row click; scrollbar styled via `data-scroll-container="filter-guide-drawer"` in ScrollbarsStyle (dark, token-only).
+
+5. **Tests**  
+   - `agencyGuideData.test.ts`: search "VA" returns Department of Veterans Affairs; search by alias/name; category filter.  
+   - `locationGuideData.test.ts`: search "DMV" returns Washington DC entry; search by alias/label; empty query returns all.  
+   - `jobSearchV1Store.test.ts`: applyFilters with agency updates filters.agency; applyFilters with location updates filters.location (dropdown trigger label reflects).
+
+## Files changed
+
+- **New:** `packages/ui/src/components/filter-guides/agencyGuideData.ts`, `agencyGuideData.test.ts`, `locationGuideData.ts`, `locationGuideData.test.ts`
+- **Modified:** `packages/ui/src/components/filter-guides/FilterGuideDrawer.tsx` (Agency + Location full UI; onApplyAgency, onApplyLocation), `filterGuideTypes.ts` (AgencyGuideEntry/LocationGuideEntry shapes; applyValue), `index.ts` (export agency/location data + filters)
+- **Modified:** `packages/ui/src/screens/JobSearchScreen.tsx` (onApplyAgency, onApplyLocation; tooltips for guide icons)
+- **Modified:** `packages/ui/src/shell/ScrollbarsStyle.tsx` (SCOPE_FILTER_GUIDE for filter-guide-drawer scrollbar)
+- **Modified:** `packages/ui/src/stores/jobSearchV1Store.test.ts` (two tests: applyFilters agency/location)
+
+## Commands run summaries
+
+- **git status** — On branch feature/job-search-agency-location-guides-v1. Modified: FilterGuideDrawer, filterGuideTypes, index, JobSearchScreen, ScrollbarsStyle, jobSearchV1Store.test. Untracked: agencyGuideData.ts, agencyGuideData.test.ts, locationGuideData.ts, locationGuideData.test.ts.
+- **git branch --show-current** — feature/job-search-agency-location-guides-v1.
+- **git diff --name-status develop...HEAD** — N/A (develop branch does not exist).
+- **git diff --stat develop...HEAD** — N/A.
+- **git diff --name-status main -- . ':(exclude)artifacts'** — (includes prior branch work; this run adds/modifies filter-guides agency/location, JobSearchScreen wiring, ScrollbarsStyle, jobSearchV1Store.test.)
+- **git diff --stat main -- . ':(exclude)artifacts'** — 27 files changed (cumulative vs main).
+- **pnpm -r typecheck** — Passed (packages/adapters, packages/core, packages/ui, apps/desktop).
+- **pnpm test** — Passed (738 tests, 50 files; includes agencyGuideData.test, locationGuideData.test, jobSearchV1Store applyFilters agency/location).
+- **pnpm routes:check** — OK (all Sidebar routes resolve in Desktop and Next).
+- **pnpm overlays:check** — Passed (Overlay Rule v1 / OverlayRoot).
+
+## Manual checks
+
+- Open Agency guide → hover rows → select an agency → drawer closes, dropdown label updates (e.g. to "Department of Veterans Affairs" or selected name), search runs.
+- Open Location picker → hover rows → select a location → drawer closes, dropdown label updates (e.g. to "Washington, DC" or "Remote"), search runs.
+- Drawer not clipped by scroll panes or rail (portaled to OverlayRoot); scrollbars in drawer list are dark (token --p-surface2).
+- overlays:check passes.
+
+---
+
 # Job Search — UI interaction hover standard v1
 
 (Do not commit or push. Branch: feature/ui-interaction-hover-standard-v1.)
