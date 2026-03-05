@@ -8,11 +8,20 @@
  *
  * Shape matches DashboardData from DashboardScreen. When DashboardScreen
  * receives no data prop, it uses this mock.
+ *
+ * Day 60: focusHero is driven by Career Readiness "Next best action" (shared
+ * summary) so "Do now" and PathAdvisor rail match; CTA routes to Career Readiness.
  */
 
 import type { DashboardData } from '../DashboardScreen';
+import { getCareerReadinessSummary } from '../careerReadiness/careerReadinessMockData';
 
 function getMockDashboardData(): DashboardData {
+  const readinessSummary = getCareerReadinessSummary();
+  const nextBestLabel =
+    readinessSummary.nextBestActionText !== undefined && readinessSummary.nextBestActionText !== ''
+      ? readinessSummary.nextBestActionText
+      : 'Open Career Readiness';
   return {
     briefing: [
       { label: 'Saved Jobs', value: '3', subtext: '+1 this week', subtextPositive: true },
@@ -23,18 +32,18 @@ function getMockDashboardData(): DashboardData {
     focusHero: {
       title: 'Your next best move',
       reason:
-        'Your resume is missing specialized experience phrasing for GS-0343. Fixing this is the fastest path to referral.',
-      ctaLabel: 'Fix resume gap',
+        'Your readiness score is based on local data. The highest-impact action right now is: ' + nextBestLabel + '. Open Career Readiness to see your action plan and gaps.',
+      ctaLabel: nextBestLabel,
       stepBadge: 'Step 1 of 3',
       estimatedTime: '15–20 min',
-      whyItMatters: 'Specialized experience is the top referral filter for GS-0343.',
-      whatYoullDo: 'Add 2–3 bullets with program evaluation and data analysis phrasing.',
+      whyItMatters: 'Career Readiness is computed locally from your resume and profile. Improving the top gaps moves your score the most.',
+      whatYoullDo: 'Open Career Readiness and complete the first action in your action plan.',
       explainKnow:
-        'Your uploaded resume targets GS-0301 (Miscellaneous Admin). The job you saved (Program Analyst GS-0343-12) requires specialized experience in program evaluation and data analysis.',
+        'Your readiness score and top gaps come from the same local computation as the Career Readiness screen. The "Next best action" is the first item in the Action Plan there.',
       explainNotKnow:
-        'Whether you have actual experience in program evaluation that simply is not documented, or if you need to reframe existing experience.',
+        'Whether you have already completed this action (recompute on Career Readiness to refresh), or if you want to see other options in the action plan.',
       explainWhy:
-        'Specialized experience language is the #1 reason qualified applicants fail to get referred. Adding 2-3 bullet points with GS-0343 keywords has the highest ROI right now.',
+        'The action plan is ordered by impact. Doing the first item typically gives the largest score gain for the effort.',
     },
     focusSmall: [
       {

@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import type { DashboardData } from '../DashboardScreen';
 import { buildDashboardViewModel } from './buildDashboardViewModel';
 import { mockDashboardData } from './mockDashboardData';
+import { CAREER_READINESS } from '../../routes/routes';
 
 function cloneMockData(): DashboardData {
   return JSON.parse(JSON.stringify(mockDashboardData)) as DashboardData;
@@ -28,6 +29,14 @@ describe('buildDashboardViewModel', function () {
       expect(output.focus[i].actionRoute).toBeTruthy();
       expect(output.focus[i].actionRoute.length).toBeGreaterThan(0);
     }
+  });
+
+  it('uses CAREER_READINESS route for focus-hero (Do now → Career Readiness)', function () {
+    const data = cloneMockData();
+    const output = buildDashboardViewModel(data);
+    const hero = output.focus.find(function (f) { return f.id === 'focus-hero'; });
+    expect(hero).toBeDefined();
+    expect(hero != null ? hero.actionRoute : '').toBe(CAREER_READINESS);
   });
 
   it('caps tracks to top 3 and includes route per track', function () {

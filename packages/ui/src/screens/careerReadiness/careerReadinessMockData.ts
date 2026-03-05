@@ -118,3 +118,53 @@ export const CAREER_READINESS_MOCK: CareerReadinessMockData = {
   evidenceTargetRoleUsed: 'General readiness',
   evidencePrivacyNote: 'Computed locally. Not shared.',
 };
+
+// ---------------------------------------------------------------------------
+// CareerReadinessSummary — Single source of truth for Dashboard (and other consumers)
+// ---------------------------------------------------------------------------
+//
+// PURPOSE: Dashboard and PathAdvisor rail reuse the same readiness numbers
+// (score, label, top gaps, next best action) without duplicating mock data.
+// Export a small summary type and a selector so Dashboard stays in sync with
+// Career Readiness screen.
+
+/**
+ * Summary shape for Dashboard readiness tile and "Do now" / Next best action.
+ * Derived from CAREER_READINESS_MOCK (or future real data). Single source of truth.
+ */
+export interface CareerReadinessSummary {
+  score: number;
+  scoreMax: number;
+  label: string;
+  updatedAt: string;
+  targetRoleLabel: string;
+  /** First item from action plan = next best action (e.g. "Add 3 quantified accomplishments (+4)"). */
+  nextBestActionText: string;
+  /** Top gaps (same list as Career Readiness screen). */
+  topGaps: ReadinessGap[];
+}
+
+/**
+ * Returns the shared readiness summary for Dashboard and rail.
+ * Today: derived from CAREER_READINESS_MOCK. Future: could read from store/API.
+ */
+export function getCareerReadinessSummary(): CareerReadinessSummary {
+  const mock = CAREER_READINESS_MOCK;
+  const firstAction =
+    mock.actionPlanItems.length > 0
+      ? mock.actionPlanItems[0]
+      : null;
+  const nextBestActionText =
+    firstAction !== null
+      ? firstAction.label + ' (+' + String(firstAction.impact) + ')'
+      : '';
+  return {
+    score: mock.score,
+    scoreMax: mock.scoreMax,
+    label: mock.badgeLabel,
+    updatedAt: '2 min ago',
+    targetRoleLabel: mock.evidenceTargetRoleUsed,
+    nextBestActionText,
+    topGaps: mock.gaps,
+  };
+}

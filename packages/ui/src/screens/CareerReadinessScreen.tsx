@@ -86,6 +86,18 @@ export function CareerReadinessScreen(): React.ReactElement {
   const projectedScore = computeProjectedScore(mock.score, selectedActionIds, mock.actionPlanItems);
 
   useEffect(
+    function scrollToActionPlanWhenHashPresent() {
+      if (typeof window === 'undefined') return;
+      if (window.location.hash !== '#action-plan') return;
+      const el = document.getElementById('action-plan');
+      if (el !== null) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    },
+    []
+  );
+
+  useEffect(
     function () {
       setOverrides({
         viewingLabel: 'Career Readiness',
@@ -303,10 +315,11 @@ export function CareerReadinessScreen(): React.ReactElement {
         </ModuleCard>
       </div>
 
-      {/* Action Plan card */}
-      <ModuleCard
-        icon={<ClipboardList className="w-4 h-4" />}
-        title="Action Plan"
+      {/* Action Plan card — id for dashboard CTA deep-link (hash #action-plan) */}
+      <div id="action-plan">
+        <ModuleCard
+          icon={<ClipboardList className="w-4 h-4" />}
+          title="Action Plan"
         variant="default"
         action={
           <div className="flex items-center gap-2">
@@ -380,6 +393,7 @@ export function CareerReadinessScreen(): React.ReactElement {
           })}
         </ul>
       </ModuleCard>
+      </div>
 
       {/* Evidence & Inputs: collapsible with prominent collapsed row and hint for discoverability */}
       <div

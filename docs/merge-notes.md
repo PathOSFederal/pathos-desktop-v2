@@ -1,3 +1,26 @@
+# Day 60 — Dashboard Career Readiness metrics v1
+
+(Do not commit or push. Branch: feature/day-60-dashboard-readiness-metrics-v1.)
+
+## Goal
+
+Update Dashboard so it reflects the new Career Readiness system (metrics + gaps + action link), keeping trust-first UX and local-only posture.
+
+## Result
+
+- **pnpm lint:** 0 errors, 26 warnings.
+- **pnpm -r typecheck:** Pass.
+- **pnpm test:** 765 tests passed.
+- **pnpm build:** Pass.
+- **Patch artifacts:** artifacts/day-60.patch (main baseline, 30618 bytes), artifacts/day-60-this-run.patch (30618 bytes). develop not in repo. Briefing tile height contract (BRIEFING_TILE_MIN_H); Readiness tile compact + Details popover (Radix); no inline Top gaps.
+
+## Day 60 (run 3) — Briefing tiles uniform; Details popover; CTAs standardized
+
+- **Briefing tiles simplified:** Context (Target, Local-only, Updated) moved into Readiness Details popover; primary metrics enlarged (26–28px); CTAs standardized (Open Saved Jobs, Open Applications, Open Career Readiness, Open Status) in same slot; duplicate Readiness icon removed (exactly one Details icon).
+- **pnpm lint / typecheck / test / build:** Pass. 767 tests. Patch artifacts: day-60.patch 42710 bytes, day-60-this-run.patch 42710 bytes (UTF-8, exclude artifacts/).
+
+---
+
 # Day 59 — Merge-ready gates + patch refresh (this run)
 
 (Do not commit or push. Branch: feature/day-59-career-readiness-tab-v1.)
