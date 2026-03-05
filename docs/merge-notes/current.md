@@ -3108,3 +3108,238 @@ Changes not staged for commit:
 | How tested | Manual: focus composer (ring appears), type and Enter or click Send → user message appears, then simulated reply after short delay; list scrolls to bottom. pnpm -r typecheck and pnpm -r test. |
 
 Do not commit or push.
+
+---
+
+# Day 59 — Career Readiness tab v1
+
+**Branch:** `feature/day-59-career-readiness-tab-v1`  
+**Date:** March 5, 2026  
+**Status:** Implementation complete (do not commit or push)
+
+## Goal
+
+Implement a new Career Readiness tab/screen in the PathOS desktop/web app that matches current PathOS CSS/theme and layout. Screen shows competitiveness baseline (score, trajectory chart, radar chart, gaps, action plan); PathAdvisor rail shows Viewing: Career Readiness with INSIGHT and NEXT BEST ACTION cards.
+
+## Files changed (summary)
+
+- **New:** `packages/ui/src/screens/CareerReadinessScreen.tsx`, `CareerReadinessScreen.test.tsx`, `careerReadiness/ReadinessTrajectoryChart.tsx`, `ReadinessRadarChart.tsx`, `careerReadinessMockData.ts`; `app/(shared)/dashboard/career-readiness/page.tsx`; `docs/change-briefs/day-59.md`
+- **Modified:** `packages/ui/src/routes/routes.ts` (CAREER_READINESS route, SIDEBAR_ROUTES); `packages/ui/src/shell/Sidebar.tsx` (Career Readiness nav item after Dashboard, Cog icon, isItemActive); `packages/ui/src/shell/PathAdvisorRail.tsx` (pass railContent); `packages/ui/src/shell/PathAdvisorCard.tsx` (railContent: INSIGHT + NEXT BEST ACTION + collapsed sections); `packages/ui/src/stores/pathAdvisorScreenOverridesStore.ts` (PathAdvisorRailContent, railContent on overrides); `packages/ui/src/index.ts` (export CareerReadinessScreen); `apps/desktop/src/DesktopApp.tsx` (route /dashboard/career-readiness → CareerReadinessScreen)
+
+## UX notes
+
+- Nav order: Dashboard, Career Readiness, … (Career Readiness in OVERVIEW section).
+- Active state highlights when pathname === CAREER_READINESS.
+- PathAdvisor shows "Viewing: Career Readiness", "Privacy: Local only", INSIGHT bullets, NEXT BEST ACTION ("Add 3 quantified accomplishments (+4)." / Start), collapsed "Explain scoring" / "How this works".
+- Action Plan checkboxes update "Projected readiness" live (base 74 + sum of selected impacts, clamp 100).
+- Evidence & Inputs section collapses/expands; expanded content shows profile fields, resume used, target role, privacy note.
+- All data local-only mock; no backend; no persistence of selections in v1.
+
+## Known follow-ups
+
+- Persist action plan selections if a persistence utility is added later.
+- Wire "Improve readiness", "View top opportunities", gap CTAs, and PathAdvisor "Start" to real flows when available.
+- Consider adding owner-map update if route/screen ownership is tracked.
+
+## Human Simulation Gate
+
+| Item | Value |
+|------|--------|
+| Required | No |
+| Triggers hit | none |
+| Reason | New screen with local-only mock state; no create/save/delete, no store persistence, no SSR/hydration change to existing flows. |
+
+## Commands run (paste outputs)
+
+**git status**
+```
+On branch feature/day-59-career-readiness-tab-v1
+Changes not staged for commit:
+  new file:   app/(shared)/dashboard/career-readiness/page.tsx
+  modified:   apps/desktop/src/DesktopApp.tsx
+  ...
+  new file:   packages/ui/src/screens/CareerReadinessScreen.tsx
+  ...
+  (18 files total)
+no changes added to commit
+```
+
+**git branch --show-current:** `feature/day-59-career-readiness-tab-v1`
+
+**git diff --name-status main -- . ':(exclude)artifacts'**
+```
+A	app/(shared)/dashboard/career-readiness/page.tsx
+M	apps/desktop/src/DesktopApp.tsx
+...
+M	packages/ui/src/stores/pathAdvisorScreenOverridesStore.ts
+```
+
+**git diff --stat main -- . ':(exclude)artifacts'**
+```
+ 18 files changed, 1091 insertions(+), 259 deletions(-)
+```
+(Note: +259 deletions include pre-existing changes in docs/ai/* and other files on branch.)
+
+## Patch artifacts (FINAL)
+
+- **Cumulative:** `artifacts/day-59.patch` (main → working tree, excludes artifacts/)
+- **Incremental:** `artifacts/day-59-this-run.patch` (HEAD → working tree, excludes artifacts/)
+
+**Artifact list (day-59 only):**
+```
+Name                  Length   LastWriteTime
+----                  ------   -------------
+day-59.patch          68469    3/5/2026 12:53:43 PM
+day-59-this-run.patch 68469    3/5/2026 12:53:43 PM
+```
+
+## AI Acceptance Checklist
+
+| Item | Value |
+|------|--------|
+| Flow | User opens Career Readiness from nav → screen mounts → setOverrides(Career Readiness, railContent) → PathAdvisor shows INSIGHT + NEXT BEST ACTION. Check/uncheck action items → projected score updates (74 + sum impacts). Evidence & Inputs expand/collapse. |
+| Store(s) | pathAdvisorScreenOverridesStore (setOverrides on mount, clear on unmount) |
+| Storage key(s) | none |
+| Failure mode | If overrides not set: rail shows default Dashboard view. If route missing: 404. |
+| How tested | pnpm -r typecheck, pnpm test (CareerReadinessScreen.test.tsx: 3 smoke tests). Manual: open /dashboard/career-readiness, confirm nav highlight, score card, charts, action plan, PathAdvisor content. |
+
+---
+
+# Day 59 — Career Readiness UX/layout fixes (second run)
+
+**Branch:** `feature/day-59-career-readiness-tab-v1`  
+**Date:** March 5, 2026  
+**Status:** UX fixes complete (do not commit or push)
+
+## Goal
+
+Fix UX/layout issues: compact Trajectory card, no radar label clipping, score card target-role microcopy, discoverable Evidence & Inputs, Show assumptions interactive.
+
+## What changed
+
+- ReadinessTrajectoryChart: CHART_HEIGHT 56, tighter padding, wrapper max-h 72px.
+- ReadinessRadarChart: viewBox with VIEW_PADDING 44, chart content offset so labels never clip; wrapper padding; fontSize 9.
+- CareerReadinessScreen: getTargetRoleMicrocopy() under badge; Evidence & Inputs border accent, "Audit details" badge, hint "See what inputs were used for scoring."; Show assumptions with INTERACTIVE_HOVER_CLASS and expanded placeholder.
+- CareerReadinessScreen.test: assert "Baseline competitiveness across common federal roles.", "See what inputs were used for scoring."
+
+## Commands (this run)
+
+**git status:** (see merge-notes.md Day 59 second run)  
+**git branch --show-current:** feature/day-59-career-readiness-tab-v1  
+**git diff --name-status main -- . ':(exclude)artifacts':** (20 files cumulative)  
+**git diff --stat main -- . ':(exclude)artifacts':** 20 files changed, 1256 insertions(+), 259 deletions(-)
+
+## Patch Artifacts (FINAL)
+
+- **Cumulative:** `artifacts/day-59.patch` (main → working tree, excludes artifacts/)
+- **Incremental:** `artifacts/day-59-this-run.patch` (HEAD → working tree, excludes artifacts/)
+
+**Artifact list (day-59, after UX fix run):**
+```
+Name                  Length   LastWriteTime
+----                  ------   -------------
+day-59.patch          78642    3/5/2026 1:08:38 PM
+day-59-this-run.patch 78642    3/5/2026 1:08:38 PM
+```
+
+---
+
+# Day 59 — Card proportion + radar label scaling (third run)
+
+**Branch:** feature/day-59-career-readiness-tab-v1  
+**Date:** March 5, 2026
+
+## Goal
+
+Fix disproportion between Trajectory and Radar cards; fix radar SVG label scaling bug (labels rendering extremely large).
+
+## What changed
+
+- **Layout:** Grid row min-h-[320px]; both cards h-full flex flex-col; Trajectory content in flex-1 justify-center wrapper so chart is centered and card does not feel empty. Trajectory chart CHART_HEIGHT 72, minHeight 72.
+- **Radar:** SVG explicit width/height 220px (RENDER_SIZE) so it never scales; labels stay stable size. Removed width="100%" and maxWidth. Removed unused polygonPoints (lint).
+
+## Commands
+
+**git status:** On branch feature/day-59-career-readiness-tab-v1; changes not staged.  
+**git branch --show-current:** feature/day-59-career-readiness-tab-v1  
+**git diff --name-status main -- . ':(exclude)artifacts':** 20 files (cumulative).  
+**git diff --stat main -- . ':(exclude)artifacts':** 20 files changed, 1361 insertions(+), 259 deletions(-).
+
+## Patch Artifacts (FINAL)
+
+**Artifact list (day-59, after third run):**
+```
+Name                  Length   LastWriteTime
+----                  ------   -------------
+day-59.patch          85767    3/5/2026 1:25:00 PM
+day-59-this-run.patch 85767    3/5/2026 1:24:59 PM
+```
+
+---
+
+# Day 59 — Readiness Trajectory: Actual vs Possible (v0 parity)
+
+**Branch:** feature/day-59-career-readiness-tab-v1  
+**Date:** March 5, 2026
+
+## Goal
+
+Update the Readiness Trajectory chart to match v0 mock: two lines (Actual solid, Possible dashed), compact legend, trust-first microcopy, and hover tooltip showing both values. No new deps; no theme drift.
+
+## What changed
+
+- **Mock data:** Extended to two-series trajectory: `actualPoints` (Today 74, 3 mo 74, 6 mo 75, 12 mo 76) and `possiblePoints` (Today 74, 3 mo 78, 6 mo 84, 12 mo 90). Replaced `trajectoryPoints` with `trajectory: TrajectoryData` on `CareerReadinessMockData`.
+- **ReadinessTrajectoryChart:** Accepts `trajectory` (actualPoints + possiblePoints). Renders Actual line (solid, `var(--p-accent)`) and Possible line (dashed, `var(--p-text-dim)`). CHART_HEIGHT 80. Compact legend top-right: "Actual" (solid indicator), "Possible" (dashed indicator). Minimal hover tooltip: label + Actual/Possible values + "Possible assumes selected actions completed." Hit areas for each time point with mouse + keyboard focus.
+- **CareerReadinessScreen:** Passes `mock.trajectory` to chart. Microcopy under chart: "Actual shows your progress over time. Possible shows where you could be if you complete selected actions. Local-only." Assumptions list when expanded: "Selected actions completed", "Target role unchanged", "Profile inputs remain consistent".
+- **Tests:** New smoke assertion for legend labels ("Actual", "Possible") and exact trust microcopy.
+
+## Why
+
+- v0 parity: users see plan (Possible) vs evidence (Actual) in one chart with clear trust framing.
+- Trust-first: microcopy and tooltip explain what each line means and that Possible is conditional.
+
+## Follow-ups
+
+- None. Persistence of trajectory data remains out of scope for this step.
+
+## Human Simulation Gate
+
+| Item | Value |
+|------|-------|
+| Required | No |
+| Triggers hit | none |
+| Why | UI-only change (chart, copy, tooltip); no store/persistence/SSR changes. |
+
+## AI Acceptance Checklist
+
+| Item | Value |
+|------|-------|
+| Flow | Screen reads mock.trajectory → chart renders two lines + legend + tooltip on hover/focus. |
+| Store(s) | none |
+| Storage key(s) | none |
+| Failure mode | Chart shows empty or wrong series if mock shape wrong. |
+| How tested | Smoke tests (legend + microcopy); manual hover/focus on chart. |
+
+## Commands
+
+**git status:** On branch feature/day-59-career-readiness-tab-v1; changes not staged (CareerReadinessScreen, ReadinessTrajectoryChart, careerReadinessMockData, CareerReadinessScreen.test, docs, etc.).  
+**git branch --show-current:** feature/day-59-career-readiness-tab-v1  
+**Note:** No `develop` branch in repo; cumulative patch uses `main` as baseline.  
+**git diff --name-status main...HEAD:** (empty — branch has no commits ahead of main; all changes are working tree.)  
+**git diff --stat main...HEAD:** (empty.)
+
+## Patch Artifacts (FINAL)
+
+- **Cumulative:** `artifacts/day-59.patch` (main → working tree, excludes artifacts/)
+- **Incremental:** `artifacts/day-59-this-run.patch` (HEAD → working tree, excludes artifacts/)
+
+**Artifact list (day-59, after v0 trajectory run):**
+```
+Name          : day-59.patch
+Length        : 102726
+LastWriteTime : 3/5/2026 1:35:50 PM
+
+Name          : day-59-this-run.patch
+Length        : 102726
+LastWriteTime : 3/5/2026 1:35:51 PM
+```

@@ -15,7 +15,7 @@
 
 import type React from 'react';
 import { useState, useRef, useEffect } from 'react';
-import { Sparkles, Eye, Shield, Send, Trash2, Settings2, X } from 'lucide-react';
+import { Sparkles, Eye, Shield, Send, Trash2, Settings2, X, Lightbulb, ChevronRight } from 'lucide-react';
 import { ModuleCard } from '../components/ModuleCard';
 import { Tooltip } from '../components/Tooltip';
 import { Z_POPOVER } from '../styles/zIndex';
@@ -54,6 +54,12 @@ export interface PathAdvisorCardProps {
   privacyLabel?: string;
   /** Optional label above the Do now block (e.g. "From Career & Resume"). When unset, shows "From Today's Focus". */
   briefingLabel?: string;
+  /** Optional rail content: INSIGHT card + NEXT BEST ACTION card (e.g. Career Readiness). When set, these render instead of hero Do now. */
+  railContent?: {
+    insightBullets: string[];
+    nextBestAction: { text: string; ctaLabel: string };
+    collapsedSectionLabels?: string[];
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -367,46 +373,100 @@ export function PathAdvisorCard(props: PathAdvisorCardProps) {
         </span>
       </div>
 
-      {/* Do now: mirror of hero focus action; label from props (e.g. "From Career & Resume") or default "From Today's Focus". */}
-      <div className="flex-shrink-0 mb-3">
-        <p className="text-[10px] uppercase tracking-wide mb-1" style={{ color: 'var(--p-text-dim)' }}>
-          {props.briefingLabel !== undefined && props.briefingLabel !== ''
-            ? props.briefingLabel
-            : "From Today's Focus"}
-        </p>
-        {heroDoNow !== null && heroDoNow !== undefined && heroDoNow.route !== null && heroDoNow.route !== '' ? (
-          <button
-            type="button"
-            onClick={function () {
-              nav.push(heroDoNow.route);
-            }}
-            className="w-full rounded-[var(--p-radius)] px-3 py-2 text-[12px] font-medium transition-colors hover:opacity-90 flex items-center justify-center gap-1.5"
-            style={{
-              background: 'var(--p-accent-bg)',
-              border: '1px solid var(--p-accent-muted)',
-              color: 'var(--p-accent)',
-            }}
-            aria-label={heroDoNow.label !== null && heroDoNow.label !== '' ? 'Do now: ' + heroDoNow.label : 'Do now'}
+      {/* Rail content (e.g. Career Readiness): INSIGHT + NEXT BEST ACTION + collapsed sections; otherwise hero Do now. */}
+      {props.railContent !== undefined && props.railContent !== null ? (
+        <div className="flex-shrink-0 mb-3 space-y-3">
+          <div
+            className="rounded-[var(--p-radius)] border p-2.5"
+            style={{ background: 'var(--p-surface2)', borderColor: 'var(--p-border)' }}
           >
-            Do now: {heroDoNow.label !== null && heroDoNow.label !== '' ? heroDoNow.label : 'Open'}
-          </button>
-        ) : (
-          <button
-            type="button"
-            disabled
-            className="w-full rounded-[var(--p-radius)] px-3 py-2 text-[12px] font-medium flex items-center justify-center gap-1.5 opacity-60 cursor-not-allowed"
-            style={{
-              background: 'var(--p-surface2)',
-              border: '1px solid var(--p-border)',
-              color: 'var(--p-text-muted)',
-            }}
-            title="No action selected"
-            aria-label="No action selected"
+            <p className="text-[10px] uppercase tracking-wide mb-1.5 flex items-center gap-1" style={{ color: 'var(--p-text-dim)' }}>
+              <Lightbulb className="w-3 h-3" style={{ color: 'var(--p-accent)' }} aria-hidden />
+              INSIGHT
+            </p>
+            <ul className="list-disc list-inside text-[12px] space-y-0.5" style={{ color: 'var(--p-text-muted)' }}>
+              {props.railContent.insightBullets.map(function (bullet, i) {
+                return <li key={i}>{bullet}</li>;
+              })}
+            </ul>
+          </div>
+          <div
+            className="rounded-[var(--p-radius)] border p-2.5"
+            style={{ background: 'var(--p-surface2)', borderColor: 'var(--p-border)' }}
           >
-            Do now
-          </button>
-        )}
-      </div>
+            <p className="text-[10px] uppercase tracking-wide mb-1.5" style={{ color: 'var(--p-accent)' }}>
+              NEXT BEST ACTION
+            </p>
+            <p className="text-[12px] mb-2" style={{ color: 'var(--p-text)' }}>{props.railContent.nextBestAction.text}</p>
+            <button
+              type="button"
+              className="w-full rounded-[var(--p-radius)] px-3 py-1.5 text-[12px] font-medium transition-colors"
+              style={{
+                background: 'var(--p-accent)',
+                color: 'var(--p-bg)',
+              }}
+              aria-label={props.railContent.nextBestAction.ctaLabel}
+            >
+              {props.railContent.nextBestAction.ctaLabel}
+            </button>
+          </div>
+          {props.railContent.collapsedSectionLabels !== undefined && props.railContent.collapsedSectionLabels.length > 0
+            ? props.railContent.collapsedSectionLabels.map(function (label, i) {
+                return (
+                  <button
+                    key={i}
+                    type="button"
+                    className="w-full flex items-center gap-1 text-[12px] text-left py-1"
+                    style={{ color: 'var(--p-text-muted)' }}
+                  >
+                    <ChevronRight className="w-3.5 h-3.5 flex-shrink-0" aria-hidden />
+                    {label}
+                  </button>
+                );
+              })
+            : null}
+        </div>
+      ) : (
+        <div className="flex-shrink-0 mb-3">
+          <p className="text-[10px] uppercase tracking-wide mb-1" style={{ color: 'var(--p-text-dim)' }}>
+            {props.briefingLabel !== undefined && props.briefingLabel !== ''
+              ? props.briefingLabel
+              : "From Today's Focus"}
+          </p>
+          {heroDoNow !== null && heroDoNow !== undefined && heroDoNow.route !== null && heroDoNow.route !== '' ? (
+            <button
+              type="button"
+              onClick={function () {
+                nav.push(heroDoNow.route);
+              }}
+              className="w-full rounded-[var(--p-radius)] px-3 py-2 text-[12px] font-medium transition-colors hover:opacity-90 flex items-center justify-center gap-1.5"
+              style={{
+                background: 'var(--p-accent-bg)',
+                border: '1px solid var(--p-accent-muted)',
+                color: 'var(--p-accent)',
+              }}
+              aria-label={heroDoNow.label !== null && heroDoNow.label !== '' ? 'Do now: ' + heroDoNow.label : 'Do now'}
+            >
+              Do now: {heroDoNow.label !== null && heroDoNow.label !== '' ? heroDoNow.label : 'Open'}
+            </button>
+          ) : (
+            <button
+              type="button"
+              disabled
+              className="w-full rounded-[var(--p-radius)] px-3 py-2 text-[12px] font-medium flex items-center justify-center gap-1.5 opacity-60 cursor-not-allowed"
+              style={{
+                background: 'var(--p-surface2)',
+                border: '1px solid var(--p-border)',
+                color: 'var(--p-text-muted)',
+              }}
+              title="No action selected"
+              aria-label="No action selected"
+            >
+              Do now
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Conversation window: surface2 + subtle border; scrollable; briefing (when open) then chips then messages. */}
       <div
