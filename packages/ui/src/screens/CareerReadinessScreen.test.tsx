@@ -70,6 +70,17 @@ describe('CareerReadinessScreen', function () {
     expect(output).toContain('Top gaps holding you back');
   });
 
+  it('renders READINESS RADAR section and all 5 radar indicator labels', function () {
+    const output = renderScreen(<CareerReadinessScreen />);
+    expect(output).toContain('Readiness Radar');
+    expect(output).toContain('Target Alignment');
+    expect(output).toContain('Specialized Experience');
+    expect(output).toContain('Resume Evidence');
+    expect(output).toContain('Keywords Coverage');
+    expect(output.indexOf('Leadership') !== -1 && output.indexOf('Scope') !== -1).toBe(true);
+    expect(output).toContain('Leadership &amp; Scope');
+  });
+
   it('renders trajectory legend (Actual, Possible) and trust microcopy', function () {
     const output = renderScreen(<CareerReadinessScreen />);
     expect(output).toContain('Actual');

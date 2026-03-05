@@ -1,4 +1,6 @@
 /**
+ * Deprecated: replaced by ECharts implementation (ReadinessTrajectoryEChart).
+ *
  * Readiness Trajectory — Two-line SVG chart: Actual (solid, primary) and
  * Possible (dashed, muted). Legend and hover tooltip show both values per point.
  * Uses PathOS tokens only; no new chart library.

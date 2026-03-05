@@ -108,3 +108,46 @@ A new **Career Readiness** tab/screen in the PathOS desktop and web app. It show
 **Why it matters**
 
 - Users can compare **plan vs evidence** in one place: the solid line is where they are, the dashed line is where they could be. The microcopy and tooltip make it obvious what is factual (actual progress) and what is conditional (possible path), so the feature stays trust-first and transparent.
+
+---
+
+## ECharts Trajectory upgrade (March 5, 2026)
+
+**What changed**
+
+- The Readiness Trajectory chart is now a **premium interactive** chart built with Apache ECharts instead of custom SVG.
+- Two lines (Actual solid, Possible dashed), axis-based tooltip showing label, Actual, Possible, Gap, and the note “Possible assumes selected actions completed,” and legend toggles to show/hide each series.
+- PathOS colors and typography are applied via a small theme helper that reads CSS variables; layout and card design are unchanged.
+
+**What the user will notice**
+
+- Same two lines and microcopy as before, with richer tooltips (Gap, note) and clickable legend to toggle Actual/Possible.
+- Slightly larger, cleaner chart area; no flashing animations.
+
+**Risks / limitations**
+
+- **Bundle size:** ECharts adds to the UI package size; acceptable for the interactivity gain.
+- **Client-only:** Chart renders only after mount to avoid SSR/hydration issues; run `pnpm install` so `echarts` and `echarts-for-react` are installed before typecheck/test.
+
+---
+
+## Readiness Radar ECharts (March 5, 2026)
+
+**What changed**
+
+- The **Readiness Radar** chart is now an ECharts radar (ReadinessRadarEChart.tsx) instead of custom SVG. Same shared layer as Trajectory: EChart.tsx, pathosChartTheme.ts.
+- **Indicators (exact):** Target Alignment, Specialized Experience, Resume Evidence, Keywords Coverage, Leadership & Scope. Scale 0–100. Values from existing mock radarSpokes.
+- **Tooltip:** On hover shows indicator name + value and the hint: "Local-only. Derived from profile + resume evidence."
+- **Premium:** No label clipping; font sizes from theme; no hard-coded bright colors.
+- **Accessible fallback:** A visually-hidden list of the 5 indicators and their values is rendered for screen readers and test stability.
+- **ReadinessRadarChart.tsx** (SVG) left in place with a deprecation comment; no breaking exports.
+
+**What the user will notice**
+
+- Same Radar card and "Top gaps holding you back" list; the chart is now ECharts radar with hover tooltips and consistent PathOS styling.
+
+---
+
+## Merge readiness (March 5, 2026)
+
+**Gates:** pnpm lint (0 errors; one fix: FilterGuideDrawer setState-in-effect deferred), pnpm -r typecheck, pnpm test (756 passed), pnpm build — all pass. Patch artifacts regenerated (main baseline; develop not in repo).

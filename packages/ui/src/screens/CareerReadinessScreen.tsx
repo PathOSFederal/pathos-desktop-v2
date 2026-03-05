@@ -33,8 +33,8 @@ import {
   type CareerReadinessMockData,
   type ActionPlanItem,
 } from './careerReadiness/careerReadinessMockData';
-import { ReadinessTrajectoryChart } from './careerReadiness/ReadinessTrajectoryChart';
-import { ReadinessRadarChart } from './careerReadiness/ReadinessRadarChart';
+import { ReadinessTrajectoryEChart } from './careerReadiness/ReadinessTrajectoryEChart';
+import { ReadinessRadarEChart } from './careerReadiness/ReadinessRadarEChart';
 
 // ---------------------------------------------------------------------------
 // Target role dropdown options (header)
@@ -235,7 +235,7 @@ export function CareerReadinessScreen(): React.ReactElement {
           className="h-full flex flex-col"
         >
           <div className="flex-1 flex flex-col justify-center min-h-0">
-            <ReadinessTrajectoryChart trajectory={mock.trajectory} />
+            <ReadinessTrajectoryEChart trajectory={mock.trajectory} />
             <p className="mt-2 text-[11px]" style={{ color: 'var(--p-text-dim)' }}>
               Actual shows your progress over time. Possible shows where you could be if you complete selected actions. Local-only.
             </p>
@@ -264,7 +264,7 @@ export function CareerReadinessScreen(): React.ReactElement {
           variant="default"
           className="h-full flex flex-col"
         >
-          <ReadinessRadarChart spokes={mock.radarSpokes} />
+          <ReadinessRadarEChart spokes={mock.radarSpokes} />
           <p className="mt-3 text-[12px] font-medium" style={{ color: 'var(--p-text)' }}>
             Top gaps holding you back
           </p>

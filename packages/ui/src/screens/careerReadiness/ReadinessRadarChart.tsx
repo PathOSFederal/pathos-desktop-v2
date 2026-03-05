@@ -1,4 +1,6 @@
 /**
+ * Deprecated: replaced by ECharts implementation (ReadinessRadarEChart).
+ *
  * Readiness Radar — Minimal SVG radar (pentagon) with one polygon for values.
  * Spokes: Target Alignment, Specialized Exp, Resume Evidence, Keywords Coverage, Leadership & Scope.
  * Uses theme accent; values 0–100 scale to radius.

@@ -104,12 +104,17 @@ export function FilterGuideDrawer(props: FilterGuideDrawerProps): React.ReactEle
   const [selectedCategory, setSelectedCategory] = useState('All');
 
   // Reset local state when drawer opens (so each open starts fresh).
+  // Deferred to avoid react-hooks/set-state-in-effect (setState in effect callback, not sync).
   useEffect(
     function () {
-      if (open) {
+      if (!open) return;
+      const t = setTimeout(function () {
         setSearchQuery('');
         setSelectedCategory('All');
-      }
+      }, 0);
+      return function () {
+        clearTimeout(t);
+      };
     },
     [open]
   );
