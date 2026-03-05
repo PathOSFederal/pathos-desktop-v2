@@ -15,6 +15,7 @@
 import type React from 'react';
 import { Sparkles } from 'lucide-react';
 import { Tooltip } from './Tooltip';
+import { INTERACTIVE_HOVER_CLASS } from '../styles/interactiveHover';
 
 export interface AskPathAdvisorButtonProps {
   /** Click handler; typically opens PathAdvisor briefing or focus. */
@@ -81,7 +82,8 @@ export function AskPathAdvisorButton(props: AskPathAdvisorButtonProps) {
   const iconSize = isSm ? 'w-3.5 h-3.5' : 'w-4 h-4';
 
   const buttonClassName =
-    'rounded-[var(--p-radius)] font-medium transition-colors hover:opacity-90 inline-flex items-center gap-1.5 ' +
+    INTERACTIVE_HOVER_CLASS +
+    ' rounded-[var(--p-radius)] font-medium inline-flex items-center gap-1.5 ' +
     buttonPadding +
     ' ' +
     textSize +

@@ -33,6 +33,7 @@ export interface BriefingSection {
   body: string;
 }
 
+/** Generic briefing (Dashboard "Ask PathAdvisor" style): heading + body sections. */
 export interface PathAdvisorBriefing {
   id: string;
   title: string;
@@ -41,16 +42,51 @@ export interface PathAdvisorBriefing {
   sourceLabel?: string;
 }
 
+/**
+ * Fit explanation briefing: deterministic "Why this fit?" from Job Search.
+ * Dispatched when user clicks "Explain this in PathAdvisor" in details Snapshot
+ * or "Why this fit?" in results list; rail shows alignment summary, reasons,
+ * what's missing, and recommended next action.
+ */
+export interface PathAdvisorBriefingFit {
+  type: 'fit';
+  jobId: string;
+  jobTitle: string;
+  stars: number;
+  confidence: string;
+  reasons: string[];
+  /** Single primary blocker line (e.g. series mismatch, grade gap). Empty if none. */
+  blocker: string;
+  /** Effort level for tailoring: Low | Medium | High. */
+  effort: string;
+  /** Risk flag labels (Travel, Drug test, Clearance, etc.). */
+  risks: string[];
+  inputsUsed: string[];
+  missingInputs: string[];
+  /** When true, show "Open Decision Brief" or "Start Tailoring"; when false, "Save + Start Tailoring". */
+  isJobSaved: boolean;
+}
+
+/** Union: rail can show either a generic briefing or a fit explanation. */
+export type PathAdvisorBriefingPayload = PathAdvisorBriefing | PathAdvisorBriefingFit;
+
+/** Type guard: true when payload is fit briefing. */
+export function isFitBriefing(
+  b: PathAdvisorBriefingPayload | null
+): b is PathAdvisorBriefingFit {
+  return b !== null && typeof b === 'object' && (b as PathAdvisorBriefingFit).type === 'fit';
+}
+
 interface PathAdvisorBriefingState {
   /** Current briefing payload; null when none. */
-  briefing: PathAdvisorBriefing | null;
+  briefing: PathAdvisorBriefingPayload | null;
   /** Whether the briefing panel is visible in the rail. */
   isOpen: boolean;
 }
 
 interface PathAdvisorBriefingActions {
   /** Set briefing and show it in the rail. */
-  openBriefing: (briefing: PathAdvisorBriefing) => void;
+  openBriefing: (briefing: PathAdvisorBriefingPayload) => void;
   /** Hide the briefing panel; keep briefing data so it can be reopened if desired. */
   closeBriefing: () => void;
   /** Clear briefing and close. */
@@ -67,7 +103,7 @@ export const usePathAdvisorBriefingStore = create<PathAdvisorBriefingState & Pat
       briefing: null,
       isOpen: false,
 
-      openBriefing: function (briefing: PathAdvisorBriefing) {
+      openBriefing: function (briefing: PathAdvisorBriefingPayload) {
         set({ briefing, isOpen: true });
       },
 

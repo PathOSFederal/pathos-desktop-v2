@@ -1,3 +1,815 @@
+# Job Search — Qualification feedback on job selection v1
+
+(Do not commit or push. Branch: feature/job-search-qualification-feedback-v1.)
+
+## What changed
+
+1. **PathOS Snapshot panel (Job Details pane)**  
+   - New panel above the tabs (Overview & Docs, Requirements, PathOS Brief), visible immediately on job selection and when switching tabs.  
+   - **Alignment:** Fit stars (1–5 from fitScoreToStars), Confidence chip (Low/Medium/High), Effort chip (Low/Medium/High); all with tooltips (fitTooltips).  
+   - **Primary blocker:** Single line (e.g. "Target series mismatch (your target: 2210, job: 0343)", "Grade gap (target GS-12, job GS-14)", or "Set a Target Role to get alignment signals.").  
+   - **Risk flags:** Up to 3 chips + "+N more" from existing overview/risk data (Travel, Drug test, Clearance); chips have tooltips (chipTooltips).  
+   - **Next action:** Single CTA — "Save + Start Tailoring" if not saved, "Start Tailoring" if saved.  
+   - **Explain in PathAdvisor:** Secondary link "Explain this in PathAdvisor" opens the PathAdvisor rail briefing (no inline expansion, no modal).
+
+2. **PathAdvisor explanation routing**  
+   - "Explain this in PathAdvisor" (and list "Why this fit?") set PathAdvisor briefing store with a structured payload: type "qualification", jobId, stars, confidence, reasons, blocker, effort, risks, inputsUsed, missingInputs.  
+   - PathAdvisorCard renders fit briefing: alignment summary, top 2–3 reasons, primary blocker, effort, what's missing, recommended next action.  
+   - No inline expanders in list or details; all "why" flows go to the rail.
+
+3. **Deterministic scoring and blocker**  
+   - Reused buildFitAssessment, fitScoreToStars, effortEstimate from fitScoring.  
+   - **New:** `primaryBlocker(job, targetRole, fitAssessment)` in fitScoring.ts — returns single best mismatch (no target role > series mismatch > grade gap > remote/location).  
+   - Snapshot built in JobSearchScreen via useMemo (qualificationSnapshot) from selectedJob + targetRole; passed as `snapshot` prop to JobDetailsPanel.
+
+4. **PathAdvisorBriefingFit extended**  
+   - pathAdvisorBriefingStore: PathAdvisorBriefingFit now includes `blocker`, `effort`, `risks` (required) so the rail can show full qualification briefing.
+
+5. **Tests**  
+   - fitScoring.test.ts: buildFitAssessment stars 1–5, reasons length 2–3, primaryBlocker (no target / series mismatch / grade gap / empty when match), fitScoreToStars bands, effortEstimate.  
+   - JobSearchScreen.test.tsx: selecting a job yields details pane content (PathOS Snapshot or loading); Explain opens briefing with type fit and store isOpen; existing fit briefing test updated with blocker, effort, risks.
+
+## Files changed (this run)
+
+- **Modified:** packages/ui/src/lib/fitScoring.ts (primaryBlocker), packages/ui/src/screens/JobSearchScreen.tsx (QualificationSnapshot type, Snapshot panel, qualificationSnapshot useMemo, onExplainInPathAdvisor, list onWhyFit with blocker/effort/risks), packages/ui/src/stores/pathAdvisorBriefingStore.ts (PathAdvisorBriefingFit blocker, effort, risks), packages/ui/src/shell/PathAdvisorCard.tsx (fit briefing: blocker, effort, missingInputs, next action), packages/ui/src/screens/JobSearchScreen.test.tsx (snapshot + Explain rail tests), docs/merge-notes.md.
+- **New:** packages/ui/src/lib/fitScoring.test.ts.
+
+## Commands run summaries
+
+- **git status** — On branch feature/job-search-qualification-feedback-v1. Modified: merge-notes, fitScoring, JobSearchScreen, JobSearchScreen.test, PathAdvisorCard, pathAdvisorBriefingStore; plus existing filter-guides/scroll/store files from base branch. New: fitScoring.test.ts.
+- **git branch --show-current** — feature/job-search-qualification-feedback-v1.
+- **git diff --name-status develop...HEAD** — N/A (develop branch does not exist).
+- **git diff --name-status main -- . ':(exclude)artifacts'** — (branch includes prior work; this run adds Snapshot panel, primaryBlocker, PathAdvisor fit briefing extension, tests.)
+- **git diff --stat develop...HEAD** — N/A.
+- **git diff --stat main -- . ':(exclude)artifacts'** — (cumulative branch vs main.)
+- **pnpm -r typecheck** — Passed (packages/adapters, packages/core, packages/ui, apps/desktop).
+- **pnpm test** — Passed (751 tests, 51 files; includes fitScoring.test, JobSearchScreen snapshot + Explain tests).
+- **pnpm routes:check** — OK (all Sidebar routes resolve in Desktop and Next).
+- **pnpm overlays:check** — Passed (Overlay Rule v1 / OverlayRoot).
+
+## Manual checks
+
+- Select a job → PathOS Snapshot appears immediately above tabs (stars, confidence, effort, blocker line, risk chips, Save/Start Tailoring, Explain this in PathAdvisor).  
+- Switch tabs (Overview & Docs, Requirements, PathOS Brief) → Snapshot stays visible.  
+- Click "Explain this in PathAdvisor" → PathAdvisor rail shows qualification briefing (alignment, reasons, blocker, effort, what's missing, next action); no inline expansion, no modal.  
+- Tooltips on stars, confidence, effort, risk chips present and not clipped (portaled).
+
+---
+
+# Job Search — Agency + Location filter guides v1
+
+(Do not commit or push. Branch: feature/job-search-agency-location-guides-v1.)
+
+## What changed
+
+1. **Agency guide (full)**  
+   - **Data:** `packages/ui/src/components/filter-guides/agencyGuideData.ts` — agencies derived from MOCK_JOBS plus curated set (DHS, VA, DoD, HHS, IRS, SSA, USDA, DOJ, GSA, DOC, DOT, OPM). Each entry: id, name, aliases (e.g. VA → Department of Veterans Affairs), optional tags (Popular, Cabinet, Independent).  
+   - **Drawer:** Title "Agency guide"; search matches acronym, name, aliases (case-insensitive); optional category chips (All, Popular, Cabinet, Independent); columns Agency | Acronym | Notes. Row click applies agency filter (store.filters.agency = entry.name), closes drawer, triggers runSearch.  
+   - **State feedback:** Agency dropdown trigger label updates immediately (All Agencies → selected agency name). Tooltip on guide icon: "Browse agencies and apply one to your search."
+
+2. **Location guide (full)**  
+   - **Data:** `packages/ui/src/components/filter-guides/locationGuideData.ts` — locations derived from MOCK_JOBS; aliases DC, Washington DC, DMV, NCR → Washington, DC (DMV) with applyValue "Washington, DC" for dropdown/match. Remote/Nationwide as special. Entry: id, label, aliases, type (metro|state|remote|other), optional applyValue.  
+   - **Drawer:** Title "Location picker"; search matches label + aliases; optional quick chips (Remote, DC/DMV, Florida, Texas). Columns Location | Type. Row click applies location filter (store.filters.location = entry.applyValue or entry.label), closes drawer, triggers runSearch.  
+   - **State feedback:** Location dropdown trigger label updates immediately (Any Location → selected label).
+
+3. **Filter row integration**  
+   - Single guide icon (BookOpen) next to each dropdown; tooltips updated. No new clutter; same hover affordance as other interactive components.
+
+4. **Consistency with Series guide**  
+   - Drawer list uses full height (flex-1 min-h-0), scrolls properly; row hover highlight (var(--p-surface)); full-row click; scrollbar styled via `data-scroll-container="filter-guide-drawer"` in ScrollbarsStyle (dark, token-only).
+
+5. **Tests**  
+   - `agencyGuideData.test.ts`: search "VA" returns Department of Veterans Affairs; search by alias/name; category filter.  
+   - `locationGuideData.test.ts`: search "DMV" returns Washington DC entry; search by alias/label; empty query returns all.  
+   - `jobSearchV1Store.test.ts`: applyFilters with agency updates filters.agency; applyFilters with location updates filters.location (dropdown trigger label reflects).
+
+## Files changed
+
+- **New:** `packages/ui/src/components/filter-guides/agencyGuideData.ts`, `agencyGuideData.test.ts`, `locationGuideData.ts`, `locationGuideData.test.ts`
+- **Modified:** `packages/ui/src/components/filter-guides/FilterGuideDrawer.tsx` (Agency + Location full UI; onApplyAgency, onApplyLocation), `filterGuideTypes.ts` (AgencyGuideEntry/LocationGuideEntry shapes; applyValue), `index.ts` (export agency/location data + filters)
+- **Modified:** `packages/ui/src/screens/JobSearchScreen.tsx` (onApplyAgency, onApplyLocation; tooltips for guide icons)
+- **Modified:** `packages/ui/src/shell/ScrollbarsStyle.tsx` (SCOPE_FILTER_GUIDE for filter-guide-drawer scrollbar)
+- **Modified:** `packages/ui/src/stores/jobSearchV1Store.test.ts` (two tests: applyFilters agency/location)
+
+## Commands run summaries
+
+- **git status** — On branch feature/job-search-agency-location-guides-v1. Modified: FilterGuideDrawer, filterGuideTypes, index, JobSearchScreen, ScrollbarsStyle, jobSearchV1Store.test. Untracked: agencyGuideData.ts, agencyGuideData.test.ts, locationGuideData.ts, locationGuideData.test.ts.
+- **git branch --show-current** — feature/job-search-agency-location-guides-v1.
+- **git diff --name-status develop...HEAD** — N/A (develop branch does not exist).
+- **git diff --stat develop...HEAD** — N/A.
+- **git diff --name-status main -- . ':(exclude)artifacts'** — (includes prior branch work; this run adds/modifies filter-guides agency/location, JobSearchScreen wiring, ScrollbarsStyle, jobSearchV1Store.test.)
+- **git diff --stat main -- . ':(exclude)artifacts'** — 27 files changed (cumulative vs main).
+- **pnpm -r typecheck** — Passed (packages/adapters, packages/core, packages/ui, apps/desktop).
+- **pnpm test** — Passed (738 tests, 50 files; includes agencyGuideData.test, locationGuideData.test, jobSearchV1Store applyFilters agency/location).
+- **pnpm routes:check** — OK (all Sidebar routes resolve in Desktop and Next).
+- **pnpm overlays:check** — Passed (Overlay Rule v1 / OverlayRoot).
+
+## Manual checks
+
+- Open Agency guide → hover rows → select an agency → drawer closes, dropdown label updates (e.g. to "Department of Veterans Affairs" or selected name), search runs.
+- Open Location picker → hover rows → select a location → drawer closes, dropdown label updates (e.g. to "Washington, DC" or "Remote"), search runs.
+- Drawer not clipped by scroll panes or rail (portaled to OverlayRoot); scrollbars in drawer list are dark (token --p-surface2).
+- overlays:check passes.
+
+---
+
+# Job Search — UI interaction hover standard v1
+
+(Do not commit or push. Branch: feature/ui-interaction-hover-standard-v1.)
+
+## What changed
+
+1. **Interactive Hover v1 standard (shared)**  
+   Token-only “alive on hover” for all interactive elements on Job Search (and shared components it uses). In `packages/ui/src/styles/theme.css`: `.pathos-interactive-hover` — hover background `var(--p-surface2)`, hover border `var(--p-border-light)`, transition 180ms ease-out; active slightly darker surface/border-strong; focus-visible uses `var(--p-focus-ring)`; disabled has no hover. New `packages/ui/src/styles/interactiveHover.ts` exports `INTERACTIVE_HOVER_CLASS` for reuse.
+
+2. **Components using the class**  
+   - **FilterDropdown** — trigger button already had the class; no change.  
+   - **AskPathAdvisorButton** — added `INTERACTIVE_HOVER_CLASS` to button; removed one-off `transition-colors hover:opacity-90`.  
+   - **JobSearchScreen** — added `INTERACTIVE_HOVER_CLASS` to: Search and Reset; “Describe what you want (optional)” trigger; Describe panel: Use example prompt, Set target role, Done, Translate to filters, Apply filters, Edit filters, Discard; Clear all filters; Undo and View (applied-from-prompt); Series/Agency/Location filter guide icon buttons; details panel tabs (Overview & Docs, Requirements, PathOS Brief); details action bar: Save + Start Tailoring, Tailor resume, View on USAJOBS link; Applied-from-prompt panel Close; Load next button; list row “Why this fit?” and save (bookmark) icon button. Buttons that had no border were given `border: 1px solid transparent` so hover border is visible where applicable.
+
+3. **Row hover unchanged**  
+   Job row hover/selection behavior is unchanged; no new z-index utilities; Overlay Rule v1 intact.
+
+4. **Test**  
+   New `packages/ui/src/screens/_components/FilterDropdown.test.tsx`: one test that FilterDropdown trigger output includes `INTERACTIVE_HOVER_CLASS`.
+
+## Files changed
+
+- `packages/ui/src/styles/theme.css` — `.pathos-interactive-hover` rules (transition, hover/active/focus-visible/disabled).
+- `packages/ui/src/styles/interactiveHover.ts` — New; exports `INTERACTIVE_HOVER_CLASS`.
+- `packages/ui/src/components/AskPathAdvisorButton.tsx` — Add hover class; remove hover:opacity-90.
+- `packages/ui/src/screens/_components/FilterDropdown.tsx` — Already used INTERACTIVE_HOVER_CLASS (no change in this branch).
+- `packages/ui/src/screens/_components/FilterDropdown.test.tsx` — New; trigger includes interactive hover class.
+- `packages/ui/src/screens/JobSearchScreen.tsx` — Import INTERACTIVE_HOVER_CLASS; add class (and where needed transparent border + rounded) to all interactive buttons, tabs, links, and guide icon buttons listed above.
+
+## Commands run summaries
+
+- **git status** — On branch feature/ui-interaction-hover-standard-v1. Staged: prior work (merge-notes, filter-guides, JobSearchScreen, stores, etc.). Unstaged: merge-notes, AskPathAdvisorButton, JobSearchScreen, FilterDropdown, theme.css, jobSearchMockChecklists, jobSearchMockJobs, PathAdvisorCard, jobSearchV1Store, pathAdvisorScreenOverridesStore. Untracked: FilterDropdown.test.tsx, interactiveHover.ts.
+- **git branch --show-current** — feature/ui-interaction-hover-standard-v1.
+- **git diff --name-status develop...HEAD** — N/A (develop branch does not exist in repo).
+- **git diff --stat develop...HEAD** — N/A.
+- **pnpm -r typecheck** — Passed (packages/adapters, packages/core, packages/ui, apps/desktop).
+- **pnpm test** — Passed (725 tests, 48 files; includes new FilterDropdown.test.tsx).
+- **pnpm routes:check** — OK (all Sidebar routes resolve in Desktop and Next).
+- **pnpm overlays:check** — Passed (Overlay Rule v1 / OverlayRoot).
+
+## Manual QA notes (hover/focus)
+
+- All primary/secondary buttons (Search, Reset, Save, Tailor resume, Ask PathAdvisor, View on USAJOBS) show clear hover (background/border change).
+- Dropdown triggers (Grades, Series, Agencies, Location, Types, Sort) react on hover before opening.
+- Icon buttons (bookmark/save in list and details, guide BookOpen next to Series/Agency/Location, Close on applied-from-prompt panel) have visible hover hit area.
+- Tabs (Overview & Docs, Requirements, PathOS Brief) show hover.
+- “Describe what you want (optional)”, Use example prompt, Set target role, Done, Translate to filters, Apply/Edit/Discard, Clear all filters, Undo, View, Load next — all show hover.
+- Focus-visible: keyboard tab through controls; ring should appear (existing token). Disabled controls (e.g. Translate when prompt empty) have no hover. No new overlays or clipped content.
+
+---
+
+# Job Search — Mock jobs 36 v1
+
+(Do not commit or push. Branch: feature/job-search-mock-jobs-30-v1.)
+
+## What changed
+
+1. **Expanded mock dataset to 36 jobs**  
+   MOCK_JOBS increased from 10 to 36 via a deterministic generator: 10 base templates (title, summary, overview), GRADES/AGENCIES/LOCATIONS arrays; each job built with id mock-js-(i+1), template from BASE_TEMPLATES[i % 10], grade/agency/location from index (no randomness). Enables multiple "Load next" clicks and realistic filter testing.
+
+2. **Variety**  
+   Grades GS-9–GS-15; agencies DHS, VA, DoD, HHS, IRS, SSA, USDA, DOJ, GSA, OPM, Census; locations DC, Arlington VA, Remote, Tampa, Miami, San Antonio, Chicago, Kansas City, Denver, Atlanta, Seattle, Philadelphia. MOCK_JOB_TAGS: mock-js-1 New, mock-js-2 and mock-js-3 Close date updated (closes soon). CLOSE_DATE_ORDER built for all 36 ids.
+
+3. **Checklists**  
+   jobSearchMockChecklists: buildJobSearchChecklistMap() maps mock-js-11..36 to mock-1..mock-6 via (n-1) % 6 + 1 so details pane has checklists for all jobs.
+
+4. **Tests**  
+   jobSearchV1Store.test.ts and JobSearchScreen.test.tsx: runSearch / after loadSampleJobs now assert totalCount >= 30.
+
+## Files changed (this run)
+
+- `packages/ui/src/screens/jobSearchMockJobs.ts` — Replaced 10-item manual array with buildMockJobs() (36 jobs from 10 templates + GRADES/AGENCIES/LOCATIONS); buildCloseDateOrder() for 36 ids.
+- `packages/ui/src/screens/jobSearchMockChecklists.ts` — buildJobSearchChecklistMap() adds mock-js-11..36 → mock-1..mock-6.
+- `packages/ui/src/stores/jobSearchV1Store.test.ts` — runSearch test expects totalCount >= 30.
+- `packages/ui/src/screens/JobSearchScreen.test.tsx` — After-search test expects totalCount >= 30.
+- `docs/merge-notes.md` — This section.
+
+## Commands run summaries
+
+- **git status** — On branch feature/job-search-mock-jobs-30-v1. Unstaged: jobSearchMockJobs.ts, jobSearchMockChecklists.ts, jobSearchV1Store.test.ts, JobSearchScreen.test.tsx, merge-notes.md.
+- **git branch --show-current** — feature/job-search-mock-jobs-30-v1.
+- **git checkout develop** — Skipped (develop branch does not exist in repo); created feature branch from feature/job-search-load-more-pagination-v1.
+- **git diff --name-status develop...HEAD** — N/A (no develop). **git diff --name-status main...HEAD** — reflects full branch vs main (includes load-more + mock expansion).
+- **git diff --stat develop...HEAD** — N/A. **git diff --stat main...HEAD** — (branch cumulative).
+- **pnpm -r typecheck** — Passed (packages/adapters, packages/core, packages/ui, apps/desktop).
+- **pnpm test** — Passed (724 tests, 47 files).
+- **pnpm routes:check** — OK (all Sidebar routes resolve in Desktop and Next).
+- **pnpm overlays:check** — Passed (Overlay Rule v1 / OverlayRoot).
+
+## Manual checks
+
+- Results now show at least 30 total (e.g. "Showing 1–20 of 36").
+- Load more works multiple times (second page 21–36, then "End of results").
+- Filters still work (series, agency, location); dropdowns derive from MOCK_JOBS so options include new agencies/locations.
+
+---
+
+# Job Search — Load more pagination v1
+
+(Do not commit or push. Branch: feature/job-search-load-more-pagination-v1.)
+
+## What changed
+
+1. **Load more pagination (mock-first)**  
+   Job Search results use a "Load more" model: runSearch sets page=1, computes allResults via mockSearchJobs, sets totalCount, and shows the first pageSize (default 20) slice. loadMore() appends the next slice; selectedJobId is never cleared so the details pane stays stable. Filters/sort/search/Clear all/Reset reset paging to page 1 (setFilters/clearAllFilters call resetPaging when hasSearched; Sort and Clear all also scroll results pane to top).
+
+2. **Store state and actions**  
+   jobSearchV1Store: added pageSize (20), page, totalCount, hasMore, isLoadingMore, allResults; runSearch() sets page=1 and first slice; loadMore() appends next slice; resetPaging() sets page=1 and results to first slice from allResults; clearSearchResults() clears results/allResults for Reset. setFilters/applyFilters/clearAllFilters call resetPaging when hasSearched and allResults.length > 0.
+
+3. **Results pane UI**  
+   Status line above list: "Showing 1–20 of 146" or "0 results" (token-only). Below list: "Load next 20" full-width secondary button when hasMore; loading state when isLoadingMore; "End of results" muted text when no more. resultsScrollRef used to scroll to top when Sort or Clear all filters is used.
+
+4. **Tests**  
+   jobSearchV1Store.test.ts: runSearch sets totalCount and results to pageSize slice; loadMore appends and increases results length; changing filter resets page to 1 and results to first slice. JobSearchScreen.test.tsx: after loadSampleJobs store has totalCount and results slice; Reset test calls clearSearchResults.
+
+## Files changed (this run)
+
+- `packages/ui/src/stores/jobSearchV1Store.ts` — Paging state (pageSize, page, totalCount, hasMore, isLoadingMore, allResults); runSearch first slice; loadMore; resetPaging; clearSearchResults; setFilters/clearAllFilters trigger resetPaging when applicable.
+- `packages/ui/src/screens/JobSearchScreen.tsx` — Status line "Showing X–Y of Z"; Load next button / loading / End of results; resultsScrollRef and scroll-to-top on Sort and Clear all filters; handleReset calls clearSearchResults.
+- `packages/ui/src/stores/jobSearchV1Store.test.ts` — beforeEach includes paging fields; tests for runSearch slice, loadMore append, filter reset paging.
+- `packages/ui/src/screens/JobSearchScreen.test.tsx` — Reset test uses clearSearchResults; new test for totalCount/results slice after loadSampleJobs.
+- `packages/ui/src/stores/pathAdvisorScreenOverridesStore.ts` — Optional helperParagraph and onFitBriefingPrimaryAction for Job Search overrides.
+- `packages/ui/src/shell/PathAdvisorCard.tsx` — isFitBriefing branch for fit briefing (jobTitle, stars, reasons); generic briefing keeps sourceLabel/sections.
+- (Plus V1 base from feature branch: filter-guides, JobSearchScreen V1, mock jobs/checklists, FilterDropdown, fitScoring, tooltipCopy, decisionBriefs/targetRole/pathAdvisor stores, promptToFiltersParser.)
+
+## Commands run summaries
+
+- **git status** — On branch feature/job-search-load-more-pagination-v1. Staged + unstaged changes (V1 base + paging).
+- **git branch --show-current** — feature/job-search-load-more-pagination-v1.
+- **git diff --name-status main -- . ':(exclude)artifacts'** — M docs/merge-notes.md; A filter-guides/*, lib/fitScoring, promptToFiltersParser, tooltipCopy; A JobSearchScreen.test, JobSearchScreen M, _components/FilterDropdown, jobSearchMockChecklists, jobSearchMockJobs; M PathAdvisorCard; A decisionBriefsV1Store, jobSearchV1Store, jobSearchV1Store.test, targetRoleV1Store; M pathAdvisorBriefingStore, pathAdvisorScreenOverridesStore.
+- **git diff --stat main -- . ':(exclude)artifacts'** — 22 files changed, 8372 insertions, 2979 deletions.
+- **pnpm -r typecheck** — Passed (packages/adapters, packages/core, packages/ui, apps/desktop).
+- **pnpm test** — Passed (724 tests, 47 files).
+- **pnpm routes:check** — OK (all Sidebar routes resolve in Desktop and Next).
+- **pnpm overlays:check** — Passed (Overlay Rule v1 / OverlayRoot).
+
+## Manual checks
+
+- Results pane shows "Showing 1–20 of N" (or "0 results" when totalCount 0).
+- Load more appends next 20 without breaking selection/details pane.
+- Filters/sort reset to first page; results pane scrolls to top when changing Sort or clicking Clear all filters.
+- Scrolling remains stable (results pane scrolls independently; no page-level scroll trapping).
+
+## Human Simulation Gate
+
+| Item | Value |
+|------|-------|
+| Required | No |
+| Triggers hit | None |
+| Why | Load more is display + store slice logic; no new create/save or persistence keys. |
+
+---
+
+# Job Search — Hover and filter state sync v1
+
+(Do not commit or push. Branch: feature/job-search-hover-and-filter-state-sync-v1.)
+
+## What changed
+
+1. **Job results list hover + selection affordance**  
+   JobListItem: entire row is the click target for selection (row div has onClick → onSelect). Hover: background `var(--p-surface2)` via local hover state (onMouseEnter/onMouseLeave); cursor pointer. Selected: existing subtle background + left 3px accent bar `var(--p-accent)`. Focus-visible: inner content div has tabIndex={0}, focus-visible:ring-2 ring-[var(--p-accent)] for keyboard nav. Save and "Why this fit?" buttons call stopPropagation so they don’t trigger selection. No layout shift (3px left border in both selected and unselected).
+
+2. **Series filter state sync (single source of truth)**  
+   Canonical store field: `jobSearchV1Store.filters.series`. Series dropdown value reads directly from store: `value={store.filters.series !== undefined && store.filters.series !== '' ? store.filters.series : ''}`. Series guide drawer `onApplySeries` writes to the same store (setFilters with next.series = seriesCode, then runSearch). No redundant local React state; dropdown is fully controlled by store. "All Series" normalized as empty string in value; clearAllFilters resets filters to {} so series becomes undefined and dropdown shows "All Series".
+
+3. **Visible applied-state feedback**  
+   Series trigger label shows the selected code (e.g. "2210") when store.filters.series is set; "Clear all filters" resets to "All Series". No extra "Active filters" chip row (kept minimal).
+
+4. **Tests**  
+   Store: jobSearchV1Store.test.ts — "setFilters with series sets filters.series and persists; clearAllFilters resets series". JobSearchScreen.test.tsx — "Series dropdown reads from store" (asserts state.filters.series after setState).
+
+## Files changed (this run)
+
+- `packages/ui/src/screens/JobSearchScreen.tsx` — JobListItem: row click target, hover state, cursor-pointer, focus-visible on content div; Save/Why this fit stopPropagation; Series dropdown value normalized (empty string for All); comment on single source of truth for drawer.
+- `packages/ui/src/screens/JobSearchScreen.test.tsx` — New test: Series dropdown reads from store (store.filters.series after setState).
+- `packages/ui/src/stores/jobSearchV1Store.test.ts` — New test: setFilters with series, persist, clearAllFilters resets series.
+- `docs/merge-notes.md` — This section (hover + series sync).
+
+## Commands run summaries
+
+- **git status** — On branch feature/job-search-hover-and-filter-state-sync-v1. Modified: JobSearchScreen.tsx, JobSearchScreen.test.tsx, jobSearchV1Store.test.ts.
+- **git branch --show-current** — feature/job-search-hover-and-filter-state-sync-v1.
+- **git diff --name-status HEAD** — M JobSearchScreen.tsx, M JobSearchScreen.test.tsx, M jobSearchV1Store.test.ts.
+- **pnpm -r typecheck** — Passed (packages/adapters, packages/core, packages/ui, apps/desktop).
+- **pnpm test** — Passed (757 tests, 53 files).
+- **pnpm routes:check** — OK (all Sidebar routes resolve in Desktop and Next).
+- **pnpm overlays:check** — Passed (Overlay Rule v1 / OverlayRoot).
+
+## Manual checks
+
+- Hover job rows shows highlight (background var(--p-surface2)).
+- Selected row is obvious (left accent bar + background).
+- Selecting series in drawer updates Series dropdown immediately (label shows e.g. "2210").
+- Clear all filters resets series label to "All Series".
+
+## Human Simulation Gate
+
+| Item | Value |
+|------|-------|
+| Required | No |
+| Triggers hit | None |
+| Why | UX polish (hover/selection) and store sync fix; no new persistence or create/save flows. |
+
+---
+
+# Job Search — Filter guides polish v1
+
+(Do not commit or push. Branch: feature/job-search-guides-polish-v1.)
+
+## What changed
+
+1. **Drawer vertical layout**  
+   FilterGuideDrawer: drawer container is column flex with full height. Results wrapper uses `flex flex-col` and `flex-1 min-h-0`; the list scroller uses `flex-1 min-h-0 overflow-y-auto` (removed `max-h-[50vh]`) so content uses full available height above the footer with no clipping.
+
+2. **Scrollbar styling (desktop)**  
+   ScrollbarsStyle.tsx: added scope `[data-scroll-container="filter-guide-drawer"]` with the same dark scrollbar rules as main and pathos (Chromium + Firefox). Drawer list div has `data-scroll-container="filter-guide-drawer"` so its scrollbar matches desktop (dark, token-safe).
+
+3. **Row hover + keyboard affordances**  
+   Series rows: `cursor-pointer`; hover background `var(--p-surface)` via onMouseEnter/onMouseLeave; `focus-visible:ring-2 focus-visible:ring-[var(--p-accent)]` for keyboard nav. No selected-row state (optional left accent omitted to keep minimal).
+
+4. **Drawer visual hierarchy (token-safe)**  
+   Header: stronger typography (`text-base font-semibold tracking-tight`), consistent padding (`px-4 py-3`), border `var(--p-border)`. Search block: spacing tightened (`space-y-2`, `pb-2`). Category chips: `gap-2 items-center`. Table header row: `font-medium`, sticky, `var(--p-border)`. All dividers use `var(--p-border)`.
+
+5. **De-clutter guide affordances**  
+   Replaced "Series guide" / "Agency guide" / "Location guide" text links with one consistent small icon button (BookOpen) to the right of each filter trigger (Series, Agencies, Location). Tooltips: "Open series guide...", "Open agency guide...", "Open location picker...". Buttons: 7×7, token border/surface/text-muted, aria-label. No separate "?" icons; tooltips on the icon button only.
+
+## Files changed (this run)
+
+- `packages/ui/src/components/filter-guides/FilterGuideDrawer.tsx` — Layout (flex-1 min-h-0 scroller), scroll container attribute, row hover/focus styles, header/search/chips/table hierarchy.
+- `packages/ui/src/shell/ScrollbarsStyle.tsx` — New scope `filter-guide-drawer` for dark scrollbar; header comment updated.
+- `packages/ui/src/screens/JobSearchScreen.tsx` — BookOpen import; Series/Agencies/Location each wrapped in `<span className="flex items-center gap-1">` with FilterDropdown + Tooltip + icon button; removed three text links.
+
+## Commands run summaries
+
+- **git status** — On branch feature/job-search-guides-polish-v1. Modified: docs/merge-notes.md, packages/ui/package.json, JobSearchScreen.tsx, ScrollbarsStyle.tsx, pnpm-lock.yaml. Untracked: packages/ui/src/components/filter-guides/.
+- **git branch --show-current** — feature/job-search-guides-polish-v1.
+- **git diff --name-status develop...HEAD** — No local develop branch; branch was created from feature/job-search-filter-guides-drawer-v1.
+- **git diff --name-status HEAD -- packages/ui/...** — M JobSearchScreen.tsx, M ScrollbarsStyle.tsx (filter-guides/ untracked; FilterGuideDrawer.tsx edited in that tree).
+- **git diff --stat HEAD -- packages/ui/...** — JobSearchScreen.tsx 145 insertions 38 deletions; ScrollbarsStyle.tsx 29 insertions 1 deletion.
+- **pnpm -r typecheck** — Passed (packages/adapters, packages/core, packages/ui, apps/desktop).
+- **pnpm test** — Passed (755 tests, 53 files).
+- **pnpm routes:check** — OK (all Sidebar routes resolve in Desktop and Next).
+- **pnpm overlays:check** — Passed (Overlay Rule v1 / OverlayRoot).
+
+## Manual checks
+
+- Drawer list uses full height, not cut off (scroller expands to bottom above footer).
+- Drawer scrollbar matches desktop (dark, same as main/pathos).
+- Row hover highlight is obvious (background change on hover).
+- Guide icons feel integrated (one BookOpen per filter, no text links in the way).
+- Drawer still portaled correctly and not clipped (OverlayRoot; no Tailwind z-*).
+
+## Human Simulation Gate
+
+| Item | Value |
+|------|-------|
+| Required | No |
+| Triggers hit | None |
+| Why | Layout, scrollbar, hover, and guide-icon polish only; no new store logic or persistence. |
+
+---
+
+# Job Search — Filter guides drawer v1
+
+(Do not commit or push. Branch: feature/job-search-filter-guides-drawer-v1.)
+
+## What changed
+
+1. **FilterGuideDrawer component**  
+   New right-side drawer panel (portaled overlay) in `packages/ui/src/components/filter-guides/`. Uses Radix Dialog portaled to OverlayRoot; token-only styling (var(--p-*)); shared zIndex constants (no Tailwind z-*). Header (title + close), search input, category chips, results list with scroll, footer helper "Click a row to apply to filters.", Close button. Accessible: focus trap, ESC closes, aria labels.
+
+2. **Series & role guide (full)**  
+   Deterministic local dataset `seriesGuideData.ts`: 15 entries (seriesCode, title, typicalRoles, commonGrades, category). Pure `filterSeriesGuide(data, query, category)` for search (seriesCode/title/typicalRoles, case-insensitive) and category filter. "Series guide" button next to Series filter opens drawer titled "Series & role guide"; selecting a row applies that series to filters, closes drawer, calls `store.runSearch()`.
+
+3. **Agency and Location guides (stubs)**  
+   "Agency guide" and "Location guide" buttons next to those filters. Clicking opens same drawer with stub title and message "Agency guide (coming next)" / "Location picker (coming next)." Data interfaces in `filterGuideTypes.ts`: AgencyGuideEntry (id, name, aliases, parentAgency?), LocationGuideEntry (id, label, aliases, type: metro|state|remote).
+
+4. **Tooltip**  
+   Series guide button tooltip: "Browse common federal series codes and apply one to your search."
+
+## Files changed (this run)
+
+- `packages/ui/package.json` — Added @radix-ui/react-dialog.
+- `packages/ui/src/components/filter-guides/seriesGuideData.ts` — New: SERIES_GUIDE_DATA, SERIES_CATEGORIES, filterSeriesGuide.
+- `packages/ui/src/components/filter-guides/seriesGuideData.test.ts` — New: unit tests for filterSeriesGuide (2210 → IT Management, category filter).
+- `packages/ui/src/components/filter-guides/filterGuideTypes.ts` — New: FilterGuideKind, AgencyGuideEntry, LocationGuideEntry.
+- `packages/ui/src/components/filter-guides/FilterGuideDrawer.tsx` — New: portaled drawer (series full UI, agency/location stubs).
+- `packages/ui/src/components/filter-guides/FilterGuideDrawer.test.tsx` — New: smoke tests (component renders without throwing).
+- `packages/ui/src/components/filter-guides/index.ts` — New: barrel export.
+- `packages/ui/src/screens/JobSearchScreen.tsx` — filterGuideKind state; Series/Agency/Location guide buttons; FilterGuideDrawer; onApplySeries → setFilters + runSearch; Series guide tooltip.
+
+## Commands run summaries
+
+- **git status** — On branch feature/job-search-filter-guides-drawer-v1; modified: packages/ui/package.json, JobSearchScreen.tsx, pnpm-lock.yaml; untracked: packages/ui/src/components/filter-guides/ (all new files).
+- **git branch --show-current** — feature/job-search-filter-guides-drawer-v1.
+- **git diff --name-status develop...HEAD** — N/A (no develop in repo). **git diff --name-status main...HEAD** — includes branch history; this run adds filter-guides/* and touches JobSearchScreen.tsx, package.json.
+- **git diff --stat develop...HEAD** — N/A. **git diff --stat main -- . ':(exclude)artifacts' ':(exclude)docs/merge-notes.md'** — branch cumulative (30 files from main); this run: filter-guides/* (8 files), JobSearchScreen.tsx, package.json, pnpm-lock.yaml.
+- **pnpm -r typecheck** — Passed (packages/adapters, packages/core, packages/ui, apps/desktop).
+- **pnpm test** — Passed (755 tests, 53 files; includes seriesGuideData.test.ts 7 tests, FilterGuideDrawer.test.tsx 3 tests).
+- **pnpm routes:check** — OK (all Sidebar routes resolve in Desktop and Next).
+- **pnpm overlays:check** — Passed (Overlay Rule v1 / OverlayRoot). Comment in FilterGuideDrawer.tsx adjusted so " z-" does not appear (overlays script matches substring in file).
+
+## Manual checks (to verify)
+
+- Open Series guide → drawer not clipped by scroll panes or rail; scroll works inside drawer.
+- Select a series row → filter updates (Series dropdown); results refresh (runSearch).
+- Drawer closes with ESC and Close button.
+- Agency guide / Location guide open drawer with stub "coming next" message.
+- overlays:check passes.
+
+## Human Simulation Gate
+
+| Item | Value |
+|------|-------|
+| Required | Yes |
+| Triggers hit | Changes Zustand store usage (apply series → setFilters + runSearch); Adds UI that affects filter state |
+| Why | User action (select series) updates job search filters and triggers search; manual flow verification recommended. |
+
+---
+
+# Job Search — Tooltips v1
+
+(Do not commit or push. Branch: feature/job-search-tooltips-v1.)
+
+## What changed
+
+1. **Centralized tooltip copy map**  
+   Added `packages/ui/src/lib/tooltipCopy.ts` exporting `chipTooltips`, `sortTooltips`, `fitTooltips`, `filterGroupTooltips`, and helpers `getChipTooltip`, `getSortTooltip`, `getFilterGroupTooltip`. Copy for chips (GS, close date, Closes soon, Remote, Telework, appointment types, Clearance, Drug test, Travel), fit signals (fit stars, confidence, effort), sort options (likelihood, effortToReward, strategic, urgency), and filter groups (Sort, Grades, Series, Agencies, Location, Types). All strings ≤ 140 chars.
+
+2. **Chips/tags wrapped with canonical Tooltip**  
+   Job list rows: grade, close date, Remote/Telework, risk (Travel/Drug test/Clearance), fit stars, confidence chip, "Why this fit?" link, Save icon — each wrapped in `Tooltip` with copy from tooltipCopy. Details panel: FitStarsRow (fit stars + confidence), effort chip, risk chips (Overview and PathOS Brief), Save button, View on USAJOBS link. Applied-from-prompt "View" and "Clear all filters" button have tooltips. Tooltips use existing overlay container (OverlayRoot); no inline `role="tooltip"` DOM; no Tailwind z-*.
+
+3. **Filter/sort dropdown tooltips**  
+   `FilterDropdown` accepts optional `tooltip?: string`. When set, a small Info icon is rendered next to the trigger; hovering the icon shows the tooltip. JobSearchScreen passes `getSortTooltip(sortBy)` for Sort dropdown and `getFilterGroupTooltip('Grades')` etc. for Grades, Series, Agencies, Location, Types so each filter group has an explainer.
+
+4. **Icon button tooltips**  
+   Save/bookmark in list ("Save job" / "Saved to your list"), details Save button ("Save job and create PathOS Brief" / "Saved to your list"), View on USAJOBS ("Open full announcement on USAJOBS in your browser"), Why this fit? ("Open fit briefing for this job (fit score, reasons, next steps)"), Clear all filters ("Remove all filter selections (grades, series, agency, location, type)").
+
+5. **Minimal test**  
+   `packages/ui/src/lib/tooltipCopy.test.ts` — verifies chipTooltips/sortTooltips/fitTooltips and getters return non-empty strings (and ≤ 140 chars where asserted), getChipTooltip/getSortTooltip/getFilterGroupTooltip behavior.
+
+## Files changed (this run)
+
+- `packages/ui/src/lib/tooltipCopy.ts` — New: chipTooltips, sortTooltips, fitTooltips, filterGroupTooltips, getChipTooltip, getSortTooltip, getFilterGroupTooltip.
+- `packages/ui/src/lib/tooltipCopy.test.ts` — New: tests for tooltip copy module.
+- `packages/ui/src/screens/JobSearchScreen.tsx` — Import Tooltip + tooltipCopy; wrap list chips (grade, close, remote, risk), fit stars, confidence, Why this fit?, Save icon; wrap details FitStarsRow, effort, risk chips, Save button, USAJOBS link; tooltip for View (applied from prompt), Clear all filters; pass tooltip to each FilterDropdown.
+- `packages/ui/src/screens/_components/FilterDropdown.tsx` — Optional `tooltip` prop; when set, render Info icon next to trigger wrapped in Tooltip; wrapper div for trigger + icon.
+
+## Commands run + results summaries
+
+- **git status** — On branch feature/job-search-tooltips-v1; modified: docs/merge-notes.md, JobSearchScreen.tsx, JobSearchScreen.test.tsx, FilterDropdown.tsx, jobSearchMockJobs.ts, PathAdvisorCard.tsx, pathAdvisorBriefingStore.ts, pathAdvisorScreenOverridesStore.ts; untracked: tooltipCopy.ts, tooltipCopy.test.ts, fitScoring.ts, fitScoring.test.ts, decisionBriefsV1Store.ts, decisionBriefsV1Store.test.ts, targetRoleV1Store.ts.
+- **git branch --show-current** — feature/job-search-tooltips-v1.
+- **git diff --name-status develop...HEAD** — N/A (no local develop). **git diff --name-status main...HEAD** — includes many files from branch history (JobSearchScreen, FilterDropdown, PathAdvisorCard, stores, etc.).
+- **git diff --stat develop...HEAD** — N/A. **git diff --stat main -- . ':(exclude)docs/merge-notes.md'** — 21 files changed, 3439 insertions, 288 deletions (branch cumulative).
+- **pnpm -r typecheck** — Passed (packages/adapters, packages/core, packages/ui, apps/desktop).
+- **pnpm test** — Passed (745 tests, 51 files; includes tooltipCopy.test.ts 10 tests).
+- **pnpm routes:check** — OK (all Sidebar routes resolve in Desktop and Next).
+- **pnpm overlays:check** — Passed (Overlay Rule v1 / OverlayRoot).
+
+## Manual checks
+
+- Hover chips in list and details: tooltips appear, not clipped by results list or details panel or PathAdvisor rail.
+- Hover Sort dropdown info icon: explains current sort (deterministic vs mocked). Hover Grades/Series/etc. info icons: explain filter meaning.
+- Tooltips stay readable and short (≤ 140 chars). Token-only styling; no hardcoded colors.
+
+---
+
+# Job Search — Unify search entry v1
+
+(Do not commit or push. Branch: feature/job-search-unify-search-entry-v1.)
+
+## What changed
+
+1. **Unified search: one pipeline, two entry styles**  
+   Manual search + filters remain primary (default). "Describe what you're looking for" is collapsed by default and framed as an optional accelerator: "Describe what you want (optional)" with helper "PathOS will translate it into filters you can review." Clicking the link expands a compact panel (same Translate → Apply flow). No "two methods" feeling; one Search button runs search for both manual and describe lanes.
+
+2. **Collapsed Describe by default**  
+   Replaced the always-visible Prompted Filters card with a subtle inline CTA near the main search row: label "Describe what you want (optional)" and microcopy "PathOS will translate it into filters you can review." Expanded panel contains: text input, "Use example prompt" link, "Translate to filters" button; after translation: proposed filter chips, interpretation line, Apply filters / Edit / Discard. No duplicate Search button in the describe panel.
+
+3. **Same search pipeline**  
+   Manual: Search button runs search with keywords/location + current filters. Describe: "Translate to filters" produces proposed filters; "Apply filters" sets the same store filters and triggers one automatic runSearch() so results appear immediately. Undo (toast/inline) reverts applied-from-prompt filters.
+
+4. **Applied from prompt + View**  
+   When prompt-derived filters are active, a small "Applied from prompt" note with "View" link appears near the filters bar. View shows: original prompt, extracted evidence, proposed filters (auditability). Uses existing PROMPT_TO_FILTERS_AUDIT_KEY for evidence/proposedFilters.
+
+5. **Reset clears full search state**  
+   Reset now clears: keywords/location, filters, selectedJobId, proposed preview state, appliedFromPrompt indicator, and view-audit open state. Does not wipe saved jobs or decision briefs.
+
+6. **Token-only styling; scroll and overlay rules unchanged**  
+   Results pane scrolls, details pane scrolls, PathAdvisor rail fixed with internal scroll. Overlay Rule v1: portaled dropdowns/tooltips; no inline tooltip DOM; no Tailwind z-*.
+
+## Files changed (this run)
+
+- `packages/ui/src/screens/JobSearchScreen.tsx` — Describe panel collapsed by default (describePanelExpanded state); inline CTA "Describe what you want (optional)" near search row; expanded panel has Translate to filters / Apply filters (no Search in panel); Apply runs store.runSearch() and shows Undo; Reset clears selectedJobId, proposed, viewAuditOpen, showUndoAppliedPrompt; AppliedFromPromptViewPanel shows prompt + evidence + proposed filters (reads from PROMPT_TO_FILTERS_AUDIT_KEY); import storageGetJSON for View panel.
+- `packages/ui/src/screens/JobSearchScreen.test.tsx` — Tests: prompt panel collapsed by default (CTA or loading), single Search button when mounted, manual search runSearch hasSearched, applyProposedFiltersFromPrompt + runSearch sets filters and appliedFromPrompt, Applied from prompt indicator when set, Reset clears selectedJobId/appliedFromPrompt/filters.
+
+## Commands run (summaries)
+
+- **git status** — On branch feature/job-search-unify-search-entry-v1; modified: docs/merge-notes.md, JobSearchScreen.tsx, JobSearchScreen.test.tsx (plus existing modified/untracked from prior branch).
+- **git branch --show-current** — feature/job-search-unify-search-entry-v1.
+- **git diff --name-status develop...HEAD** — N/A (no develop in repo). **git diff --name-status main...HEAD** — includes JobSearchScreen.tsx, JobSearchScreen.test.tsx, and other branch files.
+- **git diff --stat develop...HEAD** — N/A. **git diff --stat main -- .** — 22 files (cumulative from main; this run touched JobSearchScreen.tsx, JobSearchScreen.test.tsx, docs/merge-notes.md).
+- **pnpm -r typecheck** — Passed (packages/adapters, packages/core, packages/ui, apps/desktop).
+- **pnpm test** — Passed (735 tests, 50 files).
+- **pnpm routes:check** — OK (all Sidebar routes resolve in Desktop and Next).
+- **pnpm overlays:check** — Passed (Overlay Rule v1 / OverlayRoot).
+
+## Manual checks
+
+- Page feels like one search system; prompt flow is clearly "translate to filters."
+- No duplicate search buttons (only the main Search button).
+- Results/details/rail scrolling still correct.
+- Overlays are not clipped.
+- Describe panel is collapsed by default; clicking "Describe what you want (optional)" expands it.
+- Translate → Apply sets filters and runs search; results appear; "Applied from prompt" + View visible; Reset clears everything including applied-from-prompt.
+
+---
+
+# Job Search — Results list reduce clickable v1
+
+(Do not commit or push. Branch: feature/job-search-results-list-reduce-clickable-v1.)
+
+## What changed
+
+1. **Results list as a real selectable listbox**  
+   Each row is a single full-width click target (main button) plus an optional trailing Save icon. Clicking anywhere on the row selects the job. Selected row: left accent bar (`3px solid var(--p-accent)`) and subtle background (`var(--p-surface2)`). List container has `role="listbox"`, each row `role="option"` and `aria-selected`.
+
+2. **Consistent row height and reduced content**  
+   Rows use `min-h-[88px]` and fixed layout: title (1 line, truncate), meta line (Agency • Location, truncate), chips row (GS + Close date + Remote/Telework + at most one Risk chip), Fit: star indicator + confidence mini chip + "Why this fit?" link. Removed from list rows: fit reasons sentences, "Save + Start Tailoring" big CTA, any expanded "Why this fit" panel. Primary CTA lives in the details pane only.
+
+3. **Chips token-safe**  
+   Neutral (default), urgency (close soon — uses `var(--p-accent-bg)` / `var(--p-accent)`), risk (same as neutral). No hardcoded colors.
+
+4. **"Why this fit?" → PathAdvisor briefing**  
+   Replaced inline expander with a small "Why this fit?" link in the row. On click, a deterministic fit briefing payload is dispatched to the PathAdvisor briefing store (`type: 'fit'`, jobId, stars, confidence, reasons, inputsUsed, missingInputs, isJobSaved). PathAdvisor rail shows a "Fit explanation" section when briefing is fit type: stars, confidence, top 2–3 reasons, inputs used/missing, and one CTA (Save + Start Tailoring or Tailor resume). Overrides store has `onFitBriefingPrimaryAction` so Job Search can wire save + nav when the user clicks the rail CTA.
+
+5. **Primary CTA in details pane**  
+   "Save + Start Tailoring" / "Saved" and "Tailor resume" remain in the details pane action bar. List row has only the compact Save icon.
+
+6. **Workspace viewport unchanged**  
+   Results pane scrolls, details pane scrolls, rail fixed; token-only styling; Overlay Rule v1 (portaled dropdowns/tooltips, no inline tooltip DOM, no z-* for overlays).
+
+## Files changed (this run)
+
+- `packages/ui/src/screens/JobSearchScreen.tsx` — JobListItem refactored to listbox row (full-row button + save icon), compact content, chips (GS, close date, remote/telework, one risk), "Why this fit?" opens PathAdvisor fit briefing; removed whyFitJobId state and inline "Why this fit" panel; overrides set with onFitBriefingPrimaryAction; details primary button label "Save + Start Tailoring".
+- `packages/ui/src/stores/pathAdvisorBriefingStore.ts` — Added PathAdvisorBriefingFit and PathAdvisorBriefingPayload union; openBriefing accepts payload; isFitBriefing type guard.
+- `packages/ui/src/stores/pathAdvisorScreenOverridesStore.ts` — Added optional onFitBriefingPrimaryAction to overrides.
+- `packages/ui/src/shell/PathAdvisorCard.tsx` — Renders "Fit explanation" when briefing.type === 'fit' (stars, confidence, reasons, inputs, CTA); uses overrides.onFitBriefingPrimaryAction for CTA.
+- `packages/ui/src/screens/JobSearchScreen.test.tsx` — Tests for listbox/option/min-height when results shown, PathAdvisor fit briefing store (type fit, isOpen), saveJob no-throw.
+
+## Commands run (summaries)
+
+- **git status** — On branch feature/job-search-results-list-reduce-clickable-v1; modified: docs/merge-notes.md, JobSearchScreen.tsx, JobSearchScreen.test.tsx, PathAdvisorCard.tsx, pathAdvisorBriefingStore.ts, pathAdvisorScreenOverridesStore.ts (plus jobSearchMockJobs from prior); untracked: fitScoring*, decisionBriefsV1Store*, targetRoleV1Store*.
+- **git branch --show-current** — feature/job-search-results-list-reduce-clickable-v1.
+- **git diff --name-status develop...HEAD** — N/A (no develop in repo). **git diff --name-status main -- . ':(exclude)artifacts'** — 22 files (JobSearchScreen, PathAdvisorCard, pathAdvisorBriefingStore, pathAdvisorScreenOverridesStore, etc.).
+- **git diff --stat develop...HEAD** — N/A. **git diff --stat main -- .** — 22 files changed, 6321 insertions, 2990 deletions (includes prior branch work).
+- **pnpm -r typecheck** — Passed (packages/adapters, packages/core, packages/ui, apps/desktop).
+- **pnpm test** — Passed (729 tests, 50 files).
+- **pnpm routes:check** — OK (all Sidebar routes resolve in Desktop and Next).
+- **pnpm overlays:check** — Passed (Overlay Rule v1 / OverlayRoot).
+
+## Manual checks (recommended)
+
+- Results list scrolls, details scrolls, rail fixed.
+- Row selection is obvious and full-row clickable.
+- No "expanded panel" appears under filters when clicking "Why this fit?"; PathAdvisor rail shows Fit explanation briefing when triggered.
+- List rows feel calmer and less cluttered (no fit reasons or big CTA in each row).
+- Save icon in row and "Save + Start Tailoring" in details pane both work; Save persists (create-button rule).
+
+---
+
+# Job Search — Workspace scroll v1
+
+(No commit or push. Branch: feature/job-search-workspace-scroll-v1.)
+
+## What changed
+
+1. **Fixed-height workspace viewport under filter bar**  
+   Screen root: `flex flex-col h-full min-h-0 w-full` so it fills the shell. Top controls (title, toast, Prompted Filters card, search row, sort/filters bar, view-audit, why-fit panel) wrapped in a `flex-shrink-0` section so they stay above the workspace. The results+details grid sits in a workspace section with `flex-1 min-h-0` (CRITICAL so the flex child can shrink and panes get a fixed height).
+
+2. **Results and details panes independently scrollable**  
+   Workspace grid: `flex-1 min-h-0` with same column sizes. Results pane: outer column `h-full min-h-0`; inner list wrapper `h-full min-h-0 overflow-y-auto` with `overscroll-behavior: contain`. Details pane: outer column `h-full min-h-0`; JobDetailsPanel already `flex-1 flex-col min-h-0` with tab content `overflow-y-auto`. Both columns scroll internally; expanding content does not resize the whole page.
+
+3. **Sticky action bar in details panel**  
+   Details panel action bar (Save job, Tailor resume, Ask PathAdvisor, View on USAJOBS) uses `position: sticky; bottom: 0` with `background: var(--p-surface)` and `border-top: var(--p-border)` so primary actions stay visible when scrolling long details.
+
+4. **Scroll Invariant v1**  
+   The workspace viewport is the fixed-height job board area; no trapped scrolling on the page root. PathAdvisor rail remains fixed and scrolls internally (unchanged). Token-only styling; overlay rule v1 unchanged (dropdowns/tooltips portaled).
+
+## Files changed
+
+- `packages/ui/src/screens/JobSearchScreen.tsx` — Screen root `h-full`; top controls wrapped in flex-shrink-0; workspace section flex-1 min-h-0; results column and inner list h-full min-h-0 overflow-y-auto overscroll-behavior contain; details column h-full min-h-0; JobDetailsPanel action bar sticky bottom with token background/border.
+
+## Commands run and results
+
+- **git status** — On branch feature/job-search-workspace-scroll-v1; modified: JobSearchScreen.tsx, docs/merge-notes.md (plus existing untracked/modified from prior branch).
+- **git branch --show-current** — feature/job-search-workspace-scroll-v1. (No develop in repo; branch created from feature/job-search-layout-scroll-fit-tabs-v1.)
+- **pnpm -r typecheck** — Passed (packages/adapters, packages/core, packages/ui, apps/desktop).
+- **pnpm test** — Passed (726 tests, 50 files).
+- **pnpm routes:check** — OK (all Sidebar routes resolve in Desktop and Next).
+- **pnpm overlays:check** — Passed (Overlay Rule v1 / OverlayRoot).
+
+## Manual checks (expected)
+
+- With many jobs, the left results list scrolls independently and does not resize the whole page.
+- With long details (e.g. Requirements or Overview), the details panel scrolls internally.
+- Top controls (prompt, search, filters, sort) stay visible above the workspace viewport.
+- Action bar (Save job, Tailor resume, View on USAJOBS) stays visible at bottom of details panel when scrolling details (sticky).
+- Expanding content (e.g. "Why this fit?" or "View" audit) does not break layout; if any expander currently increases page height awkwardly, it should be converted to overlay/drawer per existing overlay system (no change in this run).
+- PathAdvisor rail remains fixed and scrolls internally.
+
+## Human Simulation Gate
+
+| Item | Value |
+|------|-------|
+| Required | No |
+| Triggers hit | none (layout/scroll only; no new persistence or create actions) |
+| Why | Scroll and viewport layout only; no store or persistence changes. |
+
+---
+
+# Job Search — Layout, Scroll, Fit Stars, Tabs v1
+
+(No commit or push. Branch: feature/job-search-layout-scroll-fit-tabs-v1.)
+
+## What changed
+
+1. **Layout width ratio**  
+   Results column: `clamp(480px, 38vw, 560px)`. Details column: `minmax(420px, 1fr)`. Job list wider; details panel can be smaller. No overall max-width constraint on this screen; `w-full` with consistent padding.
+
+2. **Page scroll behavior**  
+   Single main scroll container; PathAdvisor rail stays fixed. Removed fixed heights and inner `overflow-y-auto` on the results list so the page scrolls vertically. Results list is normal flow; details panel tab content keeps `overflow-y-auto` only for long tab body. Main wrapper: `flex flex-col min-h-0 w-full`.
+
+3. **Fit indicator — stars (1–5)**  
+   Added `fitScoreToStars(score: 0–100)` in `fitScoring.ts` (deterministic bands: 80+ → 5, 60–79 → 4, 40–59 → 3, 20–39 → 2, 0–19 → 1). Replaced "Strong/Moderate/Stretch fit" text with star display: "★★★★☆" (★/☆) and confidence as separate lightweight chip (Low/Medium/High). JobListItem and PathOS Brief tab use stars; "Why this fit?" panel uses `FitStarsRow`. Kept 2–3 reasons as explainability.
+
+4. **Removed "Translate to plain English"**  
+   Toggle and all references removed from the details pane. Requirements tab shows raw checklist items only. Deleted `toPlainEnglishChecklistItem` and `plainEnglishRequirements` state.
+
+5. **Tabs order + naming**  
+   Order: (1) **Overview & Docs** (default selected), (2) **Requirements**, (3) **PathOS Brief** (renamed from "Design Brief" / "Decision Brief"). Default tab is `overview`. PathOS Brief tab: fit stars + confidence, top risks chips, effort estimate, 3 next actions checklist; compact, no paragraphs. "Decision Brief" wording in toast changed to "PathOS Brief created."
+
+6. **Dropdowns**  
+   Existing `FilterDropdown` remains portaled and token-styled (Overlay Rule v1). No changes; verified themed and not clipped.
+
+## Files changed (this run)
+
+- `packages/ui/src/lib/fitScoring.ts` — Added `fitScoreToStars(score)`; export.
+- `packages/ui/src/lib/fitScoring.test.ts` — Added test for `fitScoreToStars` (0–100 → 1–5).
+- `packages/ui/src/screens/JobSearchScreen.tsx` — Layout grid (clamp/minmax), single page scroll (no overflow on results column), `FitStarsRow` component, JobListItem stars + confidence chip, PathOS Brief tab (stars, risks, effort, next actions), tab order Overview & Docs first/default, Requirements, PathOS Brief; removed plainEnglish toggle and state; removed `toPlainEnglishChecklistItem`.
+- `packages/ui/src/screens/JobSearchScreen.test.tsx` — Test label "PathOS Brief tab content fields" (was "Decision Brief").
+- `docs/merge-notes.md` — This section.
+
+## Commands run (summaries)
+
+- **git status** — On branch feature/job-search-layout-scroll-fit-tabs-v1; modified: docs/merge-notes.md, JobSearchScreen.tsx, JobSearchScreen.test.tsx, jobSearchMockJobs.ts; untracked: fitScoring*.ts, decisionBriefsV1Store*.ts, targetRoleV1Store.ts.
+- **git branch --show-current** — feature/job-search-layout-scroll-fit-tabs-v1.
+- **git diff --name-status main...HEAD** — (branch was created from feature/job-search-career-intel-layer-v1; no develop branch in repo.)
+- **git diff --stat develop...HEAD** — N/A (no develop). **git diff --stat main -- . ':(exclude)artifacts'** — 21 files (see repo state).
+- **pnpm -r typecheck** — Passed (packages/adapters, packages/core, packages/ui, apps/desktop).
+- **pnpm test** — Passed (726 tests, 50 files).
+- **pnpm routes:check** — OK (all Sidebar routes resolve in Desktop and Next).
+- **pnpm overlays:check** — Passed (Overlay Rule v1 / OverlayRoot).
+
+## Manual checks (recommended)
+
+- At ~1366px width: results list is not cramped, details still readable.
+- Whole page scrolls; no trapped scroll panes in results list.
+- Overview & Docs is the default tab and first in order.
+- No "Translate to plain English" remains.
+- Fit uses stars (e.g. ★★★★☆) and is quick to read; confidence shown separately.
+- Dropdown menus (Sort, filters) are themed and not clipped by the rail.
+
+## Human Simulation Gate
+
+| Item | Value |
+|------|-------|
+| Required | No |
+| Triggers hit | none (layout, scroll, UI labels, tab order; no new persistence or create actions) |
+| Why | Cosmetic/layout and tab reorder; fit stars are display-only from existing score. |
+
+---
+
+# Job Search Career Intelligence Layer v1
+
+(No commit or push. Branch: feature/job-search-career-intel-layer-v1.)
+
+## What changed
+
+1. **Fit Intelligence Layer on each JobCard**  
+   Each result card shows: Strong/Moderate/Stretch fit badge, confidence chip (Low/Medium/High), 2–3 plain-English reasons, primary CTA "Save + Start Tailoring", secondary "Why this fit?" (opens structured explanation panel). One-row risk-flag chips (Travel, Drug test, Clearance) when present. "Brief ready" indicator when a decision brief exists for that job.
+
+2. **Decision Brief (auto-generated on Save)**  
+   Local-only, deterministic artifact. On Save: create/update record in `pathos_decision_briefs_v1`; toast "Saved. Decision Brief created."; switch details tab to Decision Brief. Brief contains: fit verdict + confidence, key risks (chips), effort estimate, primary gap, recommended resume emphasis (1–2 bullets), 3 Next Actions checklist, "Based on: …" inputsUsed.
+
+3. **USAJOBS Overview → Key Facts grid + Risk Flags**  
+   Details panel has tabs: **Decision Brief** (default after Save), **Requirements**, **Overview & Docs**. Overview & Docs tab: 2-column Key Facts grid (Grade, Pay range, Schedule, Remote, Promotion potential, Appointment type), Risk Flags as chips, required documents checklist, "View on USAJOBS" link-first microcopy.
+
+4. **Sorting (decision-driven, deterministic)**  
+   "Sort by" dropdown near filters: Likelihood of success (fit score), Effort-to-reward, Strategic value, Urgency (close date). Sort is reproducible. Helper text: "Sorted by X based on Y inputs."
+
+5. **Target Role (local-only)**  
+   Store `pathos_target_role_v1`: series, gsTarget, location, remotePreference. "Set target role" CTA in Prompted Filters card opens inline form (Series, GS target, Location, Remote preference). Used by fit scoring for personalized reasons.
+
+6. **Requirements tab: "Translate to plain English" toggle**  
+   Template-based short summaries of checklist items (no LLM); deterministic.
+
+## Files changed
+
+- `packages/ui/src/screens/jobSearchMockJobs.ts` — Added `JobOverview` and `JobWithOverview`; each mock job has `overview` (openTo, appointmentType, teleworkEligible, remoteJob, workSchedule, travelRequired, securityClearance, drugTest, financialDisclosure, supervisoryStatus, bargainingUnitStatus, promotionPotential, payRange). `mockSearchJobs` typed to `JobWithOverview[]`.
+- `packages/ui/src/lib/fitScoring.ts` — **NEW.** Deterministic `buildFitAssessment`, `effortEstimate`, `strategicValue`, `effortToReward`. Types: FitAssessment, TargetRoleInput, FitProfileInput.
+- `packages/ui/src/lib/fitScoring.test.ts` — **NEW.** Tests for series/grade/remote rules, badge + reasons, confidence, effort/strategic/effortToReward.
+- `packages/ui/src/stores/targetRoleV1Store.ts` — **NEW.** localStorage key `pathos_target_role_v1`; fields series, gsTarget, location, remotePreference.
+- `packages/ui/src/stores/decisionBriefsV1Store.ts` — **NEW.** localStorage key `pathos_decision_briefs_v1`; `buildDecisionBriefRecord`, saveBrief, getBrief, hasBrief. DecisionBriefRecord includes fitAssessment, effortEstimate, strategicValue, effortToReward, keyFactsSummary, risks, nextActions, resumeEmphasis.
+- `packages/ui/src/stores/decisionBriefsV1Store.test.ts` — **NEW.** save/load and overwrite behavior.
+- `packages/ui/src/screens/JobSearchScreen.tsx` — JobListItem: fit badge, confidence, reasons, risk flags, "Save + Start Tailoring", "Why this fit?". Details panel: tabs Decision Brief / Requirements / Overview & Docs; Decision Brief content; Requirements with plain-English toggle; Overview Key Facts grid + Risk Flags. Sort dropdown (Likelihood, Effort-to-reward, Strategic, Urgency). Target role modal (Set target role). Save creates brief, toast, switch to Decision Brief. Why-fit explanation panel. Toast message UI.
+- `packages/ui/src/screens/JobSearchScreen.test.tsx` — Extended: loadSampleJobs store state, saveBrief/getBrief, decision brief record fields.
+
+## Validation commands (summarize results)
+
+- **pnpm -r typecheck** — Passed (packages/adapters, packages/core, packages/ui, apps/desktop).
+- **pnpm test** — Passed (725 tests, 50 files).
+- **pnpm routes:check** — OK (all Sidebar routes resolve).
+- **pnpm overlays:check** — Passed (Overlay Rule v1 / OverlayRoot).
+
+## Manual test checklist
+
+- Load sample jobs → see fit badge + confidence + reasons on cards.
+- Save + Start Tailoring → decision brief created; toast "Saved. Decision Brief created."; details tab switches to Decision Brief; refresh → brief still present. Verify localStorage keys: `pathos_decision_briefs_v1`, `pathos_job_search_v1`, existing saved-jobs key.
+- Sort by each option (Likelihood, Effort-to-reward, Strategic, Urgency) → order changes deterministically.
+- Set target role (Series, GS target, Location, Remote) → fit reasons update.
+- "Why this fit?" → explanation panel shows fit + reasons + inputsUsed.
+- Overlay sanity: dropdowns (Sort, filters) and tooltips not clipped by rail.
+
+## Human Simulation Gate
+
+| Item | Value |
+|------|-------|
+| Required | Yes |
+| Triggers hit | Adds Save action that creates persisted decision brief; changes store logic (targetRole, decisionBriefs); new localStorage keys. |
+| Why | Save + Start Tailoring creates decision brief and persists to pathos_decision_briefs_v1; create-button rule applies. |
+
+## AI Acceptance Checklist
+
+| Item | Value |
+|------|-------|
+| Flow | Save + Start Tailoring → job saved to core saved-jobs → buildDecisionBriefRecord → decisionBriefsV1Store.saveBrief → pathos_decision_briefs_v1; details tab → Decision Brief; toast shown. |
+| Store(s) | jobSearchV1Store, targetRoleV1Store, decisionBriefsV1Store |
+| Storage key(s) | pathos_job_search_v1, pathos_target_role_v1, pathos_decision_briefs_v1, pathos-saved-jobs (core) |
+| Failure mode | Brief not created or not persisted; tab not switching; fit reasons empty if target role missing. |
+| How tested | Unit: fitScoring.test, decisionBriefsV1Store.test, JobSearchScreen.test. Manual: load sample jobs → save → refresh → verify keys and brief. |
+
+---
+
+# Job Search v1 — Layout, Executive Briefing, Token Dropdowns
+
+(No commit or push. Validation run and summary below.)
+
+## What changed
+
+1. **Layout width ratio + spacing (Scope A)**  
+   Main content area is a 2-column grid: left (results) `minmax(340px, min(460px, 400px))`, right (details) `minmax(560px, 1fr)`. Scroll Invariant preserved with `min-h-0`. Padding and section spacing in the details card aligned with executive card rhythm (p-4, space-y-5, line-height token).
+
+2. **Job details reformat — executive briefing (Scope B)**  
+   Details card refactored into: (1) **Header block**: job title (primary), agency + location (secondary), meta chips row (GS, Close date, Remote/Telework, Series if present), 1–2 line summary (muted); (2) **Requirements block**: specialized experience checklist with Check icon, skills & keywords as chips in a wrap grid, documents needed compact checklist; (3) **Action bar** pinned to bottom: Save job (primary), Tailor resume (secondary), Ask PathAdvisor (secondary via `AskPathAdvisorButton`), View on USAJOBS. Token-only styling; no long paragraphs.
+
+3. **Filter dropdowns — token-styled, portaled (Scope C)**  
+   Reusable `FilterDropdown` in `packages/ui/src/screens/_components/FilterDropdown.tsx`: Radix DropdownMenu, portaled to OverlayRoot (getOverlayContainer), token styling (`var(--p-surface)`, `var(--p-border)`, `var(--p-shadow-elev-1)`, hover `var(--p-surface2)`), zIndex from `zIndex.ts` (Z_POPOVER). Applied to all five filters: Grades (GS-9..GS-15 + All Grades), Series (2210, 0343, 0301, 1102 + All Series), Agencies (derived from MOCK_JOBS + All Agencies), Location (derived from MOCK_JOBS + Any Location), Types (Competitive, Excepted, Term + All Types). Fifth filter uses store `appointmentType` (Types); no Tailwind z-*; Overlay Rule v1 satisfied.
+
+## Files changed
+
+- `packages/ui/src/screens/JobSearchScreen.tsx` — grid layout, JobDetailsPanel executive briefing, FilterDropdown for all 5 filters; filter option constants and agency/location derived from MOCK_JOBS.
+- `packages/ui/src/screens/_components/FilterDropdown.tsx` — new: token-styled portaled dropdown (Radix DropdownMenu, OverlayRoot, zIndex).
+- `packages/ui/src/stores/jobSearchV1Store.test.ts` — added test: setFilters then runSearch returns filtered results by gradeBand.
+- `docs/merge-notes.md` — this section.
+
+## Commands run + results
+
+- **pnpm -r typecheck** — Passed (packages/adapters, packages/core, packages/ui, apps/desktop).
+- **pnpm test** — Passed (711 tests, 48 files).
+- **pnpm routes:check** — OK (all Sidebar routes resolve).
+- **pnpm overlays:check** — Passed (Overlay Rule v1 / OverlayRoot).
+
+## Manual checks (recommended)
+
+At 1280–1440px width: (1) results list feels breathable (left column 340–400px), (2) details panel reads like a briefing (header, requirements blocks, pinned action bar), (3) filter dropdown opens and is themed (surface, border, shadow) and not clipped by the rail; dark mode appearance correct.
+
+## Human Simulation Gate
+
+| Item | Value |
+|------|-------|
+| Required | No |
+| Triggers hit | none (layout, styling, filter UI; store filter state already tested) |
+| Why | No new create/save/delete actions; filter selection updates existing store and is covered by store test. |
+
+---
+
 # Dashboard Command Center v1 – Pass 1 (Scaffold)
 
 (Log git state and validation outputs below; do not paste full diffs.)
@@ -2692,6 +3504,232 @@ LastWriteTime : 3/1/2026 1:41:56 PM
 Name          : resume-readiness-v1-this-run.patch
 Length        : 200042
 LastWriteTime : 3/1/2026 1:41:56 PM
+```
+
+Do not commit or push.
+
+---
+
+## AI docs: Overlay Rule v1 and tooltip/overlay usage
+
+**Goal:** Add Overlay Rule v1 and tooltip/overlay usage rules to AI docs so future Cursor runs don’t regress the overlay system.
+
+### Doc sections added
+
+- **docs/ai/cursor-house-rules.md:** New section “Overlay Rule v1 (Tooltips, Menus, Popovers)” — canonical Tooltip/DrawerTooltip wrappers; no inline `role="tooltip"` DOM; no Tailwind `z-*`; no `createPortal` in screens; run `pnpm overlays:check` in validation.
+- **docs/ai/testing-standards.md:** New UI check “Overlay sanity” — hover tooltips near rail/drawer edges (confirm not clipped); open dropdown near rail (confirm above rail); confirm `pnpm overlays:check` passes.
+- **docs/ai/prompt-header.md:** Added `pnpm overlays:check` to the required validation list for UI/overlay changes.
+
+### Files changed
+
+- `docs/ai/cursor-house-rules.md`
+- `docs/ai/testing-standards.md`
+- `docs/ai/prompt-header.md`
+- `docs/merge-notes.md` (this log)
+
+### Commands run
+
+- `pnpm overlays:check` — passed (Overlay Rule v1 / OverlayRoot).
+
+### Git snapshots
+
+**git status**
+
+```
+On branch feature/job-search-prompted-filters-v1
+Changes not staged for commit:
+	modified:   docs/ai/cursor-house-rules.md
+	modified:   docs/ai/prompt-header.md
+	modified:   docs/ai/testing-standards.md
+	modified:   docs/merge-notes.md
+no changes added to commit
+```
+
+**git branch --show-current**
+
+```
+feature/job-search-prompted-filters-v1
+```
+
+**git diff --name-status main...HEAD**
+
+(Empty — branch has no commits beyond main.)
+
+**git diff --stat main...HEAD**
+
+(Empty — same.)
+
+Do not commit or push.
+
+---
+
+## Job Search screen v1 (Prompted Filters, store, PathAdvisor)
+
+**Goal:** Build Job Search screen v1 to match mock: title/subtitle, Prompted Filters (translate to filters), search row, filters bar, results + details, PathAdvisor rail. Local-only; token-only styling; scroll invariant; route parity; no commits/pushes.
+
+### Summary
+
+- **Route + page:** Job Search route unchanged; screen shows title "Job Search" and subtitle "Explore roles, save targets, and reduce uncertainty." Web (Next) and desktop both use same route.
+- **Stores:** New job search v1 Zustand store (`packages/ui/src/stores/jobSearchV1Store.ts`) with persistence to `pathos_job_search_v1`. State: lastQuery, filters, results (mock), selectedJobId, loading, hasSearched, appliedFromPrompt. Save job uses core `addSavedJobDirect` / `saveSavedJobsStore` so saved jobs appear in Saved Jobs screen.
+- **Storage keys:** Added `JOB_SEARCH_V1_STORAGE_KEY` (`pathos_job_search_v1`) and `PROMPT_TO_FILTERS_AUDIT_KEY` (`pathos_jobsearch_prompt_to_filters_v1`) in `packages/core/src/storage-keys.ts` and `lib/storage-keys.ts`.
+- **Prompted Filters:** Card with "Describe what you're looking for (optional)", placeholder, "Translate to filters" button. Deterministic parser (`packages/ui/src/lib/promptToFiltersParser.ts`) extracts GS levels, agencies (DHS, VA, etc.), remote/telework/hybrid, series, location phrase, keywords. Proposed filters preview with chips, interpretation line, Apply filters / Edit filters / Discard. On Apply: store filters, write audit to `pathos_jobsearch_prompt_to_filters_v1`, run search. "Applied from prompt" note with View (expand to show prompt).
+- **Search row:** Keywords + optional location inputs, Search (primary), Reset (secondary), microcopy "Results shown from saved snapshots (mock) for now."
+- **Filters bar:** Dropdowns All Grades, All Series, All Agencies, Any Location, All Types; Clear all filters; "Applied from prompt" + View.
+- **Results + details:** Two panes (results list left, details center). Results: title, agency, location, close date, GS chip, fit badge (High/Medium/Low), Save per item, "New" / "Close date updated" on first two. Details: checklist sections (Specialized experience, Skills & keywords, Documents needed), Save job / Tailor resume / Ask PathAdvisor. States: before search "Run a search to view jobs.", loading skeleton, no results message.
+- **PathAdvisor:** Screen overrides on mount (viewingLabel "Job Search", suggested prompts, briefingLabel "From Job Search"); Do now "Save and start tailoring" when job selected, cleared on unmount.
+- **Tests:** Parser tests (`promptToFiltersParser.test.ts`), store tests (`jobSearchV1Store.test.ts`), screen tests (`JobSearchScreen.test.tsx` with NavigationProvider). Vitest already has localStorage polyfill and excludes **/node_modules/**.
+
+### Files changed
+
+- `lib/storage-keys.ts` — added JOB_SEARCH_V1_STORAGE_KEY, PROMPT_TO_FILTERS_AUDIT_KEY, STORAGE_KEYS entries.
+- `packages/core/src/storage-keys.ts` — same keys.
+- `packages/core/src/index.ts` — export new keys.
+- `packages/ui/src/screens/JobSearchScreen.tsx` — rewritten for v1 (title/subtitle, prompted filters, search row, filters bar, results + details, PathAdvisor overrides).
+- `packages/ui/src/stores/jobSearchV1Store.ts` — new (Zustand store, persist pathos_job_search_v1, integrate core saved-jobs).
+- `packages/ui/src/lib/promptToFiltersParser.ts` — new (deterministic prompt → filters + keywords + evidence).
+- `packages/ui/src/screens/jobSearchMockChecklists.ts` — new (checklist data for mock jobs).
+- `packages/ui/src/lib/promptToFiltersParser.test.ts` — new.
+- `packages/ui/src/stores/jobSearchV1Store.test.ts` — new.
+- `packages/ui/src/screens/JobSearchScreen.test.tsx` — new.
+
+### Validation commands (run and summarize)
+
+- **pnpm -r typecheck** — PASS (all 4 scopes).
+- **pnpm test** — PASS (700 tests, 46 files).
+- **pnpm routes:check** — PASS (all Sidebar routes resolve in Desktop and Next).
+- **pnpm overlays:check** — PASS (Overlay Rule v1 / OverlayRoot).
+
+### Manual test checklist
+
+- [ ] Job Search loads; scroll behaves (main scroll container only); PathAdvisor rail stays fixed.
+- [ ] Prompt translate → proposed filters → Apply filters → chips reflect → search results update.
+- [ ] Save job → appears in Saved Jobs (or saved state) → refresh → still saved.
+- [ ] Clear filters and Reset behave predictably.
+- [ ] Desktop and web both show the same route.
+
+### Human Simulation Gate
+
+| Item | Value |
+|------|-------|
+| Required | Yes |
+| Triggers hit | Adds Save/Apply action; changes store logic; persistence (pathos_job_search_v1, pathos_jobsearch_prompt_to_filters_v1, core saved-jobs). |
+| Why | Create-button rule: save job → appears in Saved Jobs → refresh → still there; storage keys verified. |
+
+### AI Acceptance Checklist
+
+| Item | Value |
+|------|-------|
+| Flow | Search → jobSearchV1Store.runSearch() → results; Save job → core addSavedJobDirect/saveSavedJobsStore → Saved Jobs screen; Apply from prompt → store filters + audit key pathos_jobsearch_prompt_to_filters_v1. |
+| Store(s) | useJobSearchV1Store (packages/ui); core loadSavedJobsStore/saveSavedJobsStore for saved jobs. |
+| Storage key(s) | pathos_job_search_v1, pathos_jobsearch_prompt_to_filters_v1, pathos:saved-jobs-store (core). |
+| Failure mode | Broken store: results/saved state lost on refresh. Broken save: job not in Saved Jobs. |
+| How tested | Unit: parser, store (runSearch, applyProposedFiltersFromPrompt, saveJob), screen (title/subtitle). Manual: create → appears elsewhere → refresh → still there. |
+
+### Git state (this run)
+
+**git status**
+```
+On branch feature/job-search-prompted-filters-v1
+Changes not staged for commit:
+  modified:   docs/ai/..., lib/storage-keys.ts, packages/core/..., packages/ui/src/screens/JobSearchScreen.tsx
+Untracked: packages/ui/src/lib/, JobSearchScreen.test.tsx, jobSearchMockChecklists.ts, jobSearchV1Store.test.ts, jobSearchV1Store.ts
+```
+
+**git branch --show-current:** feature/job-search-prompted-filters-v1
+
+**git diff --name-status develop...HEAD:** (Empty.)
+
+**git diff --stat develop...HEAD:** (Empty.)
+
+Do not commit or push.
+
+---
+
+## Job Search evaluation path (mock data, sample jobs, PathAdvisor copy)
+
+**Goal:** One-click evaluation: mock jobs dataset, "Load sample jobs" button, "Use example prompt" link, prompt-to-filters runs mockSearchJobs; PathAdvisor rail Job Search helper copy (no compensation). Minimal diffs; token-only; scroll invariant; overlay rule unchanged.
+
+### What changed
+
+- **A) Mock jobs:** New `packages/ui/src/screens/jobSearchMockJobs.ts`: `MOCK_JOBS` (10 items, stable ids mock-js-1..mock-js-10), `MOCK_JOB_TAGS` (New / Close date updated for mock-js-1, mock-js-2), variety (agencies, grades, Remote/DC/Arlington). `mockSearchJobs(input, jobs)` pure function: keywords (title/summary), location substring, filters (gradeBand, agency, series, location, remoteType, appointmentType), sort by close-date order.
+- **B) Store:** `jobSearchV1Store` uses `MOCK_JOBS` and `mockSearchJobs` for `runSearch()`. New action `loadSampleJobs()`: sets results = MOCK_JOBS, hasSearched = true, selectedJobId = first id.
+- **C) Empty state:** "Run a search to view jobs." kept; added "Load sample jobs" button (calls `loadSampleJobs()`, details pane shows first job). "Use example prompt" link fills prompt input with placeholder text so "Translate to filters" becomes enabled.
+- **D) Prompt-to-filters:** Empty prompt keeps "Translate to filters" disabled. After "Use example prompt", Apply filters applies filters and runs search via `mockSearchJobs`.
+- **E) PathAdvisor:** `PathAdvisorScreenOverrides` extended with optional `helperParagraph`. Job Search sets `helperParagraph` to "Use this workspace to decode job requirements and decide your next best move. Ask about specialized experience, keywords, and what to do next." PathAdvisorCard uses it when message list empty (no compensation copy on Job Search).
+- **F) Checklists:** `jobSearchMockChecklists` maps mock-js-* ids to existing checklist keys so details pane shows SPECIALIZED EXPERIENCE / SKILLS / DOCUMENTS. List item tags from `MOCK_JOB_TAGS` (not index).
+- **Tests:** `jobSearchMockJobs.test.ts` (mockSearchJobs filters agency/grade/keywords/location, sort); `jobSearchV1Store.test.ts` (loadSampleJobs populates and selects first); `jobSearchMockChecklists.test.ts` (getChecklistForJob mock-js-1 returns checklist); `JobSearchScreen.test.tsx` (after loadSampleJobs store has results and first job selected).
+
+### Files changed (this run)
+
+- `packages/ui/src/screens/jobSearchMockJobs.ts` — new (MOCK_JOBS, MOCK_JOB_TAGS, mockSearchJobs).
+- `packages/ui/src/screens/jobSearchMockJobs.test.ts` — new.
+- `packages/ui/src/screens/jobSearchMockChecklists.ts` — map mock-js-* to checklist keys.
+- `packages/ui/src/screens/jobSearchMockChecklists.test.ts` — new.
+- `packages/ui/src/screens/JobSearchScreen.tsx` — Load sample jobs button, Use example prompt link, MOCK_JOB_TAGS for list tags.
+- `packages/ui/src/screens/JobSearchScreen.test.tsx` — test loadSampleJobs store state.
+- `packages/ui/src/stores/jobSearchV1Store.ts` — loadSampleJobs(), runSearch uses mockSearchJobs(MOCK_JOBS).
+- `packages/ui/src/stores/jobSearchV1Store.test.ts` — test loadSampleJobs.
+- `packages/ui/src/stores/pathAdvisorScreenOverridesStore.ts` — helperParagraph in overrides.
+- `packages/ui/src/shell/PathAdvisorRail.tsx` — pass helperParagraph to PathAdvisorCard.
+- `packages/ui/src/shell/PathAdvisorCard.tsx` — optional helperParagraph for empty-state body copy.
+
+### Commands run (summaries)
+
+**pnpm -r typecheck**
+```
+packages/adapters typecheck: Done
+packages/core typecheck: Done
+packages/ui typecheck: Done
+apps/desktop typecheck: Done
+Exit: 0
+```
+
+**pnpm test**
+```
+Test Files  48 passed (48)
+Tests       710 passed (710)
+Exit: 0
+```
+
+**pnpm routes:check**
+```
+routes:check: OK — all Sidebar routes resolve in Desktop and Next.
+```
+
+**pnpm overlays:check**
+```
+overlays:check passed (Overlay Rule v1 / OverlayRoot).
+```
+
+### Git state (this run)
+
+**git status**
+```
+On branch feature/job-search-prompted-filters-v1
+Changes not staged for commit:
+  modified:   docs/ai/cursor-house-rules.md, docs/ai/prompt-header.md, docs/ai/testing-standards.md,
+              docs/merge-notes.md, lib/storage-keys.ts, packages/core/src/index.ts,
+              packages/core/src/storage-keys.ts, packages/ui/src/screens/JobSearchScreen.tsx,
+              packages/ui/src/shell/PathAdvisorCard.tsx, packages/ui/src/shell/PathAdvisorRail.tsx,
+              packages/ui/src/stores/pathAdvisorScreenOverridesStore.ts
+Untracked: packages/ui/src/lib/, JobSearchScreen.test.tsx, jobSearchMockChecklists.ts,
+            jobSearchMockChecklists.test.ts, jobSearchMockJobs.ts, jobSearchMockJobs.test.ts,
+            jobSearchV1Store.test.ts, jobSearchV1Store.ts
+```
+
+**git branch --show-current**
+```
+feature/job-search-prompted-filters-v1
+```
+
+**git diff --name-status main...HEAD**
+```
+(Empty — branch has no commits beyond main.)
+```
+
+**git diff --stat main...HEAD**
+```
+(Empty.)
 ```
 
 Do not commit or push.

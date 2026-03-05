@@ -19,7 +19,7 @@ import { Sparkles, Eye, Shield, Send, Trash2, Settings2, X } from 'lucide-react'
 import { ModuleCard } from '../components/ModuleCard';
 import { Tooltip } from '../components/Tooltip';
 import { Z_POPOVER } from '../styles/zIndex';
-import { usePathAdvisorBriefingStore } from '../stores/pathAdvisorBriefingStore';
+import { usePathAdvisorBriefingStore, isFitBriefing } from '../stores/pathAdvisorBriefingStore';
 import { useDashboardHeroDoNowStore } from '../stores/dashboardHeroDoNowStore';
 import { useNav } from '@pathos/adapters';
 
@@ -458,32 +458,57 @@ export function PathAdvisorCard(props: PathAdvisorCardProps) {
                   </Tooltip>
                 </div>
               </div>
-              {briefing.sourceLabel !== undefined && briefing.sourceLabel !== '' ? (
-                <p className="text-[11px] mb-2" style={{ color: 'var(--p-text-dim)' }}>
-                  From: {briefing.sourceLabel}
-                </p>
-              ) : null}
-              {briefing.sections.length > 0
-                ? briefing.sections.map(function (sec, idx) {
-                    const isFirst = idx === 0;
-                    return (
-                      <div key={idx} className={isFirst ? 'pt-0 pb-2' : 'pt-2 pb-2'}>
-                        {isFirst ? null : (
-                          <div
-                            className="mx-4 mb-2 h-px"
-                            style={{ background: 'var(--p-border)', opacity: 0.6 }}
-                          />
-                        )}
-                        <p className="text-[11px] font-medium mb-0.5" style={{ color: 'var(--p-text-muted)' }}>
-                          {sec.heading}
-                        </p>
-                        <p className="text-[11px] mt-0" style={{ color: 'var(--p-text-dim)' }}>
-                          {sec.body}
-                        </p>
-                      </div>
-                    );
-                  })
-                : null}
+              {isFitBriefing(briefing) ? (
+                <div className="text-[11px]" style={{ color: 'var(--p-text-dim)' }}>
+                  <p className="mb-1 font-medium" style={{ color: 'var(--p-text-muted)' }}>Alignment: {briefing.jobTitle}</p>
+                  <p className="mb-1">{briefing.stars} stars · {briefing.confidence} confidence · Effort: {briefing.effort}</p>
+                  {briefing.blocker !== undefined && briefing.blocker !== '' ? (
+                    <p className="mb-1">Primary blocker: {briefing.blocker}</p>
+                  ) : null}
+                  {briefing.reasons.length > 0 ? (
+                    <ul className="list-disc list-inside mt-1">
+                      {briefing.reasons.slice(0, 3).map(function (r, i) {
+                        return <li key={i}>{r}</li>;
+                      })}
+                    </ul>
+                  ) : null}
+                  {briefing.missingInputs !== undefined && briefing.missingInputs.length > 0 ? (
+                    <p className="mt-1">What is missing: {briefing.missingInputs.join(', ')}</p>
+                  ) : null}
+                  <p className="mt-2 font-medium" style={{ color: 'var(--p-text-muted)' }}>
+                    {briefing.isJobSaved ? 'Next: Open Decision Brief or Start Tailoring.' : 'Next: Save + Start Tailoring.'}
+                  </p>
+                </div>
+              ) : (
+                <>
+                  {briefing.sourceLabel !== undefined && briefing.sourceLabel !== '' ? (
+                    <p className="text-[11px] mb-2" style={{ color: 'var(--p-text-dim)' }}>
+                      From: {briefing.sourceLabel}
+                    </p>
+                  ) : null}
+                  {briefing.sections.length > 0
+                    ? briefing.sections.map(function (sec: { heading: string; body: string }, idx: number) {
+                        const isFirst = idx === 0;
+                        return (
+                          <div key={idx} className={isFirst ? 'pt-0 pb-2' : 'pt-2 pb-2'}>
+                            {isFirst ? null : (
+                              <div
+                                className="mx-4 mb-2 h-px"
+                                style={{ background: 'var(--p-border)', opacity: 0.6 }}
+                              />
+                            )}
+                            <p className="text-[11px] font-medium mb-0.5" style={{ color: 'var(--p-text-muted)' }}>
+                              {sec.heading}
+                            </p>
+                            <p className="text-[11px] mt-0" style={{ color: 'var(--p-text-dim)' }}>
+                              {sec.body}
+                            </p>
+                          </div>
+                        );
+                      })
+                    : null}
+                </>
+              )}
             </div>
             <div
               className="mt-2 mx-0 h-px flex-shrink-0"
