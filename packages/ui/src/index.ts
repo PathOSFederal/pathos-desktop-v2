@@ -26,6 +26,7 @@ export {
 export {
   usePathAdvisorScreenOverridesStore,
   type PathAdvisorScreenOverrides,
+  type PathAdvisorRailContent,
 } from './stores/pathAdvisorScreenOverridesStore';
 
 // Screens
@@ -34,6 +35,7 @@ export {
   type DashboardScreenProps,
   type DashboardData,
 } from './screens/DashboardScreen';
+export { CareerReadinessScreen } from './screens/CareerReadinessScreen';
 export { CareerScreen, type CareerScreenProps } from './screens/CareerScreen';
 export { SettingsScreen, type SettingsScreenProps } from './screens/SettingsScreen';
 export { GuidedApplyScreen, type GuidedApplyScreenProps } from './screens/GuidedApplyScreen';

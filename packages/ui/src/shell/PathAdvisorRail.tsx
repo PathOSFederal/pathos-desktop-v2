@@ -112,6 +112,11 @@ export function PathAdvisorRail(props: PathAdvisorRailProps) {
       ? overrides.briefingLabel
       : undefined;
 
+  const railContent =
+    overrides !== null && overrides !== undefined && overrides.railContent !== undefined
+      ? overrides.railContent
+      : undefined;
+
   return (
     <div className="h-full flex flex-col min-h-0">
       <PathAdvisorCard
@@ -121,6 +126,7 @@ export function PathAdvisorRail(props: PathAdvisorRailProps) {
         viewingLabel={viewingLabel}
         privacyLabel={props.privacyLabel}
         briefingLabel={briefingLabel}
+        railContent={railContent}
       />
     </div>
   );

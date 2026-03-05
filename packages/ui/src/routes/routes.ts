@@ -16,6 +16,9 @@
 /** Dashboard root (Overview). */
 export const DASHBOARD = '/dashboard';
 
+/** Career Readiness (competitiveness baseline for federal roles). */
+export const CAREER_READINESS = '/dashboard/career-readiness';
+
 /** Money & Pay. */
 export const COMPENSATION = '/dashboard/compensation';
 
@@ -73,6 +76,7 @@ export const SETTINGS = '/settings';
  */
 export const SIDEBAR_ROUTES: readonly string[] = [
   DASHBOARD,
+  CAREER_READINESS,
   COMPENSATION,
   BENEFITS,
   RETIREMENT,

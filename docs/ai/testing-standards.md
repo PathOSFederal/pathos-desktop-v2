@@ -2,6 +2,7 @@
 
 > **Purpose**: Defines when and how to write tests in the PathOS Tier 1 Frontend repo.
 > Emphasis on high-value tests; discourages time-wasting component tests.
+> Policy stance: We build 508-ready by default (WCAG-aligned mechanics), but we do not claim certification/compliance unless a formal audit pass is completed.
 
 ---
 
@@ -10,6 +11,7 @@
 Before any PR can be merged, these commands must succeed:
 
 ```bash
+pnpm ci:validate # Policy/day validation (set DAY first)
 pnpm lint       # Zero new errors introduced
 pnpm typecheck  # Zero type errors
 pnpm test       # All tests pass
@@ -21,6 +23,36 @@ pnpm build      # Production build succeeds
 - Bug fixes: 1 regression test per bug
 - Adapters/mappers: 3–8 tests per mapper
 - Store persistence behaviors: 1–3 tests per behavior
+
+---
+
+## A11y/508-ready Gate (required for UI-impacting changes)
+
+When a ticket changes UI behavior, interactions, forms, navigation, or visual states, this gate is required before merge.
+
+Required checks:
+
+1. Keyboard navigation: no traps; all interactive elements are reachable; expected key interactions work.
+2. Visible focus: focus ring/indicator is always visible for keyboard users.
+3. Labels: inputs have accessible labels; error text is programmatically associated where applicable.
+4. Contrast: WCAG AA for text and key UI components, or documented exception.
+5. Reduced motion: respects `prefers-reduced-motion` for animations/transitions.
+6. Semantics: buttons/links use semantic elements; no click-only divs unless correctly implemented. Default is do not use click-only divs.
+7. Basic axe run for changed flows: block merge on serious/critical issues; allow minor issues only with explicit tracking note in `docs/merge-notes/current.md`.
+8. Tooltip behavior check for affected UI: hover and keyboard focus both work; tooltip content includes name + short purpose + shortcut when available; no private/sensitive data is exposed.
+
+Accessibility Verification (record in `docs/merge-notes/current.md`):
+
+```markdown
+### Accessibility Verification
+
+| Item | Value |
+|------|-------|
+| Keyboard flow tested | [what/where] |
+| NVDA/Screen reader spot-check | [what/where; speech viewer acceptable] |
+| Axe run | [screens + counts] |
+| Notes/issues | [if any] |
+```
 
 ---
 
@@ -298,6 +330,7 @@ When a change adds or updates UI tooltips, verify all of the following:
 - Tooltip does not block clicks or obscure the control it describes.
 - Tooltip does not expose sensitive or private user data.
 - Accessibility linkage is present via `aria-describedby` (or equivalent).
+- Also record this verification in the A11y/508-ready Gate evidence block.
 
 ### Evidence Requirement
 

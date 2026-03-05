@@ -12,6 +12,16 @@
 
 import { create } from 'zustand';
 
+/** Optional rail content for screens that show INSIGHT + NEXT BEST ACTION blocks (e.g. Career Readiness). */
+export interface PathAdvisorRailContent {
+  /** Bullet strings for the INSIGHT card. */
+  insightBullets: string[];
+  /** Next best action text and CTA label (e.g. "Add 3 quantified accomplishments (+4)." / "Start"). */
+  nextBestAction: { text: string; ctaLabel: string };
+  /** Optional collapsed section labels (e.g. "Explain scoring", "How this works"). */
+  collapsedSectionLabels?: string[];
+}
+
 export interface PathAdvisorScreenOverrides {
   /** Chip label for "Viewing: ..." (e.g. "Resume Readiness"). */
   viewingLabel: string;
@@ -23,6 +33,8 @@ export interface PathAdvisorScreenOverrides {
   helperParagraph?: string;
   /** Optional callback when user takes primary action from fit briefing (e.g. Save + Start Tailoring). */
   onFitBriefingPrimaryAction?: () => void;
+  /** Optional rail content: INSIGHT card + NEXT BEST ACTION card (e.g. Career Readiness). When set, card shows these instead of hero Do now. */
+  railContent?: PathAdvisorRailContent;
 }
 
 interface PathAdvisorScreenOverridesState {

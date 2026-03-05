@@ -1,3 +1,268 @@
+# Day 59 — Merge-ready gates + patch refresh (this run)
+
+(Do not commit or push. Branch: feature/day-59-career-readiness-tab-v1.)
+
+## Goal
+
+Make Day 59 merge-ready: run full gates (lint, typecheck, test, build), fix any failures, refresh patch artifacts.
+
+## Result
+
+- **pnpm lint:** 1 error fixed (FilterGuideDrawer: setState in effect → deferred with setTimeout 0). Pass: 0 errors, 25 warnings.
+- **pnpm -r typecheck:** Pass.
+- **pnpm test:** 756 tests passed.
+- **pnpm build:** Pass.
+- **Patch artifacts:** Regenerated; day-59.patch 147570 bytes, day-59-this-run.patch 46720 bytes (main baseline; develop not in repo).
+
+---
+
+# Day 59 — Readiness Radar ECharts
+
+(Do not commit or push. Branch: feature/day-59-career-readiness-tab-v1.)
+
+## Goal
+
+Convert the Readiness Radar chart from SVG to ECharts radar using the existing chart layer (EChart.tsx, pathosChartTheme.ts). Same pattern as Trajectory EChart.
+
+## What changed
+
+- **ReadinessRadarEChart.tsx (new):** ECharts radar with 5 indicators (Target Alignment, Specialized Experience, Resume Evidence, Keywords Coverage, Leadership & Scope), scale 0–100, tooltip with indicator + value + "Local-only. Derived from profile + resume evidence.", PathOS theme colors, client-only.
+- **CareerReadinessScreen:** Replaced ReadinessRadarChart with ReadinessRadarEChart; layout and "Top gaps holding you back" unchanged.
+- **ReadinessRadarChart.tsx:** Deprecation comment added; file left in place.
+- **Accessible fallback:** sr-only &lt;ul&gt; in ReadinessRadarEChart listing 5 indicators + values for screen readers and tests.
+- **Tests:** New test asserts "Readiness Radar" and all 5 indicator labels present.
+
+## Patch Artifacts (FINAL)
+
+- Cumulative: artifacts/day-59.patch (main → working tree). Length 137406.
+- Incremental: artifacts/day-59-this-run.patch (HEAD → working tree). Length 36555.
+- ls -lh artifacts/ (day-59): logged in current.md; no diffs pasted.
+
+---
+
+# Day 59 — ECharts Trajectory upgrade (Actual vs Possible)
+
+(Do not commit or push. Branch: feature/day-59-career-readiness-tab-v1.)
+
+## Goal
+
+Upgrade the Readiness Trajectory chart to premium interactive charts using Apache ECharts (not custom SVG), keeping existing PathOS CSS/theme/layout. Step 1: convert only the Trajectory chart to ECharts with two lines (Actual vs Possible), high-quality tooltip, and legend toggles.
+
+## What changed
+
+- **Dependencies:** Added `echarts` and `echarts-for-react` to `packages/ui`. Run `pnpm install` to update lockfile (network required).
+- **packages/ui/src/charts/EChart.tsx:** Client-only wrapper around echarts-for-react; renders only after mount (useEffect + useState) to avoid SSR/hydration; accepts option, style, className; handles resize via echarts-for-react default.
+- **packages/ui/src/charts/pathosChartTheme.ts:** `getPathosChartColors()` reads CSS variables via getComputedStyle(document.documentElement) and returns { textDim, text, grid, accent, accentMuted, surface, border } with safe fallbacks.
+- **packages/ui/src/screens/careerReadiness/ReadinessTrajectoryEChart.tsx:** New ECharts implementation: two line series (Actual solid accent, Possible dashed accentMuted), axis tooltip with label + Actual + Possible + Gap + note "Possible assumes selected actions completed", legend toggles, PathOS colors, no animation.
+- **CareerReadinessScreen:** Uses `ReadinessTrajectoryEChart` instead of `ReadinessTrajectoryChart`. Microcopy under chart unchanged: "Actual shows your progress over time. Possible shows where you could be if you complete selected actions. Local-only."
+- **ReadinessTrajectoryChart.tsx:** Left in place; added deprecation comment. Radar chart unchanged (Step 2 optional).
+- **Tests:** CareerReadinessScreen.test.tsx unchanged; smoke tests assert "Readiness Trajectory", "Actual", "Possible", and microcopy (text is in screen copy, not canvas).
+
+## Why ECharts
+
+Premium interactivity: axis tooltips, legend toggles, consistent behavior. Recharts was present but unused; ECharts chosen for this upgrade.
+
+## Known follow-ups
+
+- Run `pnpm install` when network is available so lockfile includes echarts/echarts-for-react; then `pnpm typecheck` and `pnpm test` will pass.
+- Optional Step 2: convert Readiness Radar to ECharts radar (ReadinessRadarEChart.tsx) if time permits.
+- Radar chart remains SVG for now.
+
+## Human Simulation Gate
+
+| Item | Value |
+|------|--------|
+| Required | No |
+| Triggers hit | none |
+| Why | Chart swap and new deps; no store/persistence/SSR flow change. Manual run app and confirm Trajectory chart, tooltips, legend toggles recommended. |
+
+## AI Acceptance Checklist
+
+| Item | Value |
+|------|--------|
+| Flow | Career Readiness screen renders; Trajectory card shows ECharts two-line chart; tooltip on hover shows Actual/Possible/Gap/note; legend click toggles series. |
+| Store(s) | none |
+| Storage key(s) | none |
+| Failure mode | If ECharts fails to load, placeholder or empty chart; run pnpm install to resolve. |
+| How tested | pnpm lint (pass); pnpm typecheck and pnpm test require pnpm install first (network). Manual: open /dashboard/career-readiness, confirm Trajectory chart, tooltips, legend. |
+
+## Patch Artifacts (FINAL)
+
+- Cumulative: `artifacts/day-59.patch` (main → working tree, excludes artifacts/).
+- Incremental: `artifacts/day-59-this-run.patch` (HEAD → working tree).
+- `Get-Item` output: day-59.patch Length 117109; day-59-this-run.patch Length 13276.
+
+## Commands
+
+**git status:** On branch feature/day-59-career-readiness-tab-v1; modified: packages/ui/package.json, CareerReadinessScreen.tsx, ReadinessTrajectoryChart.tsx; untracked: packages/ui/src/charts/, ReadinessTrajectoryEChart.tsx.
+
+**git branch --show-current:** feature/day-59-career-readiness-tab-v1
+
+**git diff --name-status main -- . (exclude artifacts):** (24 files including new charts, EChart, pathosChartTheme, ReadinessTrajectoryEChart, CareerReadinessScreen, package.json.)
+
+**git diff --stat main -- .:** 24 files changed, 2063 insertions(+), 259 deletions(-).
+
+**ls -lh artifacts (day-59):** day-59.patch 117109; day-59-run.patch 13276; day-59-this-run.patch 13276.
+
+---
+
+# Day 59 — Readiness Trajectory: Actual vs Possible (v0 parity)
+
+(Do not commit or push. Branch: feature/day-59-career-readiness-tab-v1.)
+
+## Goal
+
+Update the Readiness Trajectory chart to v0 mock: two lines (Actual solid, Possible dashed), compact legend, trust microcopy, and hover tooltip with both values. No new deps.
+
+## What changed
+
+- **Mock data:** Two-series trajectory: `actualPoints` (74, 74, 75, 76) and `possiblePoints` (74, 78, 84, 90). `CareerReadinessMockData.trajectory` replaces `trajectoryPoints`.
+- **ReadinessTrajectoryChart:** Accepts `trajectory`; draws Actual (solid accent) and Possible (dashed muted); CHART_HEIGHT 80; legend top-right (Actual / Possible); hover tooltip with label + Actual/Possible + "Possible assumes selected actions completed"; keyboard-focusable hit areas.
+- **Screen:** Microcopy: "Actual shows your progress over time. Possible shows where you could be if you complete selected actions. Local-only." Assumptions list: Selected actions completed; Target role unchanged; Profile inputs remain consistent.
+- **Tests:** Smoke assertions for "Actual", "Possible", and the new microcopy.
+
+## Why
+
+v0 parity and trust-first framing: users see plan (Possible) vs evidence (Actual) with clear copy and tooltip.
+
+## Patch artifacts (FINAL)
+
+- Cumulative: artifacts/day-59.patch (main → working tree)
+- Incremental: artifacts/day-59-this-run.patch (HEAD → working tree)
+- Artifact sizes: day-59.patch 102726; day-59-this-run.patch 102726
+
+---
+
+# Day 59 — Career Readiness card proportion + radar label scaling (third run)
+
+(Do not commit or push. Branch: feature/day-59-career-readiness-tab-v1.)
+
+## Goal
+
+Fix disproportion between Readiness Trajectory and Readiness Radar cards, and fix the radar SVG label scaling/overflow bug where labels (e.g. "Keywords Coverage") rendered extremely large and dominated the card.
+
+## What was wrong
+
+- **Trajectory vs Radar:** The two side-by-side cards had no shared height; Trajectory felt like a tiny element in a large empty panel, while Radar felt heavier. No consistent visual height.
+- **Radar label scaling bug:** The radar SVG used `width="100%"` and `maxWidth: 220`. When the container stretched, the SVG scaled and viewBox content (including text) scaled with it, so labels appeared massive at wider desktop widths.
+
+## What was changed
+
+**Layout strategy (card proportions):**
+- Grid row for Trajectory + Radar given `min-h-[320px]` so both cards share a consistent minimum height.
+- Both ModuleCards given `className="h-full flex flex-col"` so they stretch to the same row height and feel like peers.
+- Trajectory card content wrapped in a `flex-1 flex flex-col justify-center min-h-0` div so the chart block is vertically centered and the card no longer looks empty.
+- Trajectory chart: CHART_HEIGHT increased 56→72, padding adjusted; wrapper minHeight 72 (removed max-h cap) so the chart has a bit more presence while staying balanced.
+
+**SVG sizing strategy (radar labels):**
+- Radar SVG given explicit pixel dimensions `width={220} height={220}` (RENDER_SIZE constant) so the SVG never scales with the container. Labels (fontSize 9 in viewBox units) now render at a stable size and no longer grow when the layout is wide.
+- Removed `width="100%"` and `style={{ maxWidth: 220 }}`. Container uses flex justify-center items-center to center the fixed-size SVG. Removed unused `polygonPoints` variable (lint).
+
+## Before/after notes
+
+- **Before:** Trajectory card looked empty; Radar labels could render huge; two cards felt unbalanced.
+- **After:** Both cards share min-height 320px and stretch equally; Trajectory content centered, chart slightly larger; Radar always renders at 220×220px so labels stay normal and contained.
+
+## Files changed (this run)
+
+- **Modified:** packages/ui/src/screens/CareerReadinessScreen.tsx (grid min-h, card h-full, Trajectory content wrapper), packages/ui/src/screens/careerReadiness/ReadinessTrajectoryChart.tsx (CHART_HEIGHT 72, minHeight 72), packages/ui/src/screens/careerReadiness/ReadinessRadarChart.tsx (RENDER_SIZE 220, width/height attributes, remove % width).
+
+## Commands run + results
+
+**git status**
+```
+On branch feature/day-59-career-readiness-tab-v1
+Changes not staged for commit: (list includes CareerReadinessScreen, ReadinessTrajectoryChart, ReadinessRadarChart, plus pre-existing branch files)
+no changes added to commit
+```
+
+**git branch --show-current:** feature/day-59-career-readiness-tab-v1
+
+**git diff --name-status develop...HEAD:** (develop not in repo; used main)  
+**git diff --name-status main -- . ':(exclude)artifacts':** A/M list of 20 files (cumulative branch).
+
+**git diff --stat develop...HEAD:** (develop not in repo; used main)  
+**git diff --stat main -- . ':(exclude)artifacts':** 20 files changed, 1361 insertions(+), 259 deletions(-).
+
+**Patch artifacts:** artifacts/day-59.patch (cumulative), artifacts/day-59-this-run.patch (incremental). Exclude artifacts/ from patch content.
+
+**ls -lh artifacts/ (day-59 patches only):**
+```
+Name                  Length   LastWriteTime
+day-59.patch          85767    3/5/2026 1:25:00 PM
+day-59-this-run.patch  85767    3/5/2026 1:24:59 PM
+```
+
+**pnpm typecheck:** Passed.  
+**pnpm test (CareerReadinessScreen.test):** 3 tests passed.  
+**pnpm lint:** 1 pre-existing error (FilterGuideDrawer setState-in-effect); 1 new warning fixed (ReadinessRadarChart polygonPoints unused).
+
+---
+
+# Day 59 — Career Readiness UX/layout fixes (second run)
+
+(Do not commit or push. Branch: feature/day-59-career-readiness-tab-v1.)
+
+## Goal
+
+Fix UX/layout issues on the Career Readiness screen so it matches the intended design and feels polished and consistent with existing PathOS CSS: compact Trajectory card, no radar label clipping, score card target context, discoverable Evidence & Inputs, and small interaction polish.
+
+## What changed
+
+1. **Readiness Trajectory:** Reduced chart height (CHART_HEIGHT 56, tighter padding), wrapper max-height 72px so the card has no excessive empty vertical space. Labels (Today 74, 3 mo 78, etc.) unchanged and readable.
+2. **Readiness Radar:** Expanded viewBox with VIEW_PADDING (44px) so axis labels never clip; chart content drawn offset in viewBox; wrapper padding and maxWidth 220; fontSize 9 for label consistency. Radar centered and scales.
+3. **Score card:** Added one line of contextual microcopy under the status badge from selected target role: e.g. "Baseline competitiveness across common federal roles." for General readiness; placeholder for GS-13 Program Analyst.
+4. **Evidence & Inputs:** Collapsible row made more prominent: border uses --p-accent-muted, "Audit details" badge, section-style heading; hint line when collapsed: "See what inputs were used for scoring." Still collapsed by default.
+5. **Show assumptions:** Interactive hover class and chevron; when expanded, tight spacing and short placeholder line.
+6. **Tests:** Smoke test now asserts "Competitive with improvements", "Baseline competitiveness across common federal roles.", "See what inputs were used for scoring."
+
+## Files changed (this run)
+
+- **Modified:** packages/ui/src/screens/CareerReadinessScreen.tsx (target microcopy, Evidence row prominence, Show assumptions), packages/ui/src/screens/careerReadiness/ReadinessTrajectoryChart.tsx (compact height), packages/ui/src/screens/careerReadiness/ReadinessRadarChart.tsx (viewBox padding, no clip), packages/ui/src/screens/CareerReadinessScreen.test.tsx (new assertions).
+
+## UX notes (before/after)
+
+- **Before:** Trajectory card had large empty space below chart; radar labels could clip at edges; score card did not say "competitive for what?"; Evidence & Inputs was easy to miss.
+- **After:** Trajectory card compact; radar labels fully visible with padding; score card shows target-role context; Evidence & Inputs has Audit details badge and hint; Show assumptions reads as interactive.
+
+## Known follow-ups
+
+- Wire "Improve readiness" / gap CTAs when backend or flows exist. Add more target role options and microcopy when roles are defined.
+
+## Command outputs
+
+**git status:** On branch feature/day-59-career-readiness-tab-v1; changes not staged (CareerReadinessScreen, ReadinessTrajectoryChart, ReadinessRadarChart, CareerReadinessScreen.test, plus pre-existing new/modified files from first run).
+
+**git branch --show-current:** feature/day-59-career-readiness-tab-v1
+
+**git diff --name-status main -- . (exclude artifacts):** (includes full branch vs main; this run touches CareerReadinessScreen, ReadinessTrajectoryChart, ReadinessRadarChart, CareerReadinessScreen.test.)
+
+**git diff --stat main -- . (exclude artifacts):** 20 files changed, 1256 insertions(+), 259 deletions(-) (cumulative branch).
+
+**Patch artifacts:** artifacts/day-59.patch (cumulative), artifacts/day-59-this-run.patch (incremental). Length 78642 each. See docs/merge-notes/current.md for FINAL block.
+
+---
+
+# Day 59 — Career Readiness tab v1 (first run)
+
+(Do not commit or push. Branch: feature/day-59-career-readiness-tab-v1.)
+
+## Goal
+
+New Career Readiness screen at `/dashboard/career-readiness`: score card, Readiness Trajectory (line chart), Readiness Radar (radar chart), top gaps, Action Plan with projected readiness, Evidence & Inputs collapsible. PathAdvisor rail shows Viewing: Career Readiness with INSIGHT and NEXT BEST ACTION. Nav: Career Readiness after Dashboard in OVERVIEW. Local-only mock data; no backend.
+
+## Files changed (summary)
+
+- **New:** CareerReadinessScreen, ReadinessTrajectoryChart, ReadinessRadarChart, careerReadinessMockData, CareerReadinessScreen.test, app/(shared)/dashboard/career-readiness/page.tsx, docs/change-briefs/day-59.md
+- **Modified:** routes.ts (CAREER_READINESS), Sidebar.tsx (nav item), PathAdvisorRail.tsx, PathAdvisorCard.tsx (railContent), pathAdvisorScreenOverridesStore.ts (PathAdvisorRailContent), index.ts, DesktopApp.tsx (route)
+
+## UX notes
+
+- Action Plan checkboxes update "Projected readiness" live. Evidence & Inputs expands to show profile fields, resume, target role, privacy note.
+- See docs/merge-notes/current.md for full command outputs and patch artifact details.
+
+---
+
 # Job Search — Qualification feedback on job selection v1
 
 (Do not commit or push. Branch: feature/job-search-qualification-feedback-v1.)

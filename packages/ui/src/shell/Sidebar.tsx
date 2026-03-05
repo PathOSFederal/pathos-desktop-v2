@@ -17,6 +17,7 @@ import type React from 'react';
 import { useState } from 'react';
 import {
   Home,
+  Cog,
   DollarSign,
   TrendingUp,
   Shield,
@@ -36,6 +37,7 @@ import { cn } from '@pathos/core';
 import { useNav, useNavLink } from '@pathos/adapters';
 import {
   DASHBOARD,
+  CAREER_READINESS,
   COMPENSATION,
   BENEFITS,
   RETIREMENT,
@@ -91,7 +93,10 @@ export interface SidebarProps {
 const navSections: NavSection[] = [
   {
     title: 'OVERVIEW',
-    items: [{ label: 'Dashboard', href: DASHBOARD, icon: <Home className="w-4 h-4" /> }],
+    items: [
+      { label: 'Dashboard', href: DASHBOARD, icon: <Home className="w-4 h-4" /> },
+      { label: 'Career Readiness', href: CAREER_READINESS, icon: <Cog className="w-4 h-4" /> },
+    ],
   },
   {
     title: 'MONEY & PAY',
@@ -276,6 +281,9 @@ export function Sidebar(props: SidebarProps) {
     if (itemHref === DASHBOARD) {
       return pathname === DASHBOARD;
     }
+    if (itemHref === CAREER_READINESS) {
+      return pathname === CAREER_READINESS;
+    }
     if (itemHref === RESUME_READINESS) {
       return pathname === RESUME_READINESS || pathname === CAREER;
     }
@@ -284,6 +292,7 @@ export function Sidebar(props: SidebarProps) {
 
   // Tour data attributes (hrefs from route constants)
   const tourMap: Record<string, string> = {
+    [CAREER_READINESS]: 'nav-career-readiness',
     [RESUME_READINESS]: 'nav-resume-readiness',
     [RESUME_BUILDER]: 'nav-resume-builder',
     [JOB_SEARCH]: 'nav-job-search',

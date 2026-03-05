@@ -2,8 +2,7 @@
 
 > **Purpose**: Canonical guidance for all AI-assisted development in the PathOS Tier 1 Frontend repo.
 > This file is the source of truth for Cursor rules. Future prompts should reference this file.
-
-**Pinned reference:** `docs/ai/process-card.md` (single source of truth).
+> If any AI doc conflicts, cursor-house-rules.md wins.
 
 ---
 
@@ -224,6 +223,18 @@ Make the smallest possible edits required to complete the task. Do not rewrite w
 - Add `type="button"` to buttons inside forms or Radix Collapsible components.
 - Use controlled mode for Radix components when you need programmatic state access.
 
+### UI and Accessibility Implementation Standards
+
+- Semantic HTML first. Use native `<button>`, `<a>`, `<input>`, and form labeling before ARIA fallbacks.
+- Build 508-ready by default (WCAG-aligned mechanics), but do not claim formal certification/compliance without a completed audit.
+- Tooltips for non-obvious controls must include name, short purpose, and keyboard shortcut when available.
+- Tooltip behavior must work on hover and keyboard focus, and must not reveal private/sensitive data.
+- Any interactive element must have visible `hover`, `focus-visible`, `active/pressed`, and `disabled` states.
+- Any selectable list row/card/tab/item must show hover highlight, selected state, and focus-visible indicator.
+- Selected state must not rely on color alone (use icon/check, border, label, or equivalent).
+- Focus-visible must be at least as visually obvious as hover.
+- Verification for tooltip behavior and accessibility requirements is enforced in `docs/ai/testing-standards.md` (A11y/508-ready Gate).
+
 ### Type Safety
 
 - Avoid `any` types. Use explicit types or `unknown` with type guards.
@@ -366,4 +377,4 @@ If **no triggers** are hit:
 
 ---
 
-*Last updated: December 2025*
+*Last updated: March 2026*

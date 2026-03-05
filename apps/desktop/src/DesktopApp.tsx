@@ -18,6 +18,7 @@ import { NavigationProvider } from '@pathos/adapters';
 import {
   SharedAppShell,
   DashboardScreen,
+  CareerReadinessScreen,
   CareerScreen,
   SettingsScreen,
   GuidedApplyScreen,
@@ -95,6 +96,7 @@ export function DesktopApp() {
         <Routes>
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
           <Route path="/dashboard" element={<DashboardScreen />} />
+          <Route path="/dashboard/career-readiness" element={<CareerReadinessScreen />} />
           <Route path="/dashboard/resume-readiness" element={<CareerScreen />} />
           <Route path="/dashboard/career" element={<Navigate to="/dashboard/resume-readiness" replace />} />
           <Route path="/dashboard/compensation" element={<PlaceholderScreen />} />
