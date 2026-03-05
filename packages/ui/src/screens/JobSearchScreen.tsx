@@ -49,6 +49,15 @@ import { parsePromptToFilters, type ParsedPromptResult } from '../lib/promptToFi
 import { getChecklistForJob } from './jobSearchMockChecklists';
 import { MOCK_JOBS, MOCK_JOB_TAGS } from './jobSearchMockJobs';
 import type { JobWithOverview } from './jobSearchMockJobs';
+import { CAREER_READINESS_MOCK } from './careerReadiness/careerReadinessMockData';
+import {
+  buildJobMatchSnapshot,
+  buildReadinessInputFromMock,
+  buildDimensionBriefingPayload,
+  type JobMatchSnapshot,
+  type JobMatchDimension,
+} from '../lib/jobMatchSnapshot';
+import { CAREER_READINESS } from '../routes/routes';
 import { FilterDropdown } from './_components/FilterDropdown';
 import {
   buildFitAssessment,
@@ -424,13 +433,19 @@ function JobDetailsPanel(props: {
   activeTab: DetailsTab;
   onTabChange: (tab: DetailsTab) => void;
   decisionBrief: import('../stores/decisionBriefsV1Store').DecisionBriefRecord | null;
-  /** Qualification snapshot for Snapshot panel; undefined when no job selected. */
+  /** Qualification snapshot for Snapshot panel; undefined when no job selected. Used for Explain in PathAdvisor fit briefing. */
   snapshot: QualificationSnapshot | undefined;
+  /** Job Match Snapshot v1 (readiness ↔ job); when set, panel shows Match for this job + breakdown. */
+  jobMatchSnapshot: JobMatchSnapshot | undefined;
   onSave: () => void;
   onTailor: () => void;
   onAskPathAdvisor: () => void;
   /** Open PathAdvisor rail with qualification briefing (no inline expansion). */
   onExplainInPathAdvisor: (snapshot: QualificationSnapshot) => void;
+  /** Navigate to Career Readiness with #action-plan focus (e.g. for "Fix <gap>" CTA). */
+  onOpenCareerReadinessActionPlan: () => void;
+  /** Open PathAdvisor rail with dimension briefing for a Match Breakdown row. */
+  onOpenDimensionBriefing: (dim: JobMatchDimension) => void;
 }) {
   if (props.job === undefined || props.job === null) {
     return (
@@ -449,6 +464,7 @@ function JobDetailsPanel(props: {
   const checklist = getChecklistForJob(job.id);
   const brief = props.decisionBrief;
   const snapshot = props.snapshot;
+  const jobMatch = props.jobMatchSnapshot;
   const hasOverview = 'overview' in job && job.overview !== undefined;
 
   /* Meta chips: GS, Close date, Remote/Telework/Series if present (from summary/location). */
@@ -476,8 +492,8 @@ function JobDetailsPanel(props: {
 
   return (
     <div className="flex-1 flex flex-col min-h-0">
-      {/* PathOS Snapshot: alignment + blocker + effort + risk chips + next action; above tabs, always visible when job selected. */}
-      {snapshot !== undefined ? (
+      {/* Match for this job: Job Match Snapshot v1 (readiness ↔ job); local-only Match Breakdown. */}
+      {jobMatch !== undefined ? (
         <div
           className="flex-shrink-0 px-4 pt-3 pb-3 border-b"
           style={{
@@ -486,55 +502,121 @@ function JobDetailsPanel(props: {
           }}
         >
           <h3 className="text-[11px] font-semibold uppercase tracking-wider mb-2" style={{ color: 'var(--p-text-dim)' }}>
-            PathOS Snapshot
+            Match for this job
           </h3>
           <div className="space-y-2">
             <div className="flex flex-wrap items-center gap-2">
-              <Tooltip content={fitTooltips.fitStars} contentId="snapshot-fit-stars">
-                <span className="text-sm font-medium" style={{ color: 'var(--p-text)' }}>
-                  {'★'.repeat(snapshot.stars)}{'☆'.repeat(5 - snapshot.stars)}
-                </span>
-              </Tooltip>
-              <Tooltip content={fitTooltips.confidence} contentId="snapshot-confidence">
-                <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: 'var(--p-surface2)', color: 'var(--p-text-muted)' }}>
-                  {snapshot.confidence}
-                </span>
-              </Tooltip>
-              <Tooltip content={fitTooltips.effort} contentId="snapshot-effort">
-                <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: 'var(--p-surface2)', color: 'var(--p-text-muted)' }}>
-                  Effort: {snapshot.effort}
-                </span>
-              </Tooltip>
+              <span
+                className="text-[10px] font-medium px-1.5 py-0.5 rounded"
+                style={{
+                  background:
+                    jobMatch.matchLevel === 'Strong'
+                      ? 'var(--p-accent-bg)'
+                      : jobMatch.matchLevel === 'Moderate'
+                        ? 'var(--p-surface2)'
+                        : 'var(--p-surface2)',
+                  color:
+                    jobMatch.matchLevel === 'Strong'
+                      ? 'var(--p-accent)'
+                      : 'var(--p-text-muted)',
+                }}
+              >
+                {jobMatch.matchLevel}
+              </span>
             </div>
-            {snapshot.blocker !== '' ? (
-              <p className="text-[11px]" style={{ color: 'var(--p-text-muted)' }}>
-                Primary blocker: {snapshot.blocker}
+            <p className="text-[11px]" style={{ color: 'var(--p-text-muted)' }}>
+              Based on your readiness ({jobMatch.overallReadinessScore}/{jobMatch.overallReadinessMax}) and this announcement&apos;s requirements.
+            </p>
+            {/* Match breakdown: 5 dimensions in consistent order; each row is interactive (opens dimension briefing in PathAdvisor). */}
+            <div className="mt-2">
+              <p className="text-[10px] font-semibold uppercase tracking-wider mb-1.5" style={{ color: 'var(--p-text-dim)' }}>
+                Match breakdown
               </p>
-            ) : null}
-            {snapshot.risks.length > 0 ? (
-              <div className="flex flex-wrap gap-1">
-                {snapshot.risks.slice(0, 3).map(function (r, i) {
-                  const tip = chipTooltips[r] !== undefined ? chipTooltips[r] : '';
-                  const chip = (
-                    <span key={i} className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: 'var(--p-surface2)', color: 'var(--p-text-dim)' }}>
-                      {r}
-                    </span>
-                  );
-                  return tip !== '' ? (
-                    <Tooltip key={i} content={tip} contentId={'snapshot-risk-' + i}>
-                      {chip}
-                    </Tooltip>
-                  ) : (
-                    chip
+              <ul className="list-none space-y-1" role="list">
+                {jobMatch.dimensions.map(function (dim, i) {
+                  const emphasisLevel = dim.demandWeight >= 0.25 ? 'High' : dim.demandWeight >= 0.18 ? 'Medium' : 'Low';
+                  const gap = 100 - dim.matchScore;
+                  const rowTooltip = 'User: ' + String(dim.readinessScore) + '/100 • Job emphasis: ' + emphasisLevel + ' • Gap: ' + String(gap);
+                  return (
+                    <li key={i} className="flex flex-wrap items-center gap-2 text-[11px]">
+                      <Tooltip content={rowTooltip} contentId={'match-breakdown-dim-' + i}>
+                        <button
+                          type="button"
+                          onClick={function () {
+                            props.onOpenDimensionBriefing(dim);
+                          }}
+                          onKeyDown={function (e: React.KeyboardEvent) {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault();
+                              props.onOpenDimensionBriefing(dim);
+                            }
+                          }}
+                          className={INTERACTIVE_HOVER_CLASS + ' flex flex-wrap items-center gap-2 w-full text-left rounded px-0.5 py-0.5 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-[var(--p-accent)] focus-visible:ring-inset'}
+                          style={{ border: '1px solid transparent', background: 'transparent' }}
+                          aria-label={'Open briefing for ' + dim.label + ': ' + dim.status}
+                        >
+                          <span className="w-32 flex-shrink-0" style={{ color: 'var(--p-text)' }}>
+                            {dim.label}
+                          </span>
+                          <span
+                            className="text-[10px] px-1 py-0.5 rounded flex-shrink-0"
+                            style={{
+                              background: 'var(--p-surface2)',
+                              color:
+                                dim.status === 'Good'
+                                  ? 'var(--p-success)'
+                                  : dim.status === 'Mixed'
+                                    ? 'var(--p-text-muted)'
+                                    : 'var(--p-text-dim)',
+                            }}
+                          >
+                            {dim.status}
+                          </span>
+                          <div
+                            className="flex-1 min-w-[60px] h-1 rounded overflow-hidden max-w-[80px]"
+                            style={{ background: 'var(--p-surface2)' }}
+                            aria-hidden
+                          >
+                            <div
+                              className="h-full rounded"
+                              style={{
+                                width: String(dim.matchScore) + '%',
+                                background: 'var(--p-accent)',
+                              }}
+                            />
+                          </div>
+                          <span className="flex-1 min-w-0 truncate" style={{ color: 'var(--p-text-muted)' }}>
+                            {dim.why}
+                          </span>
+                        </button>
+                      </Tooltip>
+                    </li>
                   );
                 })}
-                {snapshot.risks.length > 3 ? (
-                  <span className="text-[10px] px-1.5 py-0.5" style={{ color: 'var(--p-text-dim)' }}>
-                    +{snapshot.risks.length - 3} more
-                  </span>
-                ) : null}
+              </ul>
+            </div>
+            {/* What you're missing: 2–5 bullets (compact). */}
+            {jobMatch.missingEvidence.length > 0 ? (
+              <div className="mt-2">
+                <p className="text-[10px] font-semibold uppercase tracking-wider mb-1" style={{ color: 'var(--p-text-dim)' }}>
+                  What you&apos;re missing
+                </p>
+                <ul className="list-disc list-inside space-y-0.5 text-[11px]" style={{ color: 'var(--p-text-muted)' }}>
+                  {jobMatch.missingEvidence.map(function (item, i) {
+                    return (
+                      <li key={i}>
+                        {item.label}
+                        {item.impactPoints !== undefined ? ' (+' + String(item.impactPoints) + ')' : ''}
+                      </li>
+                    );
+                  })}
+                </ul>
               </div>
             ) : null}
+            {/* Primary blocker: one line from JobMatchSnapshot. */}
+            <p className="text-[11px]" style={{ color: 'var(--p-text-muted)' }}>
+              {jobMatch.primaryBlocker}
+            </p>
             <div className="flex flex-wrap items-center gap-2 pt-1">
               {props.isSaved ? (
                 <button
@@ -555,18 +637,30 @@ function JobDetailsPanel(props: {
                   Save + Start Tailoring
                 </button>
               )}
-              <Tooltip content="Open PathAdvisor rail with alignment summary, reasons, and next action." contentId="snapshot-explain-pathadvisor">
+              <Tooltip content={'Open Career Readiness and focus Action Plan: ' + jobMatch.topJobRelevantGap.label} contentId="snapshot-open-career-readiness">
                 <button
                   type="button"
-                  onClick={function () {
-                    props.onExplainInPathAdvisor(snapshot);
-                  }}
-                  className={INTERACTIVE_HOVER_CLASS + ' text-[11px]'}
-                  style={{ color: 'var(--p-text-muted)' }}
+                  onClick={props.onOpenCareerReadinessActionPlan}
+                  className={INTERACTIVE_HOVER_CLASS + ' text-[11px] font-medium'}
+                  style={{ color: 'var(--p-accent)' }}
                 >
-                  Explain this in PathAdvisor
+                  Open Career Readiness: Fix {jobMatch.topJobRelevantGap.label} (+{String(jobMatch.topJobRelevantGap.impactPoints)})
                 </button>
               </Tooltip>
+              {snapshot !== undefined ? (
+                <Tooltip content="Open PathAdvisor rail with alignment summary, reasons, and next action." contentId="snapshot-explain-pathadvisor">
+                  <button
+                    type="button"
+                    onClick={function () {
+                      props.onExplainInPathAdvisor(snapshot);
+                    }}
+                    className={INTERACTIVE_HOVER_CLASS + ' text-[11px]'}
+                    style={{ color: 'var(--p-text-muted)' }}
+                  >
+                    Explain this in PathAdvisor
+                  </button>
+                </Tooltip>
+              ) : null}
             </div>
           </div>
         </div>
@@ -1000,46 +1094,6 @@ export function JobSearchScreen(props: JobSearchScreenProps) {
     return s.openBriefing;
   });
 
-  useEffect(function () {
-    setOverrides({
-      viewingLabel: 'Job Search',
-      suggestedPrompts: JOB_SEARCH_SUGGESTED_PROMPTS,
-      briefingLabel: 'From Job Search',
-      helperParagraph:
-        'Use this workspace to decode job requirements and decide your next best move. Ask about specialized experience, keywords, and what to do next.',
-      onFitBriefingPrimaryAction: function () {
-        const briefing = usePathAdvisorBriefingStore.getState().briefing;
-        if (briefing === null || typeof briefing !== 'object' || (briefing as { type?: string }).type !== 'fit') return;
-        const fit = briefing as import('../stores/pathAdvisorBriefingStore').PathAdvisorBriefingFit;
-        const results = useJobSearchV1Store.getState().results;
-        let job: Job | JobWithOverview | undefined;
-        for (let i = 0; i < results.length; i++) {
-          if (results[i] !== undefined && results[i].id === fit.jobId) {
-            job = results[i];
-            break;
-          }
-        }
-        if (job !== undefined && !fit.isJobSaved) {
-          useJobSearchV1Store.getState().saveJob(job);
-          const tr = useTargetRoleV1Store.getState();
-          const targetRole = {
-            series: tr.series,
-            gsTarget: tr.gsTarget,
-            location: tr.location,
-            remotePreference: tr.remotePreference,
-          };
-          const record = buildDecisionBriefRecord(job.id, job, targetRole, { skillsKeywords: [] });
-          useDecisionBriefsV1Store.getState().saveBrief(record);
-        }
-        nav.push('/dashboard/resume-readiness');
-      },
-    });
-    return function () {
-      setOverrides(null);
-      setHeroDoNow(null);
-    };
-  }, [setOverrides, setHeroDoNow, nav]);
-
   const targetRole = useMemo(
     function () {
       return {
@@ -1163,6 +1217,123 @@ export function JobSearchScreen(props: JobSearchScreenProps) {
     },
     [selectedJob, targetRole]
   );
+
+  /** Job Match Snapshot v1: readiness ↔ job mapping (local-only Match Breakdown). */
+  const readinessInput = useMemo(function () {
+    return buildReadinessInputFromMock({
+      score: CAREER_READINESS_MOCK.score,
+      scoreMax: CAREER_READINESS_MOCK.scoreMax,
+      badgeLabel: CAREER_READINESS_MOCK.badgeLabel,
+      radarSpokes: CAREER_READINESS_MOCK.radarSpokes,
+      gaps: CAREER_READINESS_MOCK.gaps,
+      actionPlanItems: CAREER_READINESS_MOCK.actionPlanItems,
+    });
+  }, []);
+  const jobMatchSnapshot = useMemo(
+    function (): JobMatchSnapshot | undefined {
+      if (selectedJob === undefined) return undefined;
+      return buildJobMatchSnapshot(readinessInput, selectedJob);
+    },
+    [selectedJob, readinessInput]
+  );
+
+  useEffect(function () {
+    const primaryWeakLabel =
+      jobMatchSnapshot !== undefined
+        ? (function () {
+            for (let i = 0; i < jobMatchSnapshot.dimensions.length; i++) {
+              const d = jobMatchSnapshot.dimensions[i];
+              if (d !== undefined && d.status === 'Weak') return d.label;
+            }
+            return null;
+          })()
+        : null;
+    const railContent =
+      jobMatchSnapshot !== undefined
+        ? {
+            insightBullets: [
+              'Match for this job: ' +
+                jobMatchSnapshot.matchLevel +
+                ' (Score: ' +
+                String(jobMatchSnapshot.overallMatchScore) +
+                '/100)',
+              primaryWeakLabel !== null
+                ? 'Top limiting factor: ' + primaryWeakLabel
+                : 'No single limiting dimension.',
+              'Fastest improvement: ' +
+                jobMatchSnapshot.topJobRelevantGap.label +
+                ' (+' +
+                String(jobMatchSnapshot.topJobRelevantGap.impactPoints) +
+                ')',
+            ],
+            nextBestAction: {
+              text:
+                'Fix ' +
+                jobMatchSnapshot.topJobRelevantGap.label +
+                ' (+' +
+                String(jobMatchSnapshot.topJobRelevantGap.impactPoints) +
+                ')',
+              ctaLabel:
+                'Fix ' +
+                jobMatchSnapshot.topJobRelevantGap.label +
+                ' (+' +
+                String(jobMatchSnapshot.topJobRelevantGap.impactPoints) +
+                ')',
+            },
+          }
+        : undefined;
+    setOverrides({
+      viewingLabel: 'Job Search',
+      suggestedPrompts:
+        jobMatchSnapshot !== undefined
+          ? [
+              'Why is this a stretch for me?',
+              'Show what evidence I\'m missing',
+              'What will move my score fastest?',
+            ]
+          : JOB_SEARCH_SUGGESTED_PROMPTS,
+      briefingLabel: 'From Job Search',
+      helperParagraph:
+        'Use this workspace to decode job requirements and decide your next best move. Ask about specialized experience, keywords, and what to do next.',
+      railContent,
+      onRailNextBestActionClick:
+        jobMatchSnapshot !== undefined
+          ? function () {
+              nav.push(CAREER_READINESS + '#action-plan');
+            }
+          : undefined,
+      onFitBriefingPrimaryAction: function () {
+        const briefing = usePathAdvisorBriefingStore.getState().briefing;
+        if (briefing === null || typeof briefing !== 'object' || (briefing as { type?: string }).type !== 'fit') return;
+        const fit = briefing as import('../stores/pathAdvisorBriefingStore').PathAdvisorBriefingFit;
+        const results = useJobSearchV1Store.getState().results;
+        let job: Job | JobWithOverview | undefined;
+        for (let i = 0; i < results.length; i++) {
+          if (results[i] !== undefined && results[i].id === fit.jobId) {
+            job = results[i];
+            break;
+          }
+        }
+        if (job !== undefined && !fit.isJobSaved) {
+          useJobSearchV1Store.getState().saveJob(job);
+          const tr = useTargetRoleV1Store.getState();
+          const targetRole = {
+            series: tr.series,
+            gsTarget: tr.gsTarget,
+            location: tr.location,
+            remotePreference: tr.remotePreference,
+          };
+          const record = buildDecisionBriefRecord(job.id, job, targetRole, { skillsKeywords: [] });
+          useDecisionBriefsV1Store.getState().saveBrief(record);
+        }
+        nav.push('/dashboard/resume-readiness');
+      },
+    });
+    return function () {
+      setOverrides(null);
+      setHeroDoNow(null);
+    };
+  }, [setOverrides, setHeroDoNow, nav, jobMatchSnapshot]);
 
   useEffect(function () {
     if (selectedJob !== undefined) {
@@ -2051,6 +2222,7 @@ export function JobSearchScreen(props: JobSearchScreenProps) {
             onTabChange={setDetailsTab}
             decisionBrief={selectedJob !== undefined ? decisionBriefsStore.getBrief(selectedJob.id) : null}
             snapshot={qualificationSnapshot}
+            jobMatchSnapshot={jobMatchSnapshot}
             onSave={function () {
               if (selectedJob !== undefined) handleSaveJob(selectedJob);
             }}
@@ -2058,6 +2230,9 @@ export function JobSearchScreen(props: JobSearchScreenProps) {
               nav.push('/dashboard/resume-readiness');
             }}
             onAskPathAdvisor={function () {}}
+            onOpenCareerReadinessActionPlan={function () {
+              nav.push(CAREER_READINESS + '#action-plan');
+            }}
             onExplainInPathAdvisor={function (snap: QualificationSnapshot) {
               if (selectedJob === undefined) return;
               openFitBriefing({
@@ -2073,6 +2248,18 @@ export function JobSearchScreen(props: JobSearchScreenProps) {
                 inputsUsed: snap.inputsUsed,
                 missingInputs: snap.missingInputs,
                 isJobSaved: store.isJobSaved(selectedJob.id),
+              });
+            }}
+            onOpenDimensionBriefing={function (dim: JobMatchDimension) {
+              if (jobMatchSnapshot === undefined) return;
+              const payload = buildDimensionBriefingPayload(dim, jobMatchSnapshot, CAREER_READINESS + '#action-plan');
+              const id = 'dimension-' + dim.key.replace(/\s+/g, '-');
+              openFitBriefing({
+                id,
+                title: payload.title,
+                sourceLabel: payload.sourceLabel,
+                sections: payload.sections,
+                primaryCta: payload.primaryCta,
               });
             }}
           />

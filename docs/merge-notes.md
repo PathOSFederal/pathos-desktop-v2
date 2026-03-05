@@ -1,3 +1,21 @@
+# Day 61 — Job Search Job Match Snapshot v1
+
+(Do not commit or push. Branch: feature/day-61-job-search-jobmatchsnapshot-v1.)
+
+## Goal
+
+Create a clear, deterministic mapping between Career Readiness (person intelligence) and a selected job (job intelligence) in Job Search. Implement local-only JobMatchSnapshot v1 and render Match Breakdown in the Job Search panel.
+
+## Result
+
+- **JobMatchSnapshot v1:** New `packages/ui/src/lib/jobMatchSnapshot.ts` with buildJobDemandProfile, buildJobMatchSnapshot, buildReadinessInputFromMock. Demand flags: evidenceHeavy, keywordHeavy, leadershipHeavy. Match breakdown (5 dimensions), primary blocker, missing evidence, topJobRelevantGap, audit.rulesFired.
+- **UI:** "Match for this job" panel (header, MatchLevel badge, readiness summary, Match breakdown rows, What you're missing, primary blocker, CTA "Open Career Readiness: Fix &lt;gap&gt; (+impact)" → /dashboard/career-readiness#action-plan).
+- **PathAdvisor rail:** When job selected: insight bullets (match level/score, top limiting factor, fastest improvement), next best action button → Career Readiness #action-plan, job-aware suggested prompts.
+- **pnpm lint / typecheck / test / build:** Pass. 780 tests. overlays:check fails on pre-existing ReadinessTrajectoryChart.tsx only.
+- **Patch artifacts:** artifacts/day-61.patch (63138 bytes), artifacts/day-61-this-run.patch (63138 bytes). UTF-8. main baseline.
+
+---
+
 # Day 60 — Dashboard Career Readiness metrics v1
 
 (Do not commit or push. Branch: feature/day-60-dashboard-readiness-metrics-v1.)

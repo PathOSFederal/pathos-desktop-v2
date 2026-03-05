@@ -35,6 +35,8 @@ export interface PathAdvisorScreenOverrides {
   onFitBriefingPrimaryAction?: () => void;
   /** Optional rail content: INSIGHT card + NEXT BEST ACTION card (e.g. Career Readiness). When set, card shows these instead of hero Do now. */
   railContent?: PathAdvisorRailContent;
+  /** Optional: when user clicks the rail NEXT BEST ACTION button (e.g. Job Search "Fix <gap>"). */
+  onRailNextBestActionClick?: () => void;
 }
 
 interface PathAdvisorScreenOverridesState {

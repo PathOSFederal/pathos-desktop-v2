@@ -117,6 +117,11 @@ export function PathAdvisorRail(props: PathAdvisorRailProps) {
       ? overrides.railContent
       : undefined;
 
+  const onRailNextBestActionClick =
+    overrides !== null && overrides !== undefined && overrides.onRailNextBestActionClick !== undefined
+      ? overrides.onRailNextBestActionClick
+      : undefined;
+
   return (
     <div className="h-full flex flex-col min-h-0">
       <PathAdvisorCard
@@ -127,6 +132,7 @@ export function PathAdvisorRail(props: PathAdvisorRailProps) {
         privacyLabel={props.privacyLabel}
         briefingLabel={briefingLabel}
         railContent={railContent}
+        onRailNextBestActionClick={onRailNextBestActionClick}
       />
     </div>
   );

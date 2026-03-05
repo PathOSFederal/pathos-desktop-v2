@@ -60,6 +60,8 @@ export interface PathAdvisorCardProps {
     nextBestAction: { text: string; ctaLabel: string };
     collapsedSectionLabels?: string[];
   };
+  /** Optional: when user clicks the rail NEXT BEST ACTION button (e.g. Job Search Fix gap CTA). */
+  onRailNextBestActionClick?: () => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -406,6 +408,7 @@ export function PathAdvisorCard(props: PathAdvisorCardProps) {
                 color: 'var(--p-bg)',
               }}
               aria-label={props.railContent.nextBestAction.ctaLabel}
+              onClick={props.onRailNextBestActionClick !== undefined ? props.onRailNextBestActionClick : undefined}
             >
               {props.railContent.nextBestAction.ctaLabel}
             </button>
@@ -489,7 +492,7 @@ export function PathAdvisorCard(props: PathAdvisorCardProps) {
             >
               <div className="flex items-start justify-between gap-2 mb-2">
                 <h3 className="font-semibold text-[13px]" style={{ color: 'var(--p-text)' }}>
-                  PathAdvisor Briefing
+                  {isFitBriefing(briefing) ? 'PathAdvisor Briefing' : (briefing.title !== undefined && briefing.title !== '' ? briefing.title : 'PathAdvisor Briefing')}
                 </h3>
                 <div className="relative group">
                   <Tooltip
@@ -567,6 +570,28 @@ export function PathAdvisorCard(props: PathAdvisorCardProps) {
                         );
                       })
                     : null}
+                  {briefing.primaryCta !== undefined && briefing.primaryCta !== null &&
+                   briefing.primaryCta.route !== undefined && briefing.primaryCta.route !== '' ? (
+                    <div className="mt-2 pt-2" style={{ borderTop: '1px solid var(--p-border)' }}>
+                      <button
+                        type="button"
+                        onClick={function () {
+                          const cta = briefing.primaryCta;
+                          if (cta !== undefined && cta !== null && cta.route !== '') {
+                            nav.push(cta.route);
+                          }
+                        }}
+                        className="w-full rounded-[var(--p-radius)] px-3 py-1.5 text-[12px] font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-[var(--p-accent)]"
+                        style={{
+                          background: 'var(--p-accent)',
+                          color: 'var(--p-bg)',
+                        }}
+                        aria-label={briefing.primaryCta.label}
+                      >
+                        {briefing.primaryCta.label}
+                      </button>
+                    </div>
+                  ) : null}
                 </>
               )}
             </div>

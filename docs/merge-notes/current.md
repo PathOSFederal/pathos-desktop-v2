@@ -3722,3 +3722,129 @@ Do not commit or push.
 **git diff --name-status main -- .:** 13 files (A: docs/change-briefs/day-60.md, DashboardScreen.test.tsx, careerReadinessMockData.test.ts; M: docs/merge-notes.md, docs/merge-notes/current.md, packages/ui/package.json, CareerReadinessScreen.tsx, DashboardScreen.tsx, careerReadinessMockData.ts, buildDashboardViewModel.test.ts, buildDashboardViewModel.ts, mockDashboardData.ts, pnpm-lock.yaml).
 
 **git diff --stat main -- .:** 13 files changed, 668 insertions(+), 27 deletions(-).
+
+---
+
+# Day 61 (run 1) — Job Search Job Match Snapshot v1
+
+**Branch:** `feature/day-61-job-search-jobmatchsnapshot-v1`  
+**Date:** March 5, 2026  
+**Goal:** Create a clear, deterministic mapping between Career Readiness and selected job. Implement local-only JobMatchSnapshot v1 and render Match Breakdown in the Job Search "PathOS Snapshot" panel.
+
+## Summary of changes
+
+- **JobMatchSnapshot v1 contract:** New `packages/ui/src/lib/jobMatchSnapshot.ts` with types MatchLevel, JobDemandProfile, JobMatchDimension, JobMatchSnapshot; exports buildJobDemandProfile(job), buildJobMatchSnapshot(readiness, job), buildReadinessInputFromMock(mock). Demand profile weights (baseline 0.20 each) adjusted by evidenceHeavy (specialized text length > 400 or checklist count >= 6 or summary length > 220), keywordHeavy (keywords >= 10), leadershipHeavy (job text contains lead/manage/supervise/stakeholder/program/portfolio/enterprise/strategy/budget/governance). Weights clamped to [0.10, 0.35] and renormalized. Match score per dimension: readinessScore - demandPenalty (6 when flag + dimension match), status Good/Mixed/Weak from bands 75+/55–74/<55. Primary blocker: missing inputs → "Missing readiness inputs"; else highest-weight Weak dimension → "<Dimension> is limiting competitiveness"; else "None detected. Improve the top gap." Missing evidence list (2–5 items) from weak/mixed dimensions. topJobRelevantGap from readiness gaps aligned to weakest dimension. audit.rulesFired and audit.localOnly: true.
+- **Readiness inputs:** Career Readiness mock (CAREER_READINESS_MOCK) supplies overall score/max, label, radarSpokes (mapped to 5 dimension scores, "Specialized Exp" → "Specialized Experience"), topGaps, actionPlanItems. Job data: series from summary "Series NNNN", grade from job.grade, keywords from getChecklistForJob(job.id).skillsKeywords, specialized experience from checklist specializedExperience (length and text length for evidenceHeavy).
+- **UI — Match for this job panel:** Job Search details panel (above tabs) renamed to "Match for this job". Shows MatchLevel badge, one-line "Based on your readiness (74/100) and this announcement's requirements.", Match breakdown (5 rows: label, status chip, inline bar, why sentence), "What you're missing" (2–5 bullets), primary blocker line (JobMatchSnapshot.primaryBlocker), and CTA "Open Career Readiness: Fix &lt;topJobRelevantGap.label&gt; (+&lt;impact&gt;)" navigating to CAREER_READINESS + '#action-plan'. Explain in PathAdvisor retained.
+- **PathAdvisor rail:** When a job is selected, overrides set viewingLabel: Job Search, suggestedPrompts to job-aware ("Why is this a stretch for me?", "Show what evidence I'm missing", "What will move my score fastest?"), railContent with 3 insight bullets (match level/score, top limiting factor, fastest improvement) and nextBestAction (Fix &lt;gap&gt; + impact). onRailNextBestActionClick navigates to Career Readiness #action-plan. pathAdvisorScreenOverridesStore and PathAdvisorCard support optional onRailNextBestActionClick.
+- **Tests:** jobMatchSnapshot.test.ts (buildReadinessInputFromMock, buildJobDemandProfile, buildJobMatchSnapshot: 5 dimensions, overallReadinessScore/Max, primaryBlocker includes dimension or fallback, matchLevel, topJobRelevantGap, audit). JobSearchScreen.test.tsx: "Match for this job" when job selected (or loading); when snapshot visible, Match breakdown rows include at least two dimension labels, 74/100 in copy, Open Career Readiness CTA, primary blocker line present.
+
+## Gates (this run)
+
+- **pnpm lint:** Pass.
+- **pnpm -r typecheck:** Pass.
+- **pnpm test:** 780 tests passed (JobSearchScreen 23, jobMatchSnapshot 9).
+- **pnpm build:** Pass.
+- **pnpm overlays:check:** Fail (pre-existing: ReadinessTrajectoryChart.tsx Tailwind z- and role="tooltip"; not introduced by this change).
+
+## Human Simulation Gate
+
+| Item | Value |
+|------|--------|
+| Required | No |
+| Triggers hit | none |
+| Why | Read-only mapping and display; no new Create/Save/Apply/Delete or persistence shape change. |
+
+## AI Acceptance Checklist
+
+| Item | Value |
+|------|--------|
+| Flow | Select job → buildJobMatchSnapshot(readinessInput, job) → "Match for this job" panel and rail show breakdown; CTA → Career Readiness #action-plan. |
+| Store(s) | pathAdvisorScreenOverridesStore (railContent, onRailNextBestActionClick when job selected). |
+| Storage key(s) | none |
+| Failure mode | Missing readiness/job data yields fallback or empty snapshot; logic is local and deterministic. |
+| How tested | jobMatchSnapshot.test.ts; JobSearchScreen.test.tsx (Match for this job, conditional breakdown/CTA/blocker). |
+
+## Patch Artifacts (FINAL)
+
+- **Cumulative:** `artifacts/day-61.patch` (main → working tree). UTF-8.
+- **Incremental:** `artifacts/day-61-this-run.patch` (HEAD → working tree). UTF-8.
+
+**Get-Item output:** day-61.patch Length 63138; day-61-this-run.patch Length 63138.
+
+## Post-change logging
+
+**git status:** On branch feature/day-61-job-search-jobmatchsnapshot-v1; changes not staged for commit (docs/change-briefs/day-61.md new, docs/merge-notes.md M, docs/merge-notes/current.md M, jobMatchSnapshot.test.ts new, jobMatchSnapshot.ts new, JobSearchScreen.test.tsx M, JobSearchScreen.tsx M, PathAdvisorCard.tsx M, PathAdvisorRail.tsx M, pathAdvisorScreenOverridesStore.ts M).
+
+**git diff --name-status main -- .:** A docs/change-briefs/day-61.md, M docs/merge-notes.md, M docs/merge-notes/current.md, A packages/ui/src/lib/jobMatchSnapshot.test.ts, A packages/ui/src/lib/jobMatchSnapshot.ts, M packages/ui/src/screens/JobSearchScreen.test.tsx, M packages/ui/src/screens/JobSearchScreen.tsx, M packages/ui/src/shell/PathAdvisorCard.tsx, M packages/ui/src/shell/PathAdvisorRail.tsx, M packages/ui/src/stores/pathAdvisorScreenOverridesStore.ts.
+
+**git diff --stat main -- .:** 10 files changed, 1094 insertions(+), 92 deletions(-).
+
+---
+
+# Day 61 (run 2) — Match Breakdown interactive rows + dimension briefing
+
+**Branch:** `feature/day-61-job-search-jobmatchsnapshot-v1`  
+**Date:** March 5, 2026  
+**Goal:** Make Job Search MATCH BREAKDOWN rows meaningfully interactive; drill into each dimension via PathAdvisor rail (briefing). No commit or push.
+
+## Pre-flight logging
+
+- **git status:** On branch feature/day-61-job-search-jobmatchsnapshot-v1; changes not staged (docs/change-briefs/day-61.md, docs/merge-notes.md, docs/merge-notes/current.md, jobMatchSnapshot.test.ts, jobMatchSnapshot.ts, JobSearchScreen.test.tsx, JobSearchScreen.tsx, PathAdvisorCard.tsx, PathAdvisorRail.tsx, pathAdvisorBriefingStore.ts, pathAdvisorScreenOverridesStore.ts).
+- **git branch --show-current:** feature/day-61-job-search-jobmatchsnapshot-v1.
+- **git diff --name-status main...HEAD:** (develop not present; baseline main) — see diff --name-status main -- . below.
+- **pnpm -v:** 10.28.1. **node -v:** v24.13.0.
+
+## What changed
+
+- **Interactive Match Breakdown rows:** Each dimension row is a button: INTERACTIVE_HOVER_CLASS, cursor-pointer, focus-visible ring (var(--p-accent)), click opens PathAdvisor dimension briefing; Enter/Space trigger same action. Tooltip on each row: "User: &lt;readinessScore&gt;/100 • Job emphasis: High|Medium|Low • Gap: &lt;100 − matchScore&gt;". Canonical Tooltip component; no inline role="tooltip", no Tailwind z-*.
+- **Dimension briefing (PathAdvisor rail):** Clicking a row opens a generic PathAdvisor briefing with title "Match breakdown: &lt;Dimension&gt;", sourceLabel "Job Search", sections: What this measures, Your current signal, Evidence found, Evidence missing, Fastest fix. primaryCta: Resume Evidence → "Fix Resume Evidence (+N)" → Career Readiness #action-plan; other dimensions → "Improve &lt;Dimension&gt; (+N)" → same route.
+- **pathAdvisorBriefingStore:** PathAdvisorBriefing extended with optional primaryCta: { label, route }. PathAdvisorCard renders generic briefing title when set and a primary CTA button that nav.push(primaryCta.route).
+- **jobMatchSnapshot.ts:** MissingEvidenceItem.dimensionKey added; buildDimensionBriefingPayload(dim, snapshot, actionPlanRoute) returns DimensionBriefingPayload (title, sourceLabel, sections, primaryCta). DIMENSION_WHAT_MEASURES static copy per dimension; jobEmphasisLevel(demandWeight); evidence found/missing and fastest fix derived deterministically.
+- **Tests:** jobMatchSnapshot.test.ts — buildDimensionBriefingPayload: title/sourceLabel, 5 sections, primaryCta for Resume Evidence. JobSearchScreen.test.tsx — "opening dimension briefing for Resume Evidence sets PathAdvisor briefing with title containing Resume Evidence" (build payload, openBriefing, assert store).
+
+## Commands + pass/fail
+
+- **pnpm lint:** Pass.
+- **pnpm -r typecheck:** Pass.
+- **pnpm test:** 784 tests passed (JobSearchScreen 24, jobMatchSnapshot 12).
+- **pnpm build:** Pass.
+- **pnpm routes:check:** OK — all Sidebar routes resolve in Desktop and Next.
+- **pnpm overlays:check:** Fail (pre-existing: ReadinessTrajectoryChart.tsx; not introduced by this change).
+
+## Human Simulation Gate
+
+| Item | Value |
+|------|--------|
+| Required | No |
+| Triggers hit | none |
+| Why | Interactive UI and new briefing type; no Create/Save/Apply/Delete or persistence shape change. |
+
+## AI Acceptance Checklist
+
+| Item | Value |
+|------|--------|
+| Flow | User clicks Match Breakdown row → onOpenDimensionBriefing(dim) → buildDimensionBriefingPayload(dim, snapshot, route) → openBriefing({ id, title, sourceLabel, sections, primaryCta }) → PathAdvisor rail shows briefing; CTA button → nav to Career Readiness #action-plan. |
+| Store(s) | pathAdvisorBriefingStore (openBriefing with generic briefing + primaryCta). pathAdvisorScreenOverridesStore unchanged. |
+| Storage key(s) | none |
+| Failure mode | If jobMatchSnapshot or dim missing, briefing not opened; tooltip/row still render. |
+| How tested | jobMatchSnapshot.test.ts (buildDimensionBriefingPayload shape and content); JobSearchScreen.test.tsx (dimension briefing opens and store has title containing "Resume Evidence"). |
+
+## Accessibility verification
+
+| Item | Value |
+|------|--------|
+| Keyboard flow | Match Breakdown row buttons focusable; Enter/Space open briefing. |
+| Focus-visible | ring-2 ring-[var(--p-accent)] on row button. |
+| Tooltip | Canonical Tooltip; content User/emphasis/Gap; contentId per row. |
+
+## Follow-ups
+
+- None. overlays:check remains failing on pre-existing ReadinessTrajectoryChart.tsx only.
+
+## Patch Artifacts (FINAL)
+
+- **Cumulative:** `artifacts/day-61.patch` (main → working tree). UTF-8. Excludes artifacts/.
+- **Incremental:** `artifacts/day-61-this-run.patch` (HEAD → working tree). UTF-8. Excludes artifacts/.
+
+**Get-Item output (day-61 patches):** day-61.patch Length 88713; day-61-this-run.patch Length 88713. (Get-ChildItem artifacts | Select Name,Length,LastWriteTime — day-61.patch and day-61-this-run.patch listed above.)
