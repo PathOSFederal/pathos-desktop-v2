@@ -35,6 +35,7 @@ import {
 } from './careerReadiness/careerReadinessMockData';
 import { ReadinessTrajectoryEChart } from './careerReadiness/ReadinessTrajectoryEChart';
 import { ReadinessRadarEChart } from './careerReadiness/ReadinessRadarEChart';
+import { publishScreenContext } from '../lib/pathAdvisorPublish';
 
 // ---------------------------------------------------------------------------
 // Target role dropdown options (header)
@@ -100,24 +101,13 @@ export function CareerReadinessScreen(): React.ReactElement {
   useEffect(
     function () {
       setOverrides({
+        screenId: 'career-readiness',
         viewingLabel: 'Career Readiness',
         suggestedPrompts: [
           'Why is my readiness 74?',
           'What will move the needle most?',
           'How is the score calculated?',
         ],
-        railContent: {
-          insightBullets: [
-            'Qualification baseline is strong for GS-13 analyst roles.',
-            'Resume evidence is the biggest limiting factor.',
-            'Leadership signals are moderate and can be improved quickly.',
-          ],
-          nextBestAction: {
-            text: 'Add 3 quantified accomplishments (+4).',
-            ctaLabel: 'Start',
-          },
-          collapsedSectionLabels: ['Explain scoring', 'How this works'],
-        },
       });
       return function () {
         setOverrides(null);
@@ -220,6 +210,19 @@ export function CareerReadinessScreen(): React.ReactElement {
                 background: 'var(--p-accent)',
                 color: 'var(--p-bg)',
               }}
+              onClick={function () {
+                publishScreenContext({
+                  screen: 'career-readiness',
+                  anchor: { type: 'card', id: 'career-readiness:improve', label: 'Improve readiness' },
+                  title: 'What to do next',
+                  sections: [
+                    { title: 'Why this matters', lines: [mock.explanationText] },
+                    { title: 'Next steps', bullets: mock.actionPlanItems.slice(0, 3).map(function (a) { return a.label + ' (+' + String(a.impact) + ')'; }) },
+                  ],
+                  tags: ['localOnly'],
+                  dedupeKey: 'career-readiness:improve',
+                });
+              }}
             >
               Improve readiness
             </button>
@@ -230,6 +233,16 @@ export function CareerReadinessScreen(): React.ReactElement {
                 borderColor: 'var(--p-accent)',
                 color: 'var(--p-accent)',
                 background: 'transparent',
+              }}
+              onClick={function () {
+                publishScreenContext({
+                  screen: 'career-readiness',
+                  anchor: { type: 'card', id: 'career-readiness:opportunities', label: 'View top opportunities' },
+                  title: 'Why this changed',
+                  sections: [{ lines: ['Your readiness baseline supports exploring roles that match your profile. Top opportunities appear in Job Search.'] }],
+                  tags: ['localOnly'],
+                  dedupeKey: 'career-readiness:opportunities',
+                });
               }}
             >
               View top opportunities
@@ -301,6 +314,19 @@ export function CareerReadinessScreen(): React.ReactElement {
                         borderColor: 'var(--p-border)',
                         color: 'var(--p-accent)',
                       }}
+                      onClick={function () {
+                        publishScreenContext({
+                          screen: 'career-readiness',
+                          anchor: { type: 'card', id: 'career-readiness:gap:' + g.name, label: g.name },
+                          title: 'Why this changed: ' + g.name,
+                          sections: [
+                            { title: 'Impact', lines: ['+' + String(g.impact) + ' points'] },
+                            { title: 'What to do', lines: [g.reason] },
+                          ],
+                          tags: ['localOnly'],
+                          dedupeKey: 'career-readiness:gap:' + g.name,
+                        });
+                      }}
                     >
                       {g.ctaLabel}
                     </button>
@@ -362,7 +388,20 @@ export function CareerReadinessScreen(): React.ReactElement {
                     borderColor: 'var(--p-border)',
                     background: checked ? 'var(--p-accent)' : 'transparent',
                   }}
-                  onClick={function () { toggleAction(item.id); }}
+                  onClick={function () {
+                    toggleAction(item.id);
+                    publishScreenContext({
+                      screen: 'career-readiness',
+                      anchor: { type: 'card', id: 'career-readiness:action:' + item.id, label: item.label },
+                      title: 'What to do next: ' + item.label,
+                      sections: [
+                        { lines: [item.helperText] },
+                        { title: 'Impact', lines: ['+' + String(item.impact) + ' • ' + item.effort] },
+                      ],
+                      tags: ['localOnly'],
+                      dedupeKey: 'career-readiness:action:' + item.id,
+                    });
+                  }}
                 >
                   {checked ? (
                     <span className="text-white text-[10px]" aria-hidden>✓</span>

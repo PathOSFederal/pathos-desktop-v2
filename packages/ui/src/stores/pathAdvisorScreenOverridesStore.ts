@@ -23,6 +23,8 @@ export interface PathAdvisorRailContent {
 }
 
 export interface PathAdvisorScreenOverrides {
+  /** Stable screen id for Context Log scope (e.g. 'job-search', 'dashboard'). Used for clear-by-screen and entry grouping. */
+  screenId?: string;
   /** Chip label for "Viewing: ..." (e.g. "Resume Readiness"). */
   viewingLabel: string;
   /** Quick prompt strings for the rail chips. */

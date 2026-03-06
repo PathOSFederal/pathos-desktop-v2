@@ -15,12 +15,18 @@
 
 import type React from 'react';
 import { useState, useRef, useEffect } from 'react';
-import { Sparkles, Eye, Shield, Send, Trash2, Settings2, X, Lightbulb, ChevronRight } from 'lucide-react';
+import { Sparkles, Eye, Send, Trash2, Settings2, X, Lightbulb, ChevronRight, ChevronDown, MessageSquare } from 'lucide-react';
 import { ModuleCard } from '../components/ModuleCard';
 import { Tooltip } from '../components/Tooltip';
 import { Z_POPOVER } from '../styles/zIndex';
 import { usePathAdvisorBriefingStore, isFitBriefing } from '../stores/pathAdvisorBriefingStore';
 import { useDashboardHeroDoNowStore } from '../stores/dashboardHeroDoNowStore';
+import {
+  usePathAdvisorContextLogStore,
+  getAnchorKeysForScreen,
+  getEntriesForAnchor,
+  type PathAdvisorContextEntry,
+} from '../stores/pathAdvisorContextLogStore';
 import { useNav } from '@pathos/adapters';
 
 // ---------------------------------------------------------------------------
@@ -50,8 +56,8 @@ export interface PathAdvisorCardProps {
   onExportMessages?: () => void;
   /** Optional chip label for current view (default "Dashboard"). */
   viewingLabel?: string;
-  /** Optional privacy chip value (default "Local only"). */
-  privacyLabel?: string;
+  /** Current screen id for Context Log scope (e.g. 'job-search'). When set, card shows context log entries for this screen and Clear screen. */
+  currentScreen?: string;
   /** Optional label above the Do now block (e.g. "From Career & Resume"). When unset, shows "From Today's Focus". */
   briefingLabel?: string;
   /** Optional rail content: INSIGHT card + NEXT BEST ACTION card (e.g. Career Readiness). When set, these render instead of hero Do now. */
@@ -62,6 +68,108 @@ export interface PathAdvisorCardProps {
   };
   /** Optional: when user clicks the rail NEXT BEST ACTION button (e.g. Job Search Fix gap CTA). */
   onRailNextBestActionClick?: () => void;
+}
+
+// ---------------------------------------------------------------------------
+// Context Log entry block (single entry: title, subtitle, sections, CTAs)
+// ---------------------------------------------------------------------------
+
+function ContextLogEntryBlock(props: {
+  entry: PathAdvisorContextEntry;
+  nav: { push: (route: string) => void };
+}) {
+  const entry = props.entry;
+  const nav = props.nav;
+  return (
+    <div
+      className="rounded-[var(--p-radius)] border p-2 text-[11px]"
+      style={{ borderColor: 'var(--p-border)', background: 'var(--p-surface2)' }}
+    >
+      <p className="font-semibold mb-0.5" style={{ color: 'var(--p-text)' }}>
+        {entry.title}
+      </p>
+      {entry.subtitle !== undefined && entry.subtitle !== '' ? (
+        <p className="mb-1.5" style={{ color: 'var(--p-text-muted)' }}>
+          {entry.subtitle}
+        </p>
+      ) : null}
+      {entry.sections.map(function (sec, idx) {
+        if (sec.title !== undefined && sec.title !== '') {
+          return (
+            <div key={idx} className="mb-1.5">
+              <p className="font-medium mb-0.5" style={{ color: 'var(--p-text-muted)' }}>
+                {sec.title}
+              </p>
+              {sec.lines !== undefined && sec.lines.length > 0
+                ? sec.lines.map(function (line, i) {
+                    return (
+                      <p key={i} className="mb-0.5" style={{ color: 'var(--p-text-dim)' }}>
+                        {line}
+                      </p>
+                    );
+                  })
+                : null}
+              {sec.bullets !== undefined && sec.bullets.length > 0 ? (
+                <ul className="list-disc list-inside mt-0.5" style={{ color: 'var(--p-text-dim)' }}>
+                  {sec.bullets.map(function (b, i) {
+                    return <li key={i}>{b}</li>;
+                  })}
+                </ul>
+              ) : null}
+            </div>
+          );
+        }
+        if (sec.lines !== undefined && sec.lines.length > 0) {
+          return (
+            <div key={idx} className="mb-1.5">
+              {sec.lines.map(function (line, i) {
+                return (
+                  <p key={i} className="mb-0.5" style={{ color: 'var(--p-text-dim)' }}>
+                    {line}
+                  </p>
+                );
+              })}
+            </div>
+          );
+        }
+        if (sec.bullets !== undefined && sec.bullets.length > 0) {
+          return (
+            <ul key={idx} className="list-disc list-inside mb-1.5" style={{ color: 'var(--p-text-dim)' }}>
+              {sec.bullets.map(function (b, i) {
+                return <li key={i}>{b}</li>;
+              })}
+            </ul>
+          );
+        }
+        return null;
+      })}
+      {entry.ctas !== undefined && entry.ctas.length > 0 ? (
+        <div className="flex flex-wrap gap-1.5 mt-2 pt-2" style={{ borderTop: '1px solid var(--p-border)' }}>
+          {entry.ctas.map(function (cta, i) {
+            return (
+              <button
+                key={i}
+                type="button"
+                className="px-2 py-1 rounded-[var(--p-radius)] text-[11px] font-medium"
+                style={{
+                  background: 'var(--p-accent)',
+                  color: 'var(--p-bg)',
+                }}
+                onClick={function () {
+                  if (cta.action === 'nav' && cta.route !== undefined && cta.route !== '') {
+                    nav.push(cta.route);
+                  }
+                }}
+                aria-label={cta.label}
+              >
+                {cta.label}
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
+    </div>
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -77,19 +185,47 @@ export function PathAdvisorCard(props: PathAdvisorCardProps) {
     props.viewingLabel !== undefined && props.viewingLabel !== null
       ? props.viewingLabel
       : 'Dashboard';
-  const privacy =
-    props.privacyLabel !== undefined && props.privacyLabel !== null
-      ? props.privacyLabel
-      : 'Local only';
+  const currentScreen = props.currentScreen !== undefined && props.currentScreen !== '' ? props.currentScreen : 'dashboard';
 
   const [inputValue, setInputValue] = useState('');
   const [isClearConfirmOpen, setIsClearConfirmOpen] = useState(false);
+  const [isClearScreenConfirmOpen, setIsClearScreenConfirmOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [keepHistoryEnabled, setKeepHistoryEnabled] = useState(
     props.keepHistoryOnDevice !== undefined ? props.keepHistoryOnDevice : true
   );
+  const [quickQuestionsExpanded, setQuickQuestionsExpanded] = useState(false);
+  /** User toggles: which anchors are explicitly expanded (true) or collapsed (false). Active anchor is expanded by default unless user collapsed it. */
+  const [expandedAnchorKeys, setExpandedAnchorKeys] = useState<Record<string, boolean>>({});
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const headerActionsRef = useRef<HTMLDivElement>(null);
+
+  const entriesByAnchor = usePathAdvisorContextLogStore(function (s) {
+    return s.entriesByAnchor;
+  });
+  const activeAnchorKey = usePathAdvisorContextLogStore(function (s) {
+    return s.activeAnchorKey;
+  });
+  const clearScreen = usePathAdvisorContextLogStore(function (s) {
+    return s.clearScreen;
+  });
+  const clearAnchor = usePathAdvisorContextLogStore(function (s) {
+    return s.clearAnchor;
+  });
+  const setActiveAnchor = usePathAdvisorContextLogStore(function (s) {
+    return s.setActiveAnchor;
+  });
+
+  const contextLogAnchorKeys = getAnchorKeysForScreen(entriesByAnchor, currentScreen);
+  const hasContextLogEntries = contextLogAnchorKeys.length > 0;
+
+  /** Derived: active anchor is expanded by default; others only if user expanded them. */
+  const isAnchorExpanded = function (anchorKey: string): boolean {
+    if (anchorKey === activeAnchorKey) {
+      return expandedAnchorKeys[anchorKey] !== false;
+    }
+    return expandedAnchorKeys[anchorKey] === true;
+  };
 
   const briefing = usePathAdvisorBriefingStore(function (s) {
     return s.briefing;
@@ -148,6 +284,7 @@ export function PathAdvisorCard(props: PathAdvisorCardProps) {
       const actionsEl = headerActionsRef.current;
       if (actionsEl !== null && !actionsEl.contains(e.target as Node)) {
         setIsClearConfirmOpen(false);
+        setIsClearScreenConfirmOpen(false);
         setIsSettingsOpen(false);
       }
     }
@@ -188,6 +325,83 @@ export function PathAdvisorCard(props: PathAdvisorCardProps) {
       ref={headerActionsRef}
       className="relative flex items-center gap-1"
     >
+      {hasContextLogEntries ? (
+        <div className="relative group">
+          <Tooltip
+            contentId="pathadvisor-clear-screen-tooltip"
+            side="bottom"
+            content={
+              <>
+                <p className="font-semibold" style={{ color: 'var(--p-text)' }}>Clear context log</p>
+                <p>Remove all context log entries for this screen.</p>
+              </>
+            }
+          >
+            <button
+              type="button"
+              className={actionButtonClassName}
+              style={{
+                background: 'var(--p-surface2)',
+                border: '1px solid var(--p-border)',
+                color: 'var(--p-text-muted)',
+              }}
+              aria-label="Clear context log for this screen"
+              aria-expanded={isClearScreenConfirmOpen}
+              onClick={function () {
+                setIsSettingsOpen(false);
+                setIsClearConfirmOpen(false);
+                setIsClearScreenConfirmOpen(!isClearScreenConfirmOpen);
+              }}
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+            </button>
+          </Tooltip>
+          {isClearScreenConfirmOpen ? (
+            <div
+              className="absolute right-0 top-full mt-1 w-56 rounded-[var(--p-radius)] border p-2"
+              style={{
+                background: 'var(--p-surface)',
+                borderColor: 'var(--p-border)',
+                zIndex: Z_POPOVER,
+              }}
+            >
+              <p className="text-[11px] mb-2" style={{ color: 'var(--p-text-muted)' }}>
+                Clear all context log entries for this screen?
+              </p>
+              <div className="flex items-center justify-end gap-1">
+                <button
+                  type="button"
+                  className="h-7 px-2 rounded-[var(--p-radius)] text-[11px]"
+                  style={{
+                    background: 'var(--p-surface2)',
+                    border: '1px solid var(--p-border)',
+                    color: 'var(--p-text-muted)',
+                  }}
+                  onClick={function () {
+                    setIsClearScreenConfirmOpen(false);
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="h-7 px-2 rounded-[var(--p-radius)] text-[11px]"
+                  style={{
+                    background: 'var(--p-accent)',
+                    color: 'var(--p-bg)',
+                  }}
+                  onClick={function () {
+                    setIsClearScreenConfirmOpen(false);
+                    clearScreen(currentScreen);
+                  }}
+                >
+                  Confirm
+                </button>
+              </div>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
       <div className="relative group">
         <Tooltip
           contentId="pathadvisor-clear-tooltip"
@@ -211,6 +425,7 @@ export function PathAdvisorCard(props: PathAdvisorCardProps) {
             aria-expanded={isClearConfirmOpen}
             onClick={function () {
               setIsSettingsOpen(false);
+              setIsClearScreenConfirmOpen(false);
               setIsClearConfirmOpen(!isClearConfirmOpen);
             }}
           >
@@ -347,36 +562,24 @@ export function PathAdvisorCard(props: PathAdvisorCardProps) {
     >
       {/* Wrapper so conversation window can flex and scroll; pills/composer stay fixed. */}
       <div className="flex flex-col flex-1 min-h-0">
-        {/* Context pills: compact trust-first microcopy (Viewing, Privacy). */}
+        {/* Context pill: Viewing only (Privacy pill removed per Day 62 — local-only is in entry content when needed). */}
         <div className="flex flex-wrap gap-1.5 mb-3 flex-shrink-0">
-        <span
-          className="pathos-context-chip flex items-center gap-1.5 px-2 py-1 text-[12px] font-medium"
-          style={{
-            background: 'var(--p-surface2)',
-            border: '1px solid var(--p-accent-muted)',
-            borderRadius: 'var(--p-radius)',
-            color: 'var(--p-text-muted)',
-          }}
-        >
-          <Eye className="w-3 h-3 flex-shrink-0" />
-          Viewing: {viewing}
-        </span>
-        <span
-          className="pathos-context-chip flex items-center gap-1.5 px-2 py-1 text-[12px] font-medium"
-          style={{
-            background: 'var(--p-surface2)',
-            border: '1px solid var(--p-accent-muted)',
-            borderRadius: 'var(--p-radius)',
-            color: 'var(--p-text-muted)',
-          }}
-        >
-          <Shield className="w-3 h-3 flex-shrink-0" />
-          Privacy: {privacy}
-        </span>
-      </div>
+          <span
+            className="pathos-context-chip flex items-center gap-1.5 px-2 py-1 text-[12px] font-medium"
+            style={{
+              background: 'var(--p-surface2)',
+              border: '1px solid var(--p-accent-muted)',
+              borderRadius: 'var(--p-radius)',
+              color: 'var(--p-text-muted)',
+            }}
+          >
+            <Eye className="w-3 h-3 flex-shrink-0" />
+            Viewing: {viewing}
+          </span>
+        </div>
 
-      {/* Rail content (e.g. Career Readiness): INSIGHT + NEXT BEST ACTION + collapsed sections; otherwise hero Do now. */}
-      {props.railContent !== undefined && props.railContent !== null ? (
+      {/* When Context Log has entries for this screen, skip static rail content (Do now / Insight); log replaces it. */}
+      {!hasContextLogEntries && props.railContent !== undefined && props.railContent !== null ? (
         <div className="flex-shrink-0 mb-3 space-y-3">
           <div
             className="rounded-[var(--p-radius)] border p-2.5"
@@ -429,7 +632,7 @@ export function PathAdvisorCard(props: PathAdvisorCardProps) {
               })
             : null}
         </div>
-      ) : (
+      ) : !hasContextLogEntries ? (
         <div className="flex-shrink-0 mb-3">
           <p className="text-[10px] uppercase tracking-wide mb-1" style={{ color: 'var(--p-text-dim)' }}>
             {props.briefingLabel !== undefined && props.briefingLabel !== ''
@@ -469,9 +672,9 @@ export function PathAdvisorCard(props: PathAdvisorCardProps) {
             </button>
           )}
         </div>
-      )}
+      ) : null}
 
-      {/* Conversation window: surface2 + subtle border; scrollable; briefing (when open) then chips then messages. */}
+      {/* Conversation window: with Context Log when entries exist; otherwise briefing + chips + messages. */}
       <div
         ref={scrollContainerRef}
         className="pathos-scroll flex-1 min-h-0 overflow-y-auto rounded-[var(--p-radius)] mb-3 flex flex-col gap-2"
@@ -480,8 +683,124 @@ export function PathAdvisorCard(props: PathAdvisorCardProps) {
           border: '1px solid var(--p-border)',
         }}
       >
-        {/* PathAdvisor Briefing: deep explanation opened from Dashboard "Ask PathAdvisor"; above quick prompts. */}
-        {briefing !== null && isBriefingOpen ? (
+        {/* Context Log: when this screen has entries, show grouped anchors (collapsible) then Quick questions (collapsed). */}
+        {hasContextLogEntries ? (
+          <div className="flex flex-col gap-3 px-3 pt-2 pb-2 flex-shrink-0">
+            {contextLogAnchorKeys.map(function (anchorKey) {
+              const entries = getEntriesForAnchor(entriesByAnchor, anchorKey);
+              const firstEntry = entries.length > 0 ? entries[0] : undefined;
+              const label = firstEntry !== undefined ? firstEntry.anchor.label : anchorKey;
+              const isExpanded = isAnchorExpanded(anchorKey);
+              return (
+                <div
+                  key={anchorKey}
+                  className="rounded-[var(--p-radius)] border flex flex-col"
+                  style={{ borderColor: 'var(--p-border)', background: 'var(--p-surface)' }}
+                >
+                  <button
+                    type="button"
+                    className="w-full flex items-center justify-between gap-2 px-2.5 py-1.5 text-left text-[12px] font-medium"
+                    style={{ color: 'var(--p-text)' }}
+                    onClick={function () {
+                      setExpandedAnchorKeys(function (prev) {
+                        const next = Object.assign({}, prev);
+                        next[anchorKey] = !isExpanded;
+                        return next;
+                      });
+                      if (anchorKey !== activeAnchorKey) {
+                        setActiveAnchor(anchorKey);
+                      }
+                    }}
+                    aria-expanded={isExpanded}
+                    aria-label={isExpanded ? 'Collapse ' + label : 'Expand ' + label}
+                  >
+                    <span className="flex items-center gap-1.5">
+                      <MessageSquare className="w-3.5 h-3.5" style={{ color: 'var(--p-text-muted)' }} aria-hidden />
+                      {label}
+                    </span>
+                    <span className="text-[11px]" style={{ color: 'var(--p-text-muted)' }}>
+                      {String(entries.length)} {entries.length === 1 ? 'entry' : 'entries'}
+                    </span>
+                    {isExpanded ? (
+                      <ChevronDown className="w-3.5 h-3.5 flex-shrink-0" style={{ color: 'var(--p-text-muted)' }} aria-hidden />
+                    ) : (
+                      <ChevronRight className="w-3.5 h-3.5 flex-shrink-0" style={{ color: 'var(--p-text-muted)' }} aria-hidden />
+                    )}
+                  </button>
+                  {isExpanded ? (
+                    <div className="px-2.5 pb-2 pt-0 space-y-2 border-t" style={{ borderColor: 'var(--p-border)' }}>
+                      <div className="flex items-center justify-end">
+                        <button
+                          type="button"
+                          className="text-[10px] px-1.5 py-0.5 rounded"
+                          style={{ color: 'var(--p-text-muted)', background: 'var(--p-surface2)', border: '1px solid var(--p-border)' }}
+                          onClick={function (e) {
+                            e.stopPropagation();
+                            clearAnchor(anchorKey);
+                          }}
+                          aria-label={'Clear this thread: ' + label}
+                        >
+                          Clear this thread
+                        </button>
+                      </div>
+                      {entries.map(function (entry) {
+                        return (
+                          <ContextLogEntryBlock key={entry.id} entry={entry} nav={nav} />
+                        );
+                      })}
+                    </div>
+                  ) : null}
+                </div>
+              );
+            })}
+            {/* Quick questions: collapsed by default when Context Log is showing. */}
+            <div className="border rounded-[var(--p-radius)]" style={{ borderColor: 'var(--p-border)' }}>
+              <button
+                type="button"
+                className="w-full flex items-center justify-between px-2.5 py-1.5 text-[12px]"
+                style={{ color: 'var(--p-text-muted)' }}
+                onClick={function () {
+                  setQuickQuestionsExpanded(!quickQuestionsExpanded);
+                }}
+                aria-expanded={quickQuestionsExpanded}
+                aria-label={quickQuestionsExpanded ? 'Collapse quick questions' : 'Expand quick questions'}
+              >
+                Quick questions
+                {quickQuestionsExpanded ? (
+                  <ChevronDown className="w-3.5 h-3.5" aria-hidden />
+                ) : (
+                  <ChevronRight className="w-3.5 h-3.5" aria-hidden />
+                )}
+              </button>
+              {quickQuestionsExpanded && promptList.length > 0 ? (
+                <div className="p-2 flex flex-wrap gap-1.5 border-t" style={{ borderColor: 'var(--p-border)' }}>
+                  {promptList.map(function (prompt) {
+                    return (
+                      <button
+                        key={prompt}
+                        type="button"
+                        onClick={function () {
+                          handlePromptClick(prompt);
+                        }}
+                        className="pathos-prompt-row px-3 py-1.5 text-[12px] rounded-[var(--p-radius)] transition-colors border"
+                        style={{
+                          background: 'var(--p-surface2)',
+                          borderColor: 'var(--p-border)',
+                          color: 'var(--p-text)',
+                        }}
+                      >
+                        {prompt}
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : null}
+            </div>
+          </div>
+        ) : null}
+
+        {/* PathAdvisor Briefing: deep explanation opened from Dashboard "Ask PathAdvisor"; above quick prompts. (Only when no Context Log for this screen.) */}
+        {!hasContextLogEntries && briefing !== null && isBriefingOpen ? (
           <div className="flex-shrink-0 px-3 pt-2 pb-2">
             <div
               className="rounded-[var(--p-radius)] border p-3"
@@ -602,8 +921,8 @@ export function PathAdvisorCard(props: PathAdvisorCardProps) {
           </div>
         ) : null}
 
-        {/* Suggested prompts as chips above the message list. */}
-        {promptList.length > 0 ? (
+        {/* Suggested prompts as chips above the message list. (When Context Log is showing, chips are in Quick questions expander.) */}
+        {!hasContextLogEntries && promptList.length > 0 ? (
           <div className="p-2 flex flex-wrap gap-1.5 flex-shrink-0">
             {promptList.map(function (prompt) {
               return (

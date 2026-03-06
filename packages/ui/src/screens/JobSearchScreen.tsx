@@ -32,6 +32,7 @@ import {
   Check,
   BookOpen,
   ChevronRight,
+  Info,
 } from 'lucide-react';
 import { useNav } from '@pathos/adapters';
 import { storageSetJSON, storageGetJSON } from '@pathos/core';
@@ -59,6 +60,7 @@ import {
   type JobMatchDimension,
   type MatchLevel,
 } from '../lib/jobMatchSnapshot';
+import { publishScreenContext, publishDimensionExplainContext, publishSelectionContext } from '../lib/pathAdvisorPublish';
 import { CAREER_READINESS } from '../routes/routes';
 import { FilterDropdown } from './_components/FilterDropdown';
 import {
@@ -218,6 +220,8 @@ function JobListItem(props: {
   tag?: 'New' | 'Close date updated';
   onSelect: (id: string) => void;
   onSave: () => void;
+  /** Optional: append job summary to PathAdvisor context log (Quick preview). */
+  onPeek?: (job: Job | JobWithOverview) => void;
 }) {
   const [hover, setHover] = useState(false);
   const closeLabel = props.tag === 'Close date updated' ? 'Closes soon' : 'Closes Apr 1';
@@ -364,6 +368,29 @@ function JobListItem(props: {
           </span>
         </div>
       </div>
+      {props.onPeek !== undefined ? (
+        <Tooltip content="Quick preview" contentId={'job-list-peek-' + props.job.id}>
+          <button
+            type="button"
+            onClick={function (e: React.MouseEvent) {
+              e.stopPropagation();
+              if (props.onPeek !== undefined) props.onPeek(props.job);
+            }}
+            onKeyDown={function (e: React.KeyboardEvent) {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.stopPropagation();
+                e.preventDefault();
+                if (props.onPeek !== undefined) props.onPeek(props.job);
+              }
+            }}
+            className={INTERACTIVE_HOVER_CLASS + ' flex-shrink-0 p-2 self-center rounded'}
+            aria-label="Quick preview: add job summary to PathAdvisor"
+            style={{ color: 'var(--p-text-muted)', border: '1px solid transparent' }}
+          >
+            <Info className="w-4 h-4" />
+          </button>
+        </Tooltip>
+      ) : null}
       <Tooltip content={props.isSaved ? 'Saved to your list' : 'Save job'} contentId="job-list-save">
         <button
           type="button"
@@ -601,27 +628,9 @@ function JobDetailsPanel(props: {
                 })}
               </ul>
             </div>
-            {/* What you're missing: 2–5 bullets (compact). */}
-            {jobMatch.missingEvidence.length > 0 ? (
-              <div className="mt-2">
-                <p className="text-[10px] font-semibold uppercase tracking-wider mb-1" style={{ color: 'var(--p-text-dim)' }}>
-                  What you&apos;re missing
-                </p>
-                <ul className="list-disc list-inside space-y-0.5 text-[11px]" style={{ color: 'var(--p-text-muted)' }}>
-                  {jobMatch.missingEvidence.map(function (item, i) {
-                    return (
-                      <li key={i}>
-                        {item.label}
-                        {item.impactPoints !== undefined ? ' (+' + String(item.impactPoints) + ')' : ''}
-                      </li>
-                    );
-                  })}
-                </ul>
-              </div>
-            ) : null}
-            {/* Primary blocker: one line from JobMatchSnapshot. */}
-            <p className="text-[11px]" style={{ color: 'var(--p-text-muted)' }}>
-              {jobMatch.primaryBlocker}
+            {/* Day 62: What you're missing and primary blocker moved to PathAdvisor Context Log. */}
+            <p className="text-[10px] mt-2" style={{ color: 'var(--p-text-dim)' }}>
+              Details appear in PathAdvisor.
             </p>
             <div className="flex flex-wrap items-center gap-2 pt-1">
               {props.isSaved ? (
@@ -1257,52 +1266,63 @@ export function JobSearchScreen(props: JobSearchScreenProps) {
     [selectedJob, readinessInput]
   );
 
-  useEffect(function () {
-    const primaryWeakLabel =
-      jobMatchSnapshot !== undefined
-        ? (function () {
-            for (let i = 0; i < jobMatchSnapshot.dimensions.length; i++) {
-              const d = jobMatchSnapshot.dimensions[i];
-              if (d !== undefined && d.status === 'Weak') return d.label;
-            }
-            return null;
-          })()
-        : null;
-    const railContent =
-      jobMatchSnapshot !== undefined
-        ? {
-            insightBullets: [
-              'Match for this job: ' +
-                jobMatchSnapshot.matchLevel +
-                ' (Score: ' +
-                String(jobMatchSnapshot.overallMatchScore) +
-                '/100)',
-              primaryWeakLabel !== null
-                ? 'Top limiting factor: ' + primaryWeakLabel
-                : 'No single limiting dimension.',
-              'Fastest improvement: ' +
-                jobMatchSnapshot.topJobRelevantGap.label +
-                ' (+' +
-                String(jobMatchSnapshot.topJobRelevantGap.impactPoints) +
-                ')',
+  /* Day 62: Append job match entry to PathAdvisor Context Log when user selects a job. */
+  useEffect(
+    function () {
+      if (selectedJob === undefined || jobMatchSnapshot === undefined) return;
+      const job = selectedJob;
+      const snap = jobMatchSnapshot;
+      const agency = job.agency !== undefined && job.agency !== '' ? job.agency : 'Agency';
+      const location = job.location !== undefined && job.location !== '' ? job.location : 'Location';
+      const subtitle = agency + ' • ' + location;
+      const missingBullets: string[] = [];
+      for (let i = 0; i < snap.missingEvidence.length; i++) {
+        const item = snap.missingEvidence[i];
+        if (item !== undefined) {
+          const line = item.impactPoints !== undefined ? item.label + ' (+' + String(item.impactPoints) + ')' : item.label;
+          missingBullets.push(line);
+        }
+      }
+      const nextActionLine =
+        'Fix ' + snap.topJobRelevantGap.label + ' (+' + String(snap.topJobRelevantGap.impactPoints) + ')';
+      const tags: Array<'localOnly' | 'demo' | 'explainability'> = ['localOnly'];
+      if (job.id.indexOf('mock-js-') === 0) {
+        tags.push('demo');
+      }
+      publishScreenContext({
+        screen: 'job-search',
+        anchor: { type: 'job', id: job.id, label: job.title !== undefined && job.title !== '' ? job.title : job.id },
+        title: 'Job match: ' + (job.title !== undefined && job.title !== '' ? job.title : job.id),
+        subtitle,
+        sections: [
+          {
+            title: 'Summary',
+            lines: [
+              'Readiness: ' + String(snap.overallReadinessScore) + '/' + String(snap.overallReadinessMax),
+              'Job match: ' + String(snap.overallMatchScore) + '/100 (' + snap.matchLevel + '). Job match weights what this announcement emphasizes most.',
             ],
-            nextBestAction: {
-              text:
-                'Fix ' +
-                jobMatchSnapshot.topJobRelevantGap.label +
-                ' (+' +
-                String(jobMatchSnapshot.topJobRelevantGap.impactPoints) +
-                ')',
-              ctaLabel:
-                'Fix ' +
-                jobMatchSnapshot.topJobRelevantGap.label +
-                ' (+' +
-                String(jobMatchSnapshot.topJobRelevantGap.impactPoints) +
-                ')',
-            },
-          }
-        : undefined;
+          },
+          { title: 'Primary blocker', lines: [snap.primaryBlocker] },
+          missingBullets.length > 0 ? { title: "What you're missing", bullets: missingBullets } : { title: "What you're missing", lines: ['None identified.'] },
+          {
+            title: 'Next best action',
+            bullets: [nextActionLine],
+          },
+        ],
+        ctas: [
+          { label: 'Open Career Readiness: Fix ' + snap.topJobRelevantGap.label, action: 'nav', route: CAREER_READINESS + '#action-plan' },
+        ],
+        tags,
+        dedupeKey: 'selectJob:' + job.id + ':' + String(snap.overallMatchScore),
+      });
+    },
+    [selectedJob, jobMatchSnapshot]
+  );
+
+  useEffect(function () {
+    /* Day 62: Job Search no longer sets railContent; context log entries replace static Insight card. */
     setOverrides({
+      screenId: 'job-search',
       viewingLabel: 'Job Search',
       suggestedPrompts:
         jobMatchSnapshot !== undefined
@@ -1315,7 +1335,6 @@ export function JobSearchScreen(props: JobSearchScreenProps) {
       briefingLabel: 'From Job Search',
       helperParagraph:
         'Use this workspace to decode job requirements and decide your next best move. Ask about specialized experience, keywords, and what to do next.',
-      railContent,
       onRailNextBestActionClick:
         jobMatchSnapshot !== undefined
           ? function () {
@@ -1423,6 +1442,27 @@ export function JobSearchScreen(props: JobSearchScreenProps) {
       store.setSelectedJob(id);
     },
     [store]
+  );
+
+  const handleJobPeek = useCallback(
+    function (job: Job | JobWithOverview) {
+      const title = job.title !== undefined && job.title !== '' ? job.title : job.id;
+      const excerpt =
+        job.summary !== undefined && job.summary !== ''
+          ? job.summary.length > 280 ? job.summary.slice(0, 277) + '...' : job.summary
+          : (job.agency !== undefined ? job.agency : '') + (job.location !== undefined && job.location !== '' ? ' • ' + job.location : '') + '. No description available.';
+      publishSelectionContext({
+        screen: 'job-search',
+        anchor: { type: 'job', id: job.id, label: title },
+        payload: {
+          title: 'Quick preview: ' + title,
+          subtitle: job.agency !== undefined ? job.agency + (job.location ? ' • ' + job.location : '') : undefined,
+          lines: [excerpt],
+        },
+        dedupeKey: 'peek:' + job.id,
+      });
+    },
+    []
   );
 
   const handleSaveJob = useCallback(
@@ -2161,6 +2201,7 @@ export function JobSearchScreen(props: JobSearchScreenProps) {
                         handleSaveJob(job);
                       }
                     }}
+                    onPeek={handleJobPeek}
                   />
                 );
               })
@@ -2241,15 +2282,33 @@ export function JobSearchScreen(props: JobSearchScreenProps) {
               });
             }}
             onOpenDimensionBriefing={function (dim: JobMatchDimension) {
-              if (jobMatchSnapshot === undefined) return;
+              if (jobMatchSnapshot === undefined || selectedJob === undefined) return;
               const payload = buildDimensionBriefingPayload(dim, jobMatchSnapshot, CAREER_READINESS + '#action-plan');
-              const id = 'dimension-' + dim.key.replace(/\s+/g, '-');
-              openFitBriefing({
-                id,
-                title: payload.title,
-                sourceLabel: payload.sourceLabel,
-                sections: payload.sections,
-                primaryCta: payload.primaryCta,
+              const evidenceFound: string[] = [];
+              const evidenceMissing: string[] = [];
+              for (let s = 0; s < payload.sections.length; s++) {
+                const sec = payload.sections[s];
+                if (sec === undefined) continue;
+                if (sec.heading === 'Evidence found') {
+                  evidenceFound.push(sec.body);
+                } else if (sec.heading === 'Evidence missing') {
+                  evidenceMissing.push(sec.body);
+                }
+              }
+              publishDimensionExplainContext({
+                screen: 'job-search',
+                anchor: { type: 'job', id: selectedJob.id, label: selectedJob.title !== undefined && selectedJob.title !== '' ? selectedJob.title : selectedJob.id },
+                dimension: dim.label,
+                payload: {
+                  whatMeasures: [payload.sections[0] !== undefined ? payload.sections[0].body : ''],
+                  yourSignal: payload.sections[1] !== undefined ? payload.sections[1].body : '',
+                  evidenceFound: evidenceFound.length > 0 ? evidenceFound : undefined,
+                  evidenceMissing: evidenceMissing.length > 0 ? evidenceMissing : undefined,
+                  fastestFix: payload.sections[4] !== undefined ? payload.sections[4].body : undefined,
+                  ctaLabel: payload.primaryCta !== undefined ? payload.primaryCta.label : undefined,
+                  ctaRoute: payload.primaryCta !== undefined ? payload.primaryCta.route : undefined,
+                },
+                dedupeKey: 'dimension:' + dim.key + ':' + String(jobMatchSnapshot.overallMatchScore),
               });
             }}
           />

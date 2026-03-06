@@ -1,3 +1,21 @@
+# Day 62 — PathAdvisor Context Log global v1
+
+(Do not commit or push. Branch: feature/day-62-pathadvisor-context-log-global-v1.)
+
+## Goal
+
+Make PathAdvisor a global append-only Context Log; reclaim Job Search main canvas; move "what you're missing" and rationale into PathAdvisor; dedupe + grouping; remove static Privacy pill and Job Search static Insight.
+
+## Result
+
+- **pathAdvisorContextLogStore:** entriesByAnchor, activeAnchorKey, appendEntry (dedupeKey), clearAnchor, clearScreen, clearAll. pathAdvisorPublish: publishScreenContext, publishDimensionExplainContext.
+- **PathAdvisorCard:** Context Log region (grouped anchors, Quick questions collapsed), Clear screen; Privacy pill removed.
+- **Job Search:** screenId; no railContent; match panel slimmed ("Details appear in PathAdvisor"); job select/dimension click append entries.
+- **Gates:** lint, typecheck, test (804), build, routes:check pass; overlays:check pre-existing fail.
+- **Patch artifacts:** artifacts/day-62.patch (181795), artifacts/day-62-this-run.patch (79662). main baseline. Excludes artifacts/.
+
+---
+
 # Day 61 — Job Search Job Match Snapshot v1
 
 (Do not commit or push. Branch: feature/day-61-job-search-jobmatchsnapshot-v1.)

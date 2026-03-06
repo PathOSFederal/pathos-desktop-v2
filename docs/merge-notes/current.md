@@ -1,3 +1,53 @@
+# Day 62 (run 1) — PathAdvisor Context Log (Option A) global v1
+
+**Branch:** `feature/day-62-pathadvisor-context-log-global-v1`  
+**Date:** March 5, 2026  
+**Status:** In progress
+
+## Summary
+
+- Implemented PathAdvisor Context Log (Option A) as the default app-wide UX: right rail is an append-only context log that grows on meaningful user actions; static Insight cards and rail Privacy pill removed.
+- All major screens set stable `screenId` in pathAdvisorScreenOverridesStore and publish context-log entries on selection/CTA clicks (Job Search, Career Readiness, Resume Readiness, Dashboard).
+- Job Search: kept Match panel and interactive breakdown; “Details appear in PathAdvisor.” one-liner; job selection and dimension click append entries; added Quick preview (Info) on list rows that appends job summary to PathAdvisor.
+- Career Readiness: removed railContent (static Insight/NEXT BEST ACTION); publish on Improve readiness, View top opportunities, gap CTAs, and action-plan toggles.
+- Resume Readiness: publish on active resume select, target job select, and tailored-version creation.
+- Dashboard: set overrides with screenId `dashboard`; publish on Today’s Focus hero and small focus card CTAs.
+- Dedupe keys used throughout so repeated clicks do not spam the log; anchor grouping and entry-count badge in thread header unchanged.
+
+## Files changed (this run)
+
+- `packages/ui/src/screens/CareerReadinessScreen.tsx` — railContent removed; publishScreenContext on Improve readiness, View top opportunities, gap CTAs, action-plan toggles.
+- `packages/ui/src/screens/CareerScreen.tsx` — publishSelectionContext on resume select, target job select (TailoringTargetJobPicker onJobSelected), tailored-version creation.
+- `packages/ui/src/screens/DashboardScreen.tsx` — setOverrides with screenId `dashboard`; publish on small focus card CTAs.
+- `packages/ui/src/screens/JobSearchScreen.tsx` — handleJobPeek + JobListItem onPeek (Quick preview); publishSelectionContext import.
+- `packages/ui/src/shell/PathAdvisorCard.tsx` — (no code change this run; Viewing-only chip and context log UI already in place.)
+- `packages/ui/src/shell/PathAdvisorRail.tsx` — (no code change this run.)
+
+## Gates
+
+- `pnpm lint` — passed (warnings only, no new errors).
+- `pnpm -r typecheck` — passed.
+- `pnpm test` — passed (804 tests).
+- `pnpm build` — passed.
+- `pnpm routes:check` — passed.
+- `pnpm overlays:check` — passed.
+
+## Human Simulation Gate (manual verification)
+
+1. **Dashboard:** Open app → Dashboard sets Viewing: Dashboard; click Today’s Focus hero CTA → PathAdvisor shows new context entry for that focus; click a small focus card CTA → entry for that card.
+2. **Job Search:** Go to Job Search → select a job → PathAdvisor shows “Job match for &lt;title&gt;”; click a Match breakdown row → “Match breakdown: &lt;dimension&gt;” entry; click Quick preview (Info) on a list row → “Quick preview: &lt;title&gt;” with summary excerpt.
+3. **Career Readiness:** Go to Career Readiness → click Improve readiness or View top opportunities → corresponding entry in PathAdvisor; click a gap CTA or action-plan checkbox → entry appended; no static Insight card in rail when context log has entries.
+4. **Resume Readiness:** Go to Career & Resume → select a resume or target job → PathAdvisor shows selection entry; create tailored version from job → “Tailored version created” entry.
+5. **Rail:** No “Privacy: Local only” pill; only “Viewing: …” chip; Clear screen / Clear thread work; anchor headers show entry count.
+
+## Patch artifacts
+
+- **Cumulative:** `artifacts/day-62.patch` (git diff main...HEAD, excluding artifacts).
+- **This run:** `artifacts/day-62-this-run.patch` (git diff working tree, excluding artifacts).
+- Artifact list/sizes: see Part 6 log (Get-ChildItem artifacts \| Select Name, Length, LastWriteTime); day-62.patch and day-62-this-run.patch updated this run.
+
+---
+
 # Day 47 — Desktop Dev + QA Loops (Electron)
 
 **Branch:** `feature/day-47-desktop-repo-and-installer`  
@@ -3913,3 +3963,120 @@ Do not commit or push.
 **Get-Item output (run N):** day-61.patch Length 88878; day-61-this-run.patch Length 34975.
 
 **Post-change logging (run N):** git status — 6 files modified (day-61.md, merge-notes.md, current.md, jobMatchSnapshot.ts, JobSearchScreen.test.tsx, JobSearchScreen.tsx). git diff --name-status main...HEAD — 11 files (A/M). git diff --stat main...HEAD — 11 files changed, 1470 insertions(+), 93 deletions(-).
+
+---
+
+# Day 62 — PathAdvisor Context Log global v1
+
+**Branch:** `feature/day-62-pathadvisor-context-log-global-v1`  
+**Date:** March 5, 2026  
+**Goal:** Make PathAdvisor a global append-only Context Log; reclaim Job Search main canvas; move explanation into PathAdvisor; dedupe + grouping; remove static Privacy pill and Job Search static Insight.
+
+## Pre-flight Logging (MANDATORY)
+
+**Command:** `git status`
+```
+On branch feature/day-62-pathadvisor-context-log-global-v1
+...
+```
+
+**Command:** `git branch --show-current`
+```
+feature/day-62-pathadvisor-context-log-global-v1
+```
+
+**Command:** `git diff --name-status develop...HEAD`  
+**Note:** develop does not exist; used main...HEAD instead.
+
+**Command:** `git diff --name-status main...HEAD`  
+(see Post-change logging below for file list)
+
+**Command:** `git diff --stat main...HEAD`  
+(see Post-change logging below)
+
+## Summary of changes
+
+- **pathAdvisorContextLogStore:** New store with entriesByAnchor, activeAnchorKey, appendEntry (dedupeKey), clearAnchor, clearScreen, clearAll, setActiveAnchor. Types: PathAdvisorAnchor, PathAdvisorContextEntry, buildAnchorKey, getAnchorKeysForScreen, getEntriesForAnchor.
+- **pathAdvisorPublish.ts:** publishScreenContext, publishSelectionContext, publishDimensionExplainContext.
+- **PathAdvisorCard:** Removed static "Privacy: Local only" pill. Added Context Log region when currentScreen has entries: grouped anchors (collapsible), Quick questions expander (collapsed by default), Clear screen + per-anchor "Clear this thread". Derived isAnchorExpanded (active expanded by default).
+- **PathAdvisorRail:** Passes currentScreen from overrides.screenId; removed privacyLabel.
+- **pathAdvisorScreenOverridesStore:** Added screenId to overrides.
+- **Job Search:** screenId 'job-search'; no railContent (static Insight removed). Match panel: kept header (Readiness, Job match), 5 breakdown rows, hint "Details appear in PathAdvisor." Removed "What you're missing" and primary blocker from main panel. On job select: append job match entry (dedupeKey selectJob:jobId:score). On dimension click: append dimension entry (dedupeKey dimension:key:score). Career Readiness / Resume / Dashboard: screenId set; Dashboard hero click appends dashboard:focus entry.
+- **Docs:** docs/ui/pathadvisor-context-log.md (UX contract); docs/change-briefs/day-62.md.
+- **Tests:** pathAdvisorContextLogStore.test.ts (append, dedupe, clearAnchor, clearScreen); PathAdvisorCard (no Privacy pill, currentScreen smoke); JobSearchScreen (Details in PathAdvisor, no What you're missing, select job/dimension append).
+
+## Gates (record results)
+
+| Gate | Result |
+|------|--------|
+| pnpm lint | Pass (1 error fixed: setState in effect → derived isAnchorExpanded) |
+| pnpm -r typecheck | Pass |
+| pnpm test | 804 passed |
+| pnpm build | Pass |
+| pnpm routes:check | Pass |
+| pnpm overlays:check | Fail (pre-existing ReadinessTrajectoryChart.tsx; not introduced by Day 62) |
+
+## Human Simulation Gate
+
+| Item | Value |
+|------|--------|
+| Required | Yes |
+| Triggers hit | Changes Zustand store logic; Affects UI where results appear in multiple places |
+| Why | New context log store and Job Search panel/PathAdvisor rail changes |
+
+## AI Acceptance Checklist
+
+| Item | Value |
+|------|--------|
+| Flow | Job select → appendEntry(job match); dimension click → appendEntry(dimension); Clear screen → clearScreen(currentScreen). |
+| Store(s) | pathAdvisorContextLogStore (new); pathAdvisorScreenOverridesStore (screenId). |
+| Storage key(s) | none |
+| Failure mode | If store fails, main canvas still works; log may be empty. |
+| How tested | pathAdvisorContextLogStore.test.ts; PathAdvisorCard.test.tsx; JobSearchScreen.test.tsx (Day 62 assertions). |
+
+## Patch Artifacts (FINAL)
+
+- **Cumulative:** `artifacts/day-62.patch` (main → working tree). UTF-8. Excludes artifacts/.
+- **Incremental:** `artifacts/day-62-this-run.patch` (HEAD → working tree). UTF-8. Excludes artifacts/.
+
+**Get-ChildItem artifacts (day-62):**  
+Name: day-62.patch; Length: 181795; LastWriteTime: 3/5/2026 7:15:27 PM  
+Name: day-62-this-run.patch; Length: 79662; LastWriteTime: 3/5/2026 7:15:28 PM
+
+## Post-change logging
+
+**git status:** On branch feature/day-62-pathadvisor-context-log-global-v1; changes not staged (new: day-62.md, pathadvisor-context-log.md, pathAdvisorPublish.ts, pathAdvisorContextLogStore.ts, pathAdvisorContextLogStore.test.ts; modified: current.md, CareerReadinessScreen, CareerScreen, DashboardScreen, JobSearchScreen, JobSearchScreen.test, PathAdvisorCard, PathAdvisorCard.test, PathAdvisorRail, pathAdvisorScreenOverridesStore).
+
+**git diff --name-status main...HEAD:** 11 files (A/M: day-61.md, merge-notes.md, current.md, jobMatchSnapshot*, JobSearchScreen*, PathAdvisorCard, PathAdvisorRail, pathAdvisorBriefingStore, pathAdvisorScreenOverridesStore).
+
+**git diff --stat main...HEAD:** 11 files changed, 1751 insertions(+), 160 deletions(-).
+
+---
+
+## overlays:check fix (ReadinessTrajectoryChart)
+
+**Goal:** Make `pnpm overlays:check` pass by fixing pre-existing violations.
+
+**Failure excerpt (before fix):**
+```
+[overlays:check] Tailwind z- in className (use zIndex.ts + inline style): packages\ui\src\screens\careerReadiness\ReadinessTrajectoryChart.tsx
+[overlays:check] role="tooltip" found (use Tooltip component): packages\ui\src\screens\careerReadiness\ReadinessTrajectoryChart.tsx
+```
+- File: `packages/ui/src/screens/careerReadiness/ReadinessTrajectoryChart.tsx`
+- Violations: (1) `className="... z-10 ..."` on inline tooltip div; (2) inline tooltip div with `role="tooltip"` and `id="readiness-trajectory-tooltip"`.
+
+**Changes made:**
+- Removed Tailwind `z-10` and the entire inline tooltip div (no z-index constant needed in this file; tooltip is portaled).
+- Replaced inline tooltip with the canonical `Tooltip` component from `packages/ui/src/components/Tooltip.tsx` (portaled via OverlayRoot, uses Z_TOOLTIP internally).
+- Each chart hit area (one per time point) is now wrapped in `<Tooltip content={pointTooltipContent(i)} side="top">` with a `<g>` trigger containing the `<rect>`; tooltip content is label, Actual/Possible scores, and trust note (token-only styling).
+- Removed `useState`/`useCallback` for hover; tooltip open state is per-trigger via Radix.
+
+**Commands run:**
+- `pnpm overlays:check` — PASS
+- `pnpm -r typecheck` — PASS
+- `pnpm test` — PASS (56 test files, 804 tests)
+- `pnpm docs:day-patches --day 62` — FAIL (pathspec exclude / diff baseline); patch artifacts not regenerated this run.
+
+**git status (after fix):**
+- Branch: `feature/day-62-pathadvisor-context-log-global-v1`
+- Modified: `docs/merge-notes/current.md`, `packages/ui/src/screens/careerReadiness/ReadinessTrajectoryChart.tsx` (plus existing day-62 changes).

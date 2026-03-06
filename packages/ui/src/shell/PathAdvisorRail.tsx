@@ -122,6 +122,11 @@ export function PathAdvisorRail(props: PathAdvisorRailProps) {
       ? overrides.onRailNextBestActionClick
       : undefined;
 
+  const currentScreen =
+    overrides !== null && overrides !== undefined && overrides.screenId !== undefined && overrides.screenId !== ''
+      ? overrides.screenId
+      : 'dashboard';
+
   return (
     <div className="h-full flex flex-col min-h-0">
       <PathAdvisorCard
@@ -129,7 +134,7 @@ export function PathAdvisorRail(props: PathAdvisorRailProps) {
         suggestedPrompts={suggestedPrompts}
         onSend={onSend}
         viewingLabel={viewingLabel}
-        privacyLabel={props.privacyLabel}
+        currentScreen={currentScreen}
         briefingLabel={briefingLabel}
         railContent={railContent}
         onRailNextBestActionClick={onRailNextBestActionClick}

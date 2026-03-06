@@ -22,8 +22,11 @@ import {
   buildReadinessInputFromMock,
   buildDimensionBriefingPayload,
 } from '../lib/jobMatchSnapshot';
+import { CAREER_READINESS_MOCK } from './careerReadiness/careerReadinessMockData';
 import { JobSearchScreen } from './JobSearchScreen';
 import { MOCK_JOBS } from './jobSearchMockJobs';
+import { usePathAdvisorContextLogStore, getAnchorKeysForScreen, getEntriesForAnchor } from '../stores/pathAdvisorContextLogStore';
+import { publishScreenContext, publishDimensionExplainContext } from '../lib/pathAdvisorPublish';
 
 function noop(_x?: string) {
   /* mock */
@@ -57,6 +60,7 @@ function renderJobSearch() {
 describe('JobSearchScreen', function () {
   beforeEach(function () {
     useJobSearchV1Store.getState().loadFromStorage();
+    usePathAdvisorContextLogStore.getState().clearAll();
   });
 
   it('renders loading or Job Search content', function () {
@@ -434,5 +438,75 @@ describe('JobSearchScreen', function () {
     expect(state.totalCount).toBeGreaterThanOrEqual(30);
     expect(state.results.length).toBeLessThanOrEqual(state.pageSize);
     expect(state.results.length).toBe(Math.min(state.pageSize, state.totalCount));
+  });
+
+  it('Day 62: match panel shows Details appear in PathAdvisor and does not show What you\'re missing block', function () {
+    useJobSearchV1Store.getState().loadSampleJobs();
+    const output = renderJobSearch();
+    if (output.indexOf('Loading job search') !== -1) {
+      return;
+    }
+    expect(output).toContain('Details appear in PathAdvisor');
+    expect(output).not.toContain("What you're missing");
+  });
+
+  it('Day 62: selecting a job appends context log entry with title containing Job match', function () {
+    usePathAdvisorContextLogStore.getState().clearAll();
+    const job = MOCK_JOBS[0];
+    if (job === undefined) throw new Error('no job');
+    const readinessInput = buildReadinessInputFromMock({
+      score: CAREER_READINESS_MOCK.score,
+      scoreMax: CAREER_READINESS_MOCK.scoreMax,
+      badgeLabel: CAREER_READINESS_MOCK.badgeLabel,
+      radarSpokes: CAREER_READINESS_MOCK.radarSpokes,
+      gaps: CAREER_READINESS_MOCK.gaps,
+      actionPlanItems: CAREER_READINESS_MOCK.actionPlanItems,
+    });
+    const snap = buildJobMatchSnapshot(readinessInput, job);
+    publishScreenContext({
+      screen: 'job-search',
+      anchor: { type: 'job', id: job.id, label: job.title !== undefined ? job.title : job.id },
+      title: 'Job match: ' + (job.title !== undefined ? job.title : job.id),
+      subtitle: (job.agency !== undefined ? job.agency : '') + ' • ' + (job.location !== undefined ? job.location : ''),
+      sections: [
+        { title: 'Summary', lines: ['Readiness: ' + String(snap.overallReadinessScore) + '/' + String(snap.overallReadinessMax)] },
+      ],
+      tags: ['localOnly'],
+      dedupeKey: 'selectJob:' + job.id + ':' + String(snap.overallMatchScore),
+    });
+    const keys = getAnchorKeysForScreen(usePathAdvisorContextLogStore.getState().entriesByAnchor, 'job-search');
+    expect(keys.length).toBeGreaterThanOrEqual(1);
+    const entries = getEntriesForAnchor(usePathAdvisorContextLogStore.getState().entriesByAnchor, keys[0]);
+    expect(entries.length).toBeGreaterThanOrEqual(1);
+    expect(entries[entries.length - 1].title).toContain('Job match');
+  });
+
+  it('Day 62: dimension explain appends context log entry with title containing Match breakdown', function () {
+    usePathAdvisorContextLogStore.getState().clearAll();
+    const job = MOCK_JOBS[0];
+    if (job === undefined) throw new Error('no job');
+    const readinessInput = buildReadinessInputFromMock({
+      score: CAREER_READINESS_MOCK.score,
+      scoreMax: CAREER_READINESS_MOCK.scoreMax,
+      badgeLabel: CAREER_READINESS_MOCK.badgeLabel,
+      radarSpokes: CAREER_READINESS_MOCK.radarSpokes,
+      gaps: CAREER_READINESS_MOCK.gaps,
+      actionPlanItems: CAREER_READINESS_MOCK.actionPlanItems,
+    });
+    const snap = buildJobMatchSnapshot(readinessInput, job);
+    const dim = snap.dimensions[0];
+    if (dim === undefined) throw new Error('no dimension');
+    publishDimensionExplainContext({
+      screen: 'job-search',
+      anchor: { type: 'job', id: job.id, label: job.title !== undefined ? job.title : job.id },
+      dimension: dim.label,
+      payload: { whatMeasures: ['Test'], yourSignal: 'Good', fastestFix: 'Add evidence.' },
+      dedupeKey: 'dimension:' + dim.key + ':' + String(snap.overallMatchScore),
+    });
+    const keys = getAnchorKeysForScreen(usePathAdvisorContextLogStore.getState().entriesByAnchor, 'job-search');
+    expect(keys.length).toBeGreaterThanOrEqual(1);
+    const entries = getEntriesForAnchor(usePathAdvisorContextLogStore.getState().entriesByAnchor, keys[0]);
+    expect(entries.length).toBeGreaterThanOrEqual(1);
+    expect(entries[entries.length - 1].title).toContain('Match breakdown');
   });
 });

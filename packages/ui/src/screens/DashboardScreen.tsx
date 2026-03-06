@@ -37,6 +37,8 @@ import { useDashboardSnapshot } from './dashboard/useDashboardSnapshot';
 import type { FocusItem } from './dashboard/dashboardModel';
 import { JOB_SEARCH, IMPORT, RESUME_BUILDER, CAREER_READINESS, SAVED_JOBS } from '../routes/routes';
 import { getCareerReadinessSummary } from './careerReadiness/careerReadinessMockData';
+import { publishScreenContext } from '../lib/pathAdvisorPublish';
+import { usePathAdvisorScreenOverridesStore } from '../stores/pathAdvisorScreenOverridesStore';
 import * as PopoverPrimitive from '@radix-ui/react-popover';
 import { Info } from 'lucide-react';
 import { OVERLAY_ROOT_ID, Z_POPOVER } from '../styles/zIndex';
@@ -1126,13 +1128,36 @@ function TrackPlaceholderCard(props: { title: string }) {
 // Main dashboard screen — Command Center layout driven by optional data
 // ---------------------------------------------------------------------------
 
+const DASHBOARD_SUGGESTED_PROMPTS = [
+  'What should I focus on first today?',
+  'Why did my readiness score change?',
+  'When can I expect a referral decision?',
+];
+
 export function DashboardScreen(props: DashboardScreenProps) {
   const hasWeeklyBriefing = props.onOpenWeeklyBriefing !== undefined && props.onOpenWeeklyBriefing !== null;
   const data = props.data !== undefined && props.data !== null ? props.data : mockDashboardData;
   const nav = useNav();
+  const setOverrides = usePathAdvisorScreenOverridesStore(function (s) {
+    return s.setOverrides;
+  });
   const setHeroDoNow = useDashboardHeroDoNowStore(function (s) {
     return s.setAction;
   });
+
+  useEffect(
+    function () {
+      setOverrides({
+        screenId: 'dashboard',
+        viewingLabel: 'Dashboard',
+        suggestedPrompts: DASHBOARD_SUGGESTED_PROMPTS,
+      });
+      return function () {
+        setOverrides(null);
+      };
+    },
+    [setOverrides]
+  );
 
   const viewModel = useMemo(
     function () {
@@ -1297,6 +1322,14 @@ export function DashboardScreen(props: DashboardScreenProps) {
                 item={visibleFocus[0]}
                 dataHero={data.focusHero}
                 onCtaClick={function () {
+                  publishScreenContext({
+                    screen: 'dashboard',
+                    anchor: { type: 'card', id: 'dashboard:focus', label: visibleFocus[0].title },
+                    title: visibleFocus[0].title,
+                    sections: [{ lines: [visibleFocus[0].reason] }],
+                    tags: ['localOnly'],
+                    dedupeKey: 'dashboard:focus:' + visibleFocus[0].actionRoute,
+                  });
                   handleDoNow(visibleFocus[0].actionRoute);
                 }}
                 className="md:col-span-2 md:row-span-2"
@@ -1309,6 +1342,14 @@ export function DashboardScreen(props: DashboardScreenProps) {
                 <FocusSmallCardFromItem
                   item={visibleFocus[1]}
                   onCtaClick={function () {
+                    publishScreenContext({
+                      screen: 'dashboard',
+                      anchor: { type: 'card', id: 'dashboard:focus:' + visibleFocus[1].id, label: visibleFocus[1].title },
+                      title: visibleFocus[1].title,
+                      sections: [{ lines: [visibleFocus[1].reason] }],
+                      tags: ['localOnly'],
+                      dedupeKey: 'dashboard:focus:' + visibleFocus[1].actionRoute,
+                    });
                     handleDoNow(visibleFocus[1].actionRoute);
                   }}
                   onDismiss={function () {
@@ -1321,6 +1362,14 @@ export function DashboardScreen(props: DashboardScreenProps) {
                 <FocusSmallCardFromItem
                   item={visibleFocus[0]}
                   onCtaClick={function () {
+                    publishScreenContext({
+                      screen: 'dashboard',
+                      anchor: { type: 'card', id: 'dashboard:focus:' + visibleFocus[0].id, label: visibleFocus[0].title },
+                      title: visibleFocus[0].title,
+                      sections: [{ lines: [visibleFocus[0].reason] }],
+                      tags: ['localOnly'],
+                      dedupeKey: 'dashboard:focus:' + visibleFocus[0].actionRoute,
+                    });
                     handleDoNow(visibleFocus[0].actionRoute);
                   }}
                   onDismiss={function () {
@@ -1334,6 +1383,14 @@ export function DashboardScreen(props: DashboardScreenProps) {
                 <FocusSmallCardFromItem
                   item={visibleFocus[2]}
                   onCtaClick={function () {
+                    publishScreenContext({
+                      screen: 'dashboard',
+                      anchor: { type: 'card', id: 'dashboard:focus:' + visibleFocus[2].id, label: visibleFocus[2].title },
+                      title: visibleFocus[2].title,
+                      sections: [{ lines: [visibleFocus[2].reason] }],
+                      tags: ['localOnly'],
+                      dedupeKey: 'dashboard:focus:' + visibleFocus[2].actionRoute,
+                    });
                     handleDoNow(visibleFocus[2].actionRoute);
                   }}
                   onDismiss={function () {
@@ -1346,6 +1403,14 @@ export function DashboardScreen(props: DashboardScreenProps) {
                 <FocusSmallCardFromItem
                   item={visibleFocus[1]}
                   onCtaClick={function () {
+                    publishScreenContext({
+                      screen: 'dashboard',
+                      anchor: { type: 'card', id: 'dashboard:focus:' + visibleFocus[1].id, label: visibleFocus[1].title },
+                      title: visibleFocus[1].title,
+                      sections: [{ lines: [visibleFocus[1].reason] }],
+                      tags: ['localOnly'],
+                      dedupeKey: 'dashboard:focus:' + visibleFocus[1].actionRoute,
+                    });
                     handleDoNow(visibleFocus[1].actionRoute);
                   }}
                   onDismiss={function () {
