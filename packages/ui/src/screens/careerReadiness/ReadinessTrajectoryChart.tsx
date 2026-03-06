@@ -9,8 +9,8 @@
 'use client';
 
 import type React from 'react';
-import { useState, useCallback } from 'react';
 import type { TrajectoryData, TrajectoryPoint } from './careerReadinessMockData';
+import { Tooltip } from '../../components/Tooltip';
 
 /* Chart height: tall enough for two lines + gridlines without over-compression (v0 parity). */
 const CHART_WIDTH = 280;
@@ -56,15 +56,6 @@ export function ReadinessTrajectoryChart(props: ReadinessTrajectoryChartProps): 
   const actualPoints = trajectory.actualPoints;
   const possiblePoints = trajectory.possiblePoints;
 
-  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
-
-  const onEnter = useCallback(function (index: number) {
-    setHoveredIndex(index);
-  }, []);
-  const onLeave = useCallback(function () {
-    setHoveredIndex(null);
-  }, []);
-
   if (actualPoints.length === 0 && possiblePoints.length === 0) {
     return (
       <div className="h-20 flex items-center justify-center text-sm" style={{ color: 'var(--p-text-dim)' }}>
@@ -95,23 +86,25 @@ export function ReadinessTrajectoryChart(props: ReadinessTrajectoryChartProps): 
   /* X-axis labels from actual (or possible if actual empty). */
   const labels = actualPoints.length > 0 ? actualPoints : possiblePoints;
 
-  /* Tooltip content when a point is hovered: label + both values. */
-  const tooltipLabel =
-    hoveredIndex !== null && hoveredIndex >= 0 && hoveredIndex < labels.length
-      ? labels[hoveredIndex].label
-      : '';
-  const tooltipActual =
-    hoveredIndex !== null && hoveredIndex >= 0 && hoveredIndex < actualPoints.length
-      ? actualPoints[hoveredIndex].score
-      : null;
-  const tooltipPossible =
-    hoveredIndex !== null && hoveredIndex >= 0 && hoveredIndex < possiblePoints.length
-      ? possiblePoints[hoveredIndex].score
-      : null;
-  const showTooltip =
-    hoveredIndex !== null &&
-    tooltipLabel !== '' &&
-    (tooltipActual !== null || tooltipPossible !== null);
+  /**
+   * Build tooltip content for a given point index: label, Actual/Possible scores,
+   * and trust note. Used by canonical Tooltip (portaled) per hit area.
+   */
+  function pointTooltipContent(i: number): React.ReactNode {
+    const label = i >= 0 && i < labels.length ? labels[i].label : '';
+    const actualScore = i >= 0 && i < actualPoints.length ? actualPoints[i].score : null;
+    const possibleScore = i >= 0 && i < possiblePoints.length ? possiblePoints[i].score : null;
+    return (
+      <>
+        <div className="font-medium">{label}</div>
+        {actualScore !== null ? <div>Actual: {actualScore}</div> : null}
+        {possibleScore !== null ? <div>Possible: {possibleScore}</div> : null}
+        <div className="mt-0.5" style={{ color: 'var(--p-text-dim)' }}>
+          Possible assumes selected actions completed
+        </div>
+      </>
+    );
+  }
 
   return (
     <div className="w-full flex flex-col" style={{ minHeight: CHART_HEIGHT }} role="group" aria-label="Readiness trajectory over time">
@@ -204,58 +197,29 @@ export function ReadinessTrajectoryChart(props: ReadinessTrajectoryChartProps): 
             );
           })}
 
-          {/* Invisible hit areas for hover (one per time point). */}
+          {/* Invisible hit areas for hover (one per time point). Each wrapped in canonical Tooltip (portaled). */}
           {labels.map(function (_p, i) {
             const x = xScale(i);
             const left = Math.max(PADDING.left, x - HIT_PAD);
             const w = Math.min(innerWidth, HIT_PAD * 2);
+            const actualVal = actualPoints[i] !== undefined ? actualPoints[i].score : '—';
+            const possibleVal = possiblePoints[i] !== undefined ? possiblePoints[i].score : '—';
+            const ariaLabel = labels[i].label + ': Actual ' + actualVal + ', Possible ' + possibleVal;
             return (
-              <rect
-                key={'hit-' + i}
-                x={left}
-                y={PADDING.top}
-                width={w}
-                height={innerHeight}
-                fill="transparent"
-                tabIndex={0}
-                onMouseEnter={function () {
-                  onEnter(i);
-                }}
-                onMouseLeave={onLeave}
-                onFocus={function () {
-                  onEnter(i);
-                }}
-                onBlur={onLeave}
-                aria-label={labels[i].label + ': Actual ' + (actualPoints[i] ? actualPoints[i].score : '—') + ', Possible ' + (possiblePoints[i] ? possiblePoints[i].score : '—')}
-              />
+              <Tooltip key={'hit-' + i} content={pointTooltipContent(i)} side="top">
+                <g tabIndex={0} aria-label={ariaLabel}>
+                  <rect
+                    x={left}
+                    y={PADDING.top}
+                    width={w}
+                    height={innerHeight}
+                    fill="transparent"
+                  />
+                </g>
+              </Tooltip>
             );
           })}
         </svg>
-
-        {/* Minimal hover tooltip: both values + trust note. */}
-        {showTooltip ? (
-          <div
-            className="absolute z-10 px-2 py-1.5 text-[11px] rounded border shadow-sm pointer-events-none"
-            style={{
-              left: (pointCount > 1 ? (xScale(hoveredIndex as number) / CHART_WIDTH) * 100 : 50) + '%',
-              top: '0',
-              transform: 'translate(-50%, -100%)',
-              background: 'var(--p-surface)',
-              borderColor: 'var(--p-border)',
-              color: 'var(--p-text)',
-              minWidth: '140px',
-            }}
-            role="tooltip"
-            id="readiness-trajectory-tooltip"
-          >
-            <div className="font-medium">{tooltipLabel}</div>
-            {tooltipActual !== null ? <div>Actual: {tooltipActual}</div> : null}
-            {tooltipPossible !== null ? <div>Possible: {tooltipPossible}</div> : null}
-            <div className="mt-0.5" style={{ color: 'var(--p-text-dim)' }}>
-              Possible assumes selected actions completed
-            </div>
-          </div>
-        ) : null}
       </div>
     </div>
   );

@@ -33,6 +33,12 @@ export interface BriefingSection {
   body: string;
 }
 
+/** Optional primary CTA shown at bottom of a generic briefing (e.g. dimension briefing). */
+export interface BriefingPrimaryCta {
+  label: string;
+  route: string;
+}
+
 /** Generic briefing (Dashboard "Ask PathAdvisor" style): heading + body sections. */
 export interface PathAdvisorBriefing {
   id: string;
@@ -40,6 +46,8 @@ export interface PathAdvisorBriefing {
   subtitle?: string;
   sections: BriefingSection[];
   sourceLabel?: string;
+  /** When set, PathAdvisor card renders a primary CTA button that navigates to this route. */
+  primaryCta?: BriefingPrimaryCta;
 }
 
 /**

@@ -23,6 +23,8 @@ export interface PathAdvisorRailContent {
 }
 
 export interface PathAdvisorScreenOverrides {
+  /** Stable screen id for Context Log scope (e.g. 'job-search', 'dashboard'). Used for clear-by-screen and entry grouping. */
+  screenId?: string;
   /** Chip label for "Viewing: ..." (e.g. "Resume Readiness"). */
   viewingLabel: string;
   /** Quick prompt strings for the rail chips. */
@@ -35,6 +37,8 @@ export interface PathAdvisorScreenOverrides {
   onFitBriefingPrimaryAction?: () => void;
   /** Optional rail content: INSIGHT card + NEXT BEST ACTION card (e.g. Career Readiness). When set, card shows these instead of hero Do now. */
   railContent?: PathAdvisorRailContent;
+  /** Optional: when user clicks the rail NEXT BEST ACTION button (e.g. Job Search "Fix <gap>"). */
+  onRailNextBestActionClick?: () => void;
 }
 
 interface PathAdvisorScreenOverridesState {

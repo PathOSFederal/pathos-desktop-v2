@@ -1,3 +1,53 @@
+# Day 62 (run 1) — PathAdvisor Context Log (Option A) global v1
+
+**Branch:** `feature/day-62-pathadvisor-context-log-global-v1`  
+**Date:** March 5, 2026  
+**Status:** In progress
+
+## Summary
+
+- Implemented PathAdvisor Context Log (Option A) as the default app-wide UX: right rail is an append-only context log that grows on meaningful user actions; static Insight cards and rail Privacy pill removed.
+- All major screens set stable `screenId` in pathAdvisorScreenOverridesStore and publish context-log entries on selection/CTA clicks (Job Search, Career Readiness, Resume Readiness, Dashboard).
+- Job Search: kept Match panel and interactive breakdown; “Details appear in PathAdvisor.” one-liner; job selection and dimension click append entries; added Quick preview (Info) on list rows that appends job summary to PathAdvisor.
+- Career Readiness: removed railContent (static Insight/NEXT BEST ACTION); publish on Improve readiness, View top opportunities, gap CTAs, and action-plan toggles.
+- Resume Readiness: publish on active resume select, target job select, and tailored-version creation.
+- Dashboard: set overrides with screenId `dashboard`; publish on Today’s Focus hero and small focus card CTAs.
+- Dedupe keys used throughout so repeated clicks do not spam the log; anchor grouping and entry-count badge in thread header unchanged.
+
+## Files changed (this run)
+
+- `packages/ui/src/screens/CareerReadinessScreen.tsx` — railContent removed; publishScreenContext on Improve readiness, View top opportunities, gap CTAs, action-plan toggles.
+- `packages/ui/src/screens/CareerScreen.tsx` — publishSelectionContext on resume select, target job select (TailoringTargetJobPicker onJobSelected), tailored-version creation.
+- `packages/ui/src/screens/DashboardScreen.tsx` — setOverrides with screenId `dashboard`; publish on small focus card CTAs.
+- `packages/ui/src/screens/JobSearchScreen.tsx` — handleJobPeek + JobListItem onPeek (Quick preview); publishSelectionContext import.
+- `packages/ui/src/shell/PathAdvisorCard.tsx` — (no code change this run; Viewing-only chip and context log UI already in place.)
+- `packages/ui/src/shell/PathAdvisorRail.tsx` — (no code change this run.)
+
+## Gates
+
+- `pnpm lint` — passed (warnings only, no new errors).
+- `pnpm -r typecheck` — passed.
+- `pnpm test` — passed (804 tests).
+- `pnpm build` — passed.
+- `pnpm routes:check` — passed.
+- `pnpm overlays:check` — passed.
+
+## Human Simulation Gate (manual verification)
+
+1. **Dashboard:** Open app → Dashboard sets Viewing: Dashboard; click Today’s Focus hero CTA → PathAdvisor shows new context entry for that focus; click a small focus card CTA → entry for that card.
+2. **Job Search:** Go to Job Search → select a job → PathAdvisor shows “Job match for &lt;title&gt;”; click a Match breakdown row → “Match breakdown: &lt;dimension&gt;” entry; click Quick preview (Info) on a list row → “Quick preview: &lt;title&gt;” with summary excerpt.
+3. **Career Readiness:** Go to Career Readiness → click Improve readiness or View top opportunities → corresponding entry in PathAdvisor; click a gap CTA or action-plan checkbox → entry appended; no static Insight card in rail when context log has entries.
+4. **Resume Readiness:** Go to Career & Resume → select a resume or target job → PathAdvisor shows selection entry; create tailored version from job → “Tailored version created” entry.
+5. **Rail:** No “Privacy: Local only” pill; only “Viewing: …” chip; Clear screen / Clear thread work; anchor headers show entry count.
+
+## Patch artifacts
+
+- **Cumulative:** `artifacts/day-62.patch` (git diff main...HEAD, excluding artifacts).
+- **This run:** `artifacts/day-62-this-run.patch` (git diff working tree, excluding artifacts).
+- Artifact list/sizes: see Part 6 log (Get-ChildItem artifacts \| Select Name, Length, LastWriteTime); day-62.patch and day-62-this-run.patch updated this run.
+
+---
+
 # Day 47 — Desktop Dev + QA Loops (Electron)
 
 **Branch:** `feature/day-47-desktop-repo-and-installer`  
@@ -3722,3 +3772,311 @@ Do not commit or push.
 **git diff --name-status main -- .:** 13 files (A: docs/change-briefs/day-60.md, DashboardScreen.test.tsx, careerReadinessMockData.test.ts; M: docs/merge-notes.md, docs/merge-notes/current.md, packages/ui/package.json, CareerReadinessScreen.tsx, DashboardScreen.tsx, careerReadinessMockData.ts, buildDashboardViewModel.test.ts, buildDashboardViewModel.ts, mockDashboardData.ts, pnpm-lock.yaml).
 
 **git diff --stat main -- .:** 13 files changed, 668 insertions(+), 27 deletions(-).
+
+---
+
+# Day 61 (run 1) — Job Search Job Match Snapshot v1
+
+**Branch:** `feature/day-61-job-search-jobmatchsnapshot-v1`  
+**Date:** March 5, 2026  
+**Goal:** Create a clear, deterministic mapping between Career Readiness and selected job. Implement local-only JobMatchSnapshot v1 and render Match Breakdown in the Job Search "PathOS Snapshot" panel.
+
+## Summary of changes
+
+- **JobMatchSnapshot v1 contract:** New `packages/ui/src/lib/jobMatchSnapshot.ts` with types MatchLevel, JobDemandProfile, JobMatchDimension, JobMatchSnapshot; exports buildJobDemandProfile(job), buildJobMatchSnapshot(readiness, job), buildReadinessInputFromMock(mock). Demand profile weights (baseline 0.20 each) adjusted by evidenceHeavy (specialized text length > 400 or checklist count >= 6 or summary length > 220), keywordHeavy (keywords >= 10), leadershipHeavy (job text contains lead/manage/supervise/stakeholder/program/portfolio/enterprise/strategy/budget/governance). Weights clamped to [0.10, 0.35] and renormalized. Match score per dimension: readinessScore - demandPenalty (6 when flag + dimension match), status Good/Mixed/Weak from bands 75+/55–74/<55. Primary blocker: missing inputs → "Missing readiness inputs"; else highest-weight Weak dimension → "<Dimension> is limiting competitiveness"; else "None detected. Improve the top gap." Missing evidence list (2–5 items) from weak/mixed dimensions. topJobRelevantGap from readiness gaps aligned to weakest dimension. audit.rulesFired and audit.localOnly: true.
+- **Readiness inputs:** Career Readiness mock (CAREER_READINESS_MOCK) supplies overall score/max, label, radarSpokes (mapped to 5 dimension scores, "Specialized Exp" → "Specialized Experience"), topGaps, actionPlanItems. Job data: series from summary "Series NNNN", grade from job.grade, keywords from getChecklistForJob(job.id).skillsKeywords, specialized experience from checklist specializedExperience (length and text length for evidenceHeavy).
+- **UI — Match for this job panel:** Job Search details panel (above tabs) renamed to "Match for this job". Shows MatchLevel badge, one-line "Based on your readiness (74/100) and this announcement's requirements.", Match breakdown (5 rows: label, status chip, inline bar, why sentence), "What you're missing" (2–5 bullets), primary blocker line (JobMatchSnapshot.primaryBlocker), and CTA "Open Career Readiness: Fix &lt;topJobRelevantGap.label&gt; (+&lt;impact&gt;)" navigating to CAREER_READINESS + '#action-plan'. Explain in PathAdvisor retained.
+- **PathAdvisor rail:** When a job is selected, overrides set viewingLabel: Job Search, suggestedPrompts to job-aware ("Why is this a stretch for me?", "Show what evidence I'm missing", "What will move my score fastest?"), railContent with 3 insight bullets (match level/score, top limiting factor, fastest improvement) and nextBestAction (Fix &lt;gap&gt; + impact). onRailNextBestActionClick navigates to Career Readiness #action-plan. pathAdvisorScreenOverridesStore and PathAdvisorCard support optional onRailNextBestActionClick.
+- **Tests:** jobMatchSnapshot.test.ts (buildReadinessInputFromMock, buildJobDemandProfile, buildJobMatchSnapshot: 5 dimensions, overallReadinessScore/Max, primaryBlocker includes dimension or fallback, matchLevel, topJobRelevantGap, audit). JobSearchScreen.test.tsx: "Match for this job" when job selected (or loading); when snapshot visible, Match breakdown rows include at least two dimension labels, 74/100 in copy, Open Career Readiness CTA, primary blocker line present.
+
+## Gates (this run)
+
+- **pnpm lint:** Pass.
+- **pnpm -r typecheck:** Pass.
+- **pnpm test:** 780 tests passed (JobSearchScreen 23, jobMatchSnapshot 9).
+- **pnpm build:** Pass.
+- **pnpm overlays:check:** Fail (pre-existing: ReadinessTrajectoryChart.tsx Tailwind z- and role="tooltip"; not introduced by this change).
+
+## Human Simulation Gate
+
+| Item | Value |
+|------|--------|
+| Required | No |
+| Triggers hit | none |
+| Why | Read-only mapping and display; no new Create/Save/Apply/Delete or persistence shape change. |
+
+## AI Acceptance Checklist
+
+| Item | Value |
+|------|--------|
+| Flow | Select job → buildJobMatchSnapshot(readinessInput, job) → "Match for this job" panel and rail show breakdown; CTA → Career Readiness #action-plan. |
+| Store(s) | pathAdvisorScreenOverridesStore (railContent, onRailNextBestActionClick when job selected). |
+| Storage key(s) | none |
+| Failure mode | Missing readiness/job data yields fallback or empty snapshot; logic is local and deterministic. |
+| How tested | jobMatchSnapshot.test.ts; JobSearchScreen.test.tsx (Match for this job, conditional breakdown/CTA/blocker). |
+
+## Patch Artifacts (FINAL)
+
+- **Cumulative:** `artifacts/day-61.patch` (main → working tree). UTF-8.
+- **Incremental:** `artifacts/day-61-this-run.patch` (HEAD → working tree). UTF-8.
+
+**Get-Item output:** day-61.patch Length 63138; day-61-this-run.patch Length 63138.
+
+## Post-change logging
+
+**git status:** On branch feature/day-61-job-search-jobmatchsnapshot-v1; changes not staged for commit (docs/change-briefs/day-61.md new, docs/merge-notes.md M, docs/merge-notes/current.md M, jobMatchSnapshot.test.ts new, jobMatchSnapshot.ts new, JobSearchScreen.test.tsx M, JobSearchScreen.tsx M, PathAdvisorCard.tsx M, PathAdvisorRail.tsx M, pathAdvisorScreenOverridesStore.ts M).
+
+**git diff --name-status main -- .:** A docs/change-briefs/day-61.md, M docs/merge-notes.md, M docs/merge-notes/current.md, A packages/ui/src/lib/jobMatchSnapshot.test.ts, A packages/ui/src/lib/jobMatchSnapshot.ts, M packages/ui/src/screens/JobSearchScreen.test.tsx, M packages/ui/src/screens/JobSearchScreen.tsx, M packages/ui/src/shell/PathAdvisorCard.tsx, M packages/ui/src/shell/PathAdvisorRail.tsx, M packages/ui/src/stores/pathAdvisorScreenOverridesStore.ts.
+
+**git diff --stat main -- .:** 10 files changed, 1094 insertions(+), 92 deletions(-).
+
+---
+
+# Day 61 (run 2) — Match Breakdown interactive rows + dimension briefing
+
+**Branch:** `feature/day-61-job-search-jobmatchsnapshot-v1`  
+**Date:** March 5, 2026  
+**Goal:** Make Job Search MATCH BREAKDOWN rows meaningfully interactive; drill into each dimension via PathAdvisor rail (briefing). No commit or push.
+
+## Pre-flight logging
+
+- **git status:** On branch feature/day-61-job-search-jobmatchsnapshot-v1; changes not staged (docs/change-briefs/day-61.md, docs/merge-notes.md, docs/merge-notes/current.md, jobMatchSnapshot.test.ts, jobMatchSnapshot.ts, JobSearchScreen.test.tsx, JobSearchScreen.tsx, PathAdvisorCard.tsx, PathAdvisorRail.tsx, pathAdvisorBriefingStore.ts, pathAdvisorScreenOverridesStore.ts).
+- **git branch --show-current:** feature/day-61-job-search-jobmatchsnapshot-v1.
+- **git diff --name-status main...HEAD:** (develop not present; baseline main) — see diff --name-status main -- . below.
+- **pnpm -v:** 10.28.1. **node -v:** v24.13.0.
+
+## What changed
+
+- **Interactive Match Breakdown rows:** Each dimension row is a button: INTERACTIVE_HOVER_CLASS, cursor-pointer, focus-visible ring (var(--p-accent)), click opens PathAdvisor dimension briefing; Enter/Space trigger same action. Tooltip on each row: "User: &lt;readinessScore&gt;/100 • Job emphasis: High|Medium|Low • Gap: &lt;100 − matchScore&gt;". Canonical Tooltip component; no inline role="tooltip", no Tailwind z-*.
+- **Dimension briefing (PathAdvisor rail):** Clicking a row opens a generic PathAdvisor briefing with title "Match breakdown: &lt;Dimension&gt;", sourceLabel "Job Search", sections: What this measures, Your current signal, Evidence found, Evidence missing, Fastest fix. primaryCta: Resume Evidence → "Fix Resume Evidence (+N)" → Career Readiness #action-plan; other dimensions → "Improve &lt;Dimension&gt; (+N)" → same route.
+- **pathAdvisorBriefingStore:** PathAdvisorBriefing extended with optional primaryCta: { label, route }. PathAdvisorCard renders generic briefing title when set and a primary CTA button that nav.push(primaryCta.route).
+- **jobMatchSnapshot.ts:** MissingEvidenceItem.dimensionKey added; buildDimensionBriefingPayload(dim, snapshot, actionPlanRoute) returns DimensionBriefingPayload (title, sourceLabel, sections, primaryCta). DIMENSION_WHAT_MEASURES static copy per dimension; jobEmphasisLevel(demandWeight); evidence found/missing and fastest fix derived deterministically.
+- **Tests:** jobMatchSnapshot.test.ts — buildDimensionBriefingPayload: title/sourceLabel, 5 sections, primaryCta for Resume Evidence. JobSearchScreen.test.tsx — "opening dimension briefing for Resume Evidence sets PathAdvisor briefing with title containing Resume Evidence" (build payload, openBriefing, assert store).
+
+## Commands + pass/fail
+
+- **pnpm lint:** Pass.
+- **pnpm -r typecheck:** Pass.
+- **pnpm test:** 784 tests passed (JobSearchScreen 24, jobMatchSnapshot 12).
+- **pnpm build:** Pass.
+- **pnpm routes:check:** OK — all Sidebar routes resolve in Desktop and Next.
+- **pnpm overlays:check:** Fail (pre-existing: ReadinessTrajectoryChart.tsx; not introduced by this change).
+
+## Human Simulation Gate
+
+| Item | Value |
+|------|--------|
+| Required | No |
+| Triggers hit | none |
+| Why | Interactive UI and new briefing type; no Create/Save/Apply/Delete or persistence shape change. |
+
+## AI Acceptance Checklist
+
+| Item | Value |
+|------|--------|
+| Flow | User clicks Match Breakdown row → onOpenDimensionBriefing(dim) → buildDimensionBriefingPayload(dim, snapshot, route) → openBriefing({ id, title, sourceLabel, sections, primaryCta }) → PathAdvisor rail shows briefing; CTA button → nav to Career Readiness #action-plan. |
+| Store(s) | pathAdvisorBriefingStore (openBriefing with generic briefing + primaryCta). pathAdvisorScreenOverridesStore unchanged. |
+| Storage key(s) | none |
+| Failure mode | If jobMatchSnapshot or dim missing, briefing not opened; tooltip/row still render. |
+| How tested | jobMatchSnapshot.test.ts (buildDimensionBriefingPayload shape and content); JobSearchScreen.test.tsx (dimension briefing opens and store has title containing "Resume Evidence"). |
+
+## Accessibility verification
+
+| Item | Value |
+|------|--------|
+| Keyboard flow | Match Breakdown row buttons focusable; Enter/Space open briefing. |
+| Focus-visible | ring-2 ring-[var(--p-accent)] on row button. |
+| Tooltip | Canonical Tooltip; content User/emphasis/Gap; contentId per row. |
+
+## Follow-ups
+
+- None. overlays:check remains failing on pre-existing ReadinessTrajectoryChart.tsx only.
+
+## Patch Artifacts (FINAL)
+
+- **Cumulative:** `artifacts/day-61.patch` (main → working tree). UTF-8. Excludes artifacts/.
+- **Incremental:** `artifacts/day-61-this-run.patch` (HEAD → working tree). UTF-8. Excludes artifacts/.
+
+**Get-Item output (day-61 patches):** day-61.patch Length 88713; day-61-this-run.patch Length 88713. (Get-ChildItem artifacts | Select Name,Length,LastWriteTime — day-61.patch and day-61-this-run.patch listed above.)
+
+---
+
+# Day 61 (run 3) — Option A: Match badge in list; readiness vs job match clarity; breakdown affordance
+
+**Branch:** `feature/day-61-job-search-jobmatchsnapshot-v1`  
+**Date:** March 5, 2026  
+**Goal:** Polish JobMatchSnapshot UI; Option A — replace list fit stars with Match badge + score; clarify readiness vs job match; make breakdown rows obviously interactive.
+
+## Summary of changes
+
+- **List rows (Option A):** Removed fit stars, confidence chip, and "Why this fit?". Replaced with Match badge (Strong/Moderate/Stretch) and match score (e.g. 68/100) from same JobMatchSnapshot builder; per-row snapshot cached with useMemo(keyed by readinessInput + sortedResults).
+- **Match panel header:** "Readiness: 74/100" and "Job match: 68/100 (Moderate)" shown explicitly; one microcopy line: "Job match weights what this announcement emphasizes most."
+- **Match breakdown rows:** Right-edge chevron (visible on hover/focus-visible); row hover border/background (token-only); per-dimension "User: 58/100" shown without tooltip; aria-label "Open dimension details for &lt;dimension&gt;"; Enter/Space open dimension briefing (unchanged).
+- **Single entrypoint:** "Explain this in PathAdvisor" renamed to "Explain this match" in details panel; no duplicate link on list rows.
+- **Tests:** JobSearchScreen — match panel shows Readiness + Job match; at least one row has Match badge and /100 (when panel visible); "Why this fit?" absent; at least one "Open dimension details" in aria-label. Explain this match test renamed.
+
+## Commands run
+
+- **pnpm lint:** Pass.
+- **pnpm -r typecheck:** Pass.
+- **pnpm test:** 788 passed.
+- **pnpm build:** Pass.
+- **pnpm overlays:check:** Fail (pre-existing ReadinessTrajectoryChart.tsx).
+
+## Patch Artifacts (FINAL)
+
+- **Cumulative:** `artifacts/day-61.patch` (main → working tree). UTF-8. Excludes artifacts/.
+- **Incremental:** `artifacts/day-61-this-run.patch` (HEAD → working tree). UTF-8. Excludes artifacts/.
+
+**Get-Item output (run 3):** day-61.patch Length 101897; day-61-this-run.patch Length 21123.
+
+**Post-change logging:** git status — 5 files modified (day-61.md, merge-notes.md, current.md, JobSearchScreen.test.tsx, JobSearchScreen.tsx). git diff --name-status main...HEAD — 11 files (branch vs main). git diff --stat main...HEAD — 11 files changed, 1470 insertions(+), 93 deletions(-). (Diffs not pasted.)
+
+---
+
+# Day 61 (run N) — Option A2 left match bar; demo match variety; score visibility
+
+**Branch:** `feature/day-61-job-search-jobmatchsnapshot-v1`  
+**Date:** March 5, 2026  
+**Goal:** Option A2 left-edge match bar on job list rows; deterministic demo match variety for mock jobs; match score more visible in list row; tests and gates.
+
+## Summary of changes
+
+- **Option A2 — Left match bar:** Job list rows now show a 2px left-edge bar by match level (Strong = var(--p-success), Moderate = var(--p-accent-muted), Stretch = var(--p-border-strong)). Bar is always present (position absolute left-0); selection is background-only (no double bar). Row padding adjusted (pl-[calc(0.75rem+2px)]) so content does not overlap the bar. No layout shift; no new hardcoded colors.
+- **Demo fake match variety:** In jobMatchSnapshot.ts added isMockJob(job), getDemoTargetMatchScore(jobId) with cycle [86, 78, 70, 62, 54, 46]. For mock jobs (id mock-js-*), snapshot is adjusted to target score; dimensions and overallMatchScore/matchLevel/primaryBlocker recomputed; audit.rulesFired gets "demoMatchVariety" and "demoTargetScore:&lt;n&gt;". List and details panel both use buildJobMatchSnapshot so scores are consistent.
+- **Match score visibility (C):** List row score shown as "68/100" with number at fontWeight 600 and /100 muted; no new label or line.
+- **Tests:** After loadSampleJobs, assert list contains at least two different match labels (Strong/Moderate/Stretch); when details panel visible, assert "Job match:" present. Existing /100 and Match for this job assertions retained.
+
+## Gates
+
+- **pnpm lint:** Pass (warnings only).
+- **pnpm -r typecheck:** Pass.
+- **pnpm test:** 790 passed (JobSearchScreen 30 tests).
+- **pnpm build:** Pass.
+- **pnpm overlays:check:** Fail (pre-existing ReadinessTrajectoryChart.tsx; not introduced by this run).
+
+## Patch Artifacts (FINAL)
+
+- **Cumulative:** `artifacts/day-61.patch` (main...HEAD → working tree). UTF-8. Excludes artifacts/.
+- **Incremental:** `artifacts/day-61-this-run.patch` (git diff working tree). UTF-8. Excludes artifacts/.
+
+**Get-Item output (run N):** day-61.patch Length 88878; day-61-this-run.patch Length 34975.
+
+**Post-change logging (run N):** git status — 6 files modified (day-61.md, merge-notes.md, current.md, jobMatchSnapshot.ts, JobSearchScreen.test.tsx, JobSearchScreen.tsx). git diff --name-status main...HEAD — 11 files (A/M). git diff --stat main...HEAD — 11 files changed, 1470 insertions(+), 93 deletions(-).
+
+---
+
+# Day 62 — PathAdvisor Context Log global v1
+
+**Branch:** `feature/day-62-pathadvisor-context-log-global-v1`  
+**Date:** March 5, 2026  
+**Goal:** Make PathAdvisor a global append-only Context Log; reclaim Job Search main canvas; move explanation into PathAdvisor; dedupe + grouping; remove static Privacy pill and Job Search static Insight.
+
+## Pre-flight Logging (MANDATORY)
+
+**Command:** `git status`
+```
+On branch feature/day-62-pathadvisor-context-log-global-v1
+...
+```
+
+**Command:** `git branch --show-current`
+```
+feature/day-62-pathadvisor-context-log-global-v1
+```
+
+**Command:** `git diff --name-status develop...HEAD`  
+**Note:** develop does not exist; used main...HEAD instead.
+
+**Command:** `git diff --name-status main...HEAD`  
+(see Post-change logging below for file list)
+
+**Command:** `git diff --stat main...HEAD`  
+(see Post-change logging below)
+
+## Summary of changes
+
+- **pathAdvisorContextLogStore:** New store with entriesByAnchor, activeAnchorKey, appendEntry (dedupeKey), clearAnchor, clearScreen, clearAll, setActiveAnchor. Types: PathAdvisorAnchor, PathAdvisorContextEntry, buildAnchorKey, getAnchorKeysForScreen, getEntriesForAnchor.
+- **pathAdvisorPublish.ts:** publishScreenContext, publishSelectionContext, publishDimensionExplainContext.
+- **PathAdvisorCard:** Removed static "Privacy: Local only" pill. Added Context Log region when currentScreen has entries: grouped anchors (collapsible), Quick questions expander (collapsed by default), Clear screen + per-anchor "Clear this thread". Derived isAnchorExpanded (active expanded by default).
+- **PathAdvisorRail:** Passes currentScreen from overrides.screenId; removed privacyLabel.
+- **pathAdvisorScreenOverridesStore:** Added screenId to overrides.
+- **Job Search:** screenId 'job-search'; no railContent (static Insight removed). Match panel: kept header (Readiness, Job match), 5 breakdown rows, hint "Details appear in PathAdvisor." Removed "What you're missing" and primary blocker from main panel. On job select: append job match entry (dedupeKey selectJob:jobId:score). On dimension click: append dimension entry (dedupeKey dimension:key:score). Career Readiness / Resume / Dashboard: screenId set; Dashboard hero click appends dashboard:focus entry.
+- **Docs:** docs/ui/pathadvisor-context-log.md (UX contract); docs/change-briefs/day-62.md.
+- **Tests:** pathAdvisorContextLogStore.test.ts (append, dedupe, clearAnchor, clearScreen); PathAdvisorCard (no Privacy pill, currentScreen smoke); JobSearchScreen (Details in PathAdvisor, no What you're missing, select job/dimension append).
+
+## Gates (record results)
+
+| Gate | Result |
+|------|--------|
+| pnpm lint | Pass (1 error fixed: setState in effect → derived isAnchorExpanded) |
+| pnpm -r typecheck | Pass |
+| pnpm test | 804 passed |
+| pnpm build | Pass |
+| pnpm routes:check | Pass |
+| pnpm overlays:check | Fail (pre-existing ReadinessTrajectoryChart.tsx; not introduced by Day 62) |
+
+## Human Simulation Gate
+
+| Item | Value |
+|------|--------|
+| Required | Yes |
+| Triggers hit | Changes Zustand store logic; Affects UI where results appear in multiple places |
+| Why | New context log store and Job Search panel/PathAdvisor rail changes |
+
+## AI Acceptance Checklist
+
+| Item | Value |
+|------|--------|
+| Flow | Job select → appendEntry(job match); dimension click → appendEntry(dimension); Clear screen → clearScreen(currentScreen). |
+| Store(s) | pathAdvisorContextLogStore (new); pathAdvisorScreenOverridesStore (screenId). |
+| Storage key(s) | none |
+| Failure mode | If store fails, main canvas still works; log may be empty. |
+| How tested | pathAdvisorContextLogStore.test.ts; PathAdvisorCard.test.tsx; JobSearchScreen.test.tsx (Day 62 assertions). |
+
+## Patch Artifacts (FINAL)
+
+- **Cumulative:** `artifacts/day-62.patch` (main → working tree). UTF-8. Excludes artifacts/.
+- **Incremental:** `artifacts/day-62-this-run.patch` (HEAD → working tree). UTF-8. Excludes artifacts/.
+
+**Get-ChildItem artifacts (day-62):**  
+Name: day-62.patch; Length: 181795; LastWriteTime: 3/5/2026 7:15:27 PM  
+Name: day-62-this-run.patch; Length: 79662; LastWriteTime: 3/5/2026 7:15:28 PM
+
+## Post-change logging
+
+**git status:** On branch feature/day-62-pathadvisor-context-log-global-v1; changes not staged (new: day-62.md, pathadvisor-context-log.md, pathAdvisorPublish.ts, pathAdvisorContextLogStore.ts, pathAdvisorContextLogStore.test.ts; modified: current.md, CareerReadinessScreen, CareerScreen, DashboardScreen, JobSearchScreen, JobSearchScreen.test, PathAdvisorCard, PathAdvisorCard.test, PathAdvisorRail, pathAdvisorScreenOverridesStore).
+
+**git diff --name-status main...HEAD:** 11 files (A/M: day-61.md, merge-notes.md, current.md, jobMatchSnapshot*, JobSearchScreen*, PathAdvisorCard, PathAdvisorRail, pathAdvisorBriefingStore, pathAdvisorScreenOverridesStore).
+
+**git diff --stat main...HEAD:** 11 files changed, 1751 insertions(+), 160 deletions(-).
+
+---
+
+## overlays:check fix (ReadinessTrajectoryChart)
+
+**Goal:** Make `pnpm overlays:check` pass by fixing pre-existing violations.
+
+**Failure excerpt (before fix):**
+```
+[overlays:check] Tailwind z- in className (use zIndex.ts + inline style): packages\ui\src\screens\careerReadiness\ReadinessTrajectoryChart.tsx
+[overlays:check] role="tooltip" found (use Tooltip component): packages\ui\src\screens\careerReadiness\ReadinessTrajectoryChart.tsx
+```
+- File: `packages/ui/src/screens/careerReadiness/ReadinessTrajectoryChart.tsx`
+- Violations: (1) `className="... z-10 ..."` on inline tooltip div; (2) inline tooltip div with `role="tooltip"` and `id="readiness-trajectory-tooltip"`.
+
+**Changes made:**
+- Removed Tailwind `z-10` and the entire inline tooltip div (no z-index constant needed in this file; tooltip is portaled).
+- Replaced inline tooltip with the canonical `Tooltip` component from `packages/ui/src/components/Tooltip.tsx` (portaled via OverlayRoot, uses Z_TOOLTIP internally).
+- Each chart hit area (one per time point) is now wrapped in `<Tooltip content={pointTooltipContent(i)} side="top">` with a `<g>` trigger containing the `<rect>`; tooltip content is label, Actual/Possible scores, and trust note (token-only styling).
+- Removed `useState`/`useCallback` for hover; tooltip open state is per-trigger via Radix.
+
+**Commands run:**
+- `pnpm overlays:check` — PASS
+- `pnpm -r typecheck` — PASS
+- `pnpm test` — PASS (56 test files, 804 tests)
+- `pnpm docs:day-patches --day 62` — FAIL (pathspec exclude / diff baseline); patch artifacts not regenerated this run.
+
+**git status (after fix):**
+- Branch: `feature/day-62-pathadvisor-context-log-global-v1`
+- Modified: `docs/merge-notes/current.md`, `packages/ui/src/screens/careerReadiness/ReadinessTrajectoryChart.tsx` (plus existing day-62 changes).

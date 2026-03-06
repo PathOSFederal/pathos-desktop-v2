@@ -1,3 +1,42 @@
+# Day 62 — PathAdvisor Context Log global v1
+
+(Do not commit or push. Branch: feature/day-62-pathadvisor-context-log-global-v1.)
+
+## Goal
+
+Make PathAdvisor a global append-only Context Log; reclaim Job Search main canvas; move "what you're missing" and rationale into PathAdvisor; dedupe + grouping; remove static Privacy pill and Job Search static Insight.
+
+## Result
+
+- **pathAdvisorContextLogStore:** entriesByAnchor, activeAnchorKey, appendEntry (dedupeKey), clearAnchor, clearScreen, clearAll. pathAdvisorPublish: publishScreenContext, publishDimensionExplainContext.
+- **PathAdvisorCard:** Context Log region (grouped anchors, Quick questions collapsed), Clear screen; Privacy pill removed.
+- **Job Search:** screenId; no railContent; match panel slimmed ("Details appear in PathAdvisor"); job select/dimension click append entries.
+- **Gates:** lint, typecheck, test (804), build, routes:check pass; overlays:check pre-existing fail.
+- **Patch artifacts:** artifacts/day-62.patch (181795), artifacts/day-62-this-run.patch (79662). main baseline. Excludes artifacts/.
+
+---
+
+# Day 61 — Job Search Job Match Snapshot v1
+
+(Do not commit or push. Branch: feature/day-61-job-search-jobmatchsnapshot-v1.)
+
+## Goal
+
+Create a clear, deterministic mapping between Career Readiness (person intelligence) and a selected job (job intelligence) in Job Search. Implement local-only JobMatchSnapshot v1 and render Match Breakdown in the Job Search panel.
+
+## Result
+
+- **JobMatchSnapshot v1:** New `packages/ui/src/lib/jobMatchSnapshot.ts` with buildJobDemandProfile, buildJobMatchSnapshot, buildReadinessInputFromMock. Demand flags: evidenceHeavy, keywordHeavy, leadershipHeavy. Match breakdown (5 dimensions), primary blocker, missing evidence, topJobRelevantGap, audit.rulesFired.
+- **UI:** "Match for this job" panel (header, MatchLevel badge, readiness summary, Match breakdown rows, What you're missing, primary blocker, CTA "Open Career Readiness: Fix &lt;gap&gt; (+impact)" → /dashboard/career-readiness#action-plan).
+- **PathAdvisor rail:** When job selected: insight bullets (match level/score, top limiting factor, fastest improvement), next best action button → Career Readiness #action-plan, job-aware suggested prompts.
+- **pnpm lint / typecheck / test / build:** Pass. 780 tests. overlays:check fails on pre-existing ReadinessTrajectoryChart.tsx only.
+- **Patch artifacts:** artifacts/day-61.patch (88878 bytes), artifacts/day-61-this-run.patch (29075 bytes). UTF-8. main baseline. Excludes artifacts/.
+- **Option A polish (run 3):** List rows show Match badge + score from JobMatchSnapshot; fit stars and "Why this fit?" removed. Match panel header: Readiness + Job match + microcopy. Breakdown rows: chevron, User: X/100, hover/focus-visible. One "Explain this match" in details panel. Tests updated. Gates: lint, typecheck, test, build pass; overlays:check pre-existing fail.
+- **Job rows now show a left-edge match bar for scan-first navigation.** (Option A2: 2px bar by match level; selection background-only.)
+- **Mock jobs now show deterministic match score variety for demo/testing (audit-tagged).**
+
+---
+
 # Day 60 — Dashboard Career Readiness metrics v1
 
 (Do not commit or push. Branch: feature/day-60-dashboard-readiness-metrics-v1.)

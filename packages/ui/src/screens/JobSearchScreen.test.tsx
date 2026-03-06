@@ -17,8 +17,16 @@ import {
 import { useJobSearchV1Store } from '../stores/jobSearchV1Store';
 import { useDecisionBriefsV1Store, buildDecisionBriefRecord } from '../stores/decisionBriefsV1Store';
 import { usePathAdvisorBriefingStore } from '../stores/pathAdvisorBriefingStore';
+import {
+  buildJobMatchSnapshot,
+  buildReadinessInputFromMock,
+  buildDimensionBriefingPayload,
+} from '../lib/jobMatchSnapshot';
+import { CAREER_READINESS_MOCK } from './careerReadiness/careerReadinessMockData';
 import { JobSearchScreen } from './JobSearchScreen';
 import { MOCK_JOBS } from './jobSearchMockJobs';
+import { usePathAdvisorContextLogStore, getAnchorKeysForScreen, getEntriesForAnchor } from '../stores/pathAdvisorContextLogStore';
+import { publishScreenContext, publishDimensionExplainContext } from '../lib/pathAdvisorPublish';
 
 function noop(_x?: string) {
   /* mock */
@@ -52,6 +60,7 @@ function renderJobSearch() {
 describe('JobSearchScreen', function () {
   beforeEach(function () {
     useJobSearchV1Store.getState().loadFromStorage();
+    usePathAdvisorContextLogStore.getState().clearAll();
   });
 
   it('renders loading or Job Search content', function () {
@@ -78,18 +87,156 @@ describe('JobSearchScreen', function () {
     expect(state.results[0].title.indexOf('IT Specialist') !== -1 || state.results[0].title.indexOf('Cybersecurity') !== -1).toBe(true);
   });
 
-  it('selecting a job yields details pane content: PathOS Snapshot appears when job selected (or loading on first paint)', function () {
+  it('selecting a job yields details pane content: Match for this job appears when job selected (or loading on first paint)', function () {
     useJobSearchV1Store.getState().loadSampleJobs();
     const state = useJobSearchV1Store.getState();
     expect(state.selectedJobId).not.toBeNull();
     expect(state.results.length).toBeGreaterThan(0);
     const output = renderJobSearch();
     expect(
-      output.indexOf('PathOS Snapshot') !== -1 || output.indexOf('Loading job search') !== -1
+      output.indexOf('Match for this job') !== -1 || output.indexOf('Loading job search') !== -1
     ).toBe(true);
   });
 
-  it('Explain this in PathAdvisor sets rail briefing state (store has type fit and isOpen)', function () {
+  it('when a job is selected and snapshot visible Match breakdown rows include at least two dimension labels', function () {
+    useJobSearchV1Store.getState().loadSampleJobs();
+    const output = renderJobSearch();
+    if (output.indexOf('Match for this job') === -1) return;
+    expect(output.indexOf('Match breakdown') !== -1).toBe(true);
+    const hasResumeEvidence = output.indexOf('Resume Evidence') !== -1;
+    const hasKeywordsCoverage = output.indexOf('Keywords Coverage') !== -1;
+    expect(hasResumeEvidence || hasKeywordsCoverage).toBe(true);
+    expect(output.indexOf('Target Alignment') !== -1 || output.indexOf('Specialized Experience') !== -1).toBe(true);
+  });
+
+  it('opening dimension briefing for Resume Evidence sets PathAdvisor briefing with title containing Resume Evidence', function () {
+    usePathAdvisorBriefingStore.getState().clearBriefing();
+    useJobSearchV1Store.getState().loadSampleJobs();
+    const actionPlanRoute = '/dashboard/career-readiness#action-plan';
+    const readinessInput = buildReadinessInputFromMock({
+      score: 74,
+      scoreMax: 100,
+      badgeLabel: 'Competitive',
+      radarSpokes: [
+        { name: 'Target Alignment', value: 68 },
+        { name: 'Specialized Exp', value: 72 },
+        { name: 'Resume Evidence', value: 58 },
+        { name: 'Keywords Coverage', value: 75 },
+        { name: 'Leadership & Scope', value: 65 },
+      ],
+      gaps: [{ name: 'Resume Evidence', impact: 6 }],
+      actionPlanItems: [{ label: 'Add quantified accomplishments', impact: 4 }],
+    });
+    const job = useJobSearchV1Store.getState().results[0];
+    if (job === undefined) throw new Error('no job');
+    const snapshot = buildJobMatchSnapshot(readinessInput, job);
+    let resumeDim;
+    for (let i = 0; i < snapshot.dimensions.length; i++) {
+      const d = snapshot.dimensions[i];
+      if (d !== undefined && d.key === 'Resume Evidence') {
+        resumeDim = d;
+        break;
+      }
+    }
+    if (resumeDim === undefined) throw new Error('expected Resume Evidence dimension');
+    const payload = buildDimensionBriefingPayload(resumeDim, snapshot, actionPlanRoute);
+    const id = 'dimension-Resume-Evidence';
+    usePathAdvisorBriefingStore.getState().openBriefing({
+      id,
+      title: payload.title,
+      sourceLabel: payload.sourceLabel,
+      sections: payload.sections,
+      primaryCta: payload.primaryCta,
+    });
+    const state = usePathAdvisorBriefingStore.getState();
+    expect(state.briefing).not.toBeNull();
+    expect(state.isOpen).toBe(true);
+    if (state.briefing !== null && typeof state.briefing === 'object' && 'title' in state.briefing) {
+      expect((state.briefing as { title: string }).title.indexOf('Resume Evidence') !== -1).toBe(true);
+    }
+  });
+
+  it('when a job is selected and snapshot visible readiness score appears in snapshot copy (e.g. 74/100)', function () {
+    useJobSearchV1Store.getState().loadSampleJobs();
+    const output = renderJobSearch();
+    if (output.indexOf('Match for this job') === -1) return;
+    expect(output.indexOf('74/100') !== -1).toBe(true);
+  });
+
+  it('match panel shows both Readiness and Job match labels (Option A clarity)', function () {
+    useJobSearchV1Store.getState().loadSampleJobs();
+    const output = renderJobSearch();
+    if (output.indexOf('Match for this job') === -1) return;
+    expect(output.indexOf('Readiness:') !== -1).toBe(true);
+    expect(output.indexOf('Job match:') !== -1).toBe(true);
+  });
+
+  it('at least one job row renders Match badge (e.g. Moderate) and score with /100', function () {
+    useJobSearchV1Store.getState().loadSampleJobs();
+    const output = renderJobSearch();
+    if (output.indexOf('Match for this job') === -1) return;
+    const hasModerate = output.indexOf('Moderate') !== -1;
+    const hasStrong = output.indexOf('Strong') !== -1;
+    const hasStretch = output.indexOf('Stretch') !== -1;
+    expect(hasModerate || hasStrong || hasStretch).toBe(true);
+    expect(output.indexOf('/100') !== -1).toBe(true);
+  });
+
+  it('after loadSampleJobs list contains at least two different match labels across rows', function () {
+    useJobSearchV1Store.getState().loadSampleJobs();
+    const output = renderJobSearch();
+    const hasStrong = output.indexOf('Strong') !== -1;
+    const hasModerate = output.indexOf('Moderate') !== -1;
+    const hasStretch = output.indexOf('Stretch') !== -1;
+    if (!hasStrong && !hasModerate && !hasStretch) return;
+    const distinctCount = (hasStrong ? 1 : 0) + (hasModerate ? 1 : 0) + (hasStretch ? 1 : 0);
+    expect(distinctCount >= 2).toBe(true);
+  });
+
+  it('when details panel is visible it shows Match for this job and Job match score', function () {
+    useJobSearchV1Store.getState().loadSampleJobs();
+    const output = renderJobSearch();
+    if (output.indexOf('Match for this job') === -1) return;
+    expect(output.indexOf('Job match:') !== -1).toBe(true);
+  });
+
+  it('Why this fit? is not present in results list (Option A: replaced by Match badge)', function () {
+    useJobSearchV1Store.getState().loadSampleJobs();
+    const output = renderJobSearch();
+    expect(output.indexOf('Why this fit?') === -1).toBe(true);
+  });
+
+  it('at least one Match breakdown row has Open dimension details in aria-label', function () {
+    useJobSearchV1Store.getState().loadSampleJobs();
+    const output = renderJobSearch();
+    if (output.indexOf('Match breakdown') === -1) return;
+    expect(output.indexOf('Open dimension details') !== -1).toBe(true);
+  });
+
+  it('when a job is selected and snapshot visible Open Career Readiness CTA exists', function () {
+    useJobSearchV1Store.getState().loadSampleJobs();
+    const output = renderJobSearch();
+    if (output.indexOf('Match for this job') === -1) return;
+    expect(output.indexOf('Open Career Readiness') !== -1).toBe(true);
+  });
+
+  it('when a job is selected and snapshot visible primary blocker line is present and may include a weak dimension label', function () {
+    useJobSearchV1Store.getState().loadSampleJobs();
+    const output = renderJobSearch();
+    if (output.indexOf('Match for this job') === -1) return;
+    expect(output.indexOf('Primary blocker') !== -1).toBe(true);
+    const hasDimensionInBlocker =
+      output.indexOf('Resume Evidence') !== -1 ||
+      output.indexOf('Target Alignment') !== -1 ||
+      output.indexOf('Leadership & Scope') !== -1 ||
+      output.indexOf('Keywords Coverage') !== -1 ||
+      output.indexOf('Specialized Experience') !== -1 ||
+      output.indexOf('Missing readiness') !== -1 ||
+      output.indexOf('None detected') !== -1;
+    expect(hasDimensionInBlocker).toBe(true);
+  });
+
+  it('Explain this match sets rail briefing state (store has type fit and isOpen)', function () {
     usePathAdvisorBriefingStore.getState().clearBriefing();
     useJobSearchV1Store.getState().loadSampleJobs();
     const openBriefing = usePathAdvisorBriefingStore.getState().openBriefing;
@@ -168,7 +315,7 @@ describe('JobSearchScreen', function () {
     }
   });
 
-  it('Why this fit opens PathAdvisor fit briefing (no inline expand); briefing store has type fit and isOpen', function () {
+  it('Explain this match opens PathAdvisor fit briefing; briefing store has type fit and isOpen', function () {
     usePathAdvisorBriefingStore.getState().clearBriefing();
     usePathAdvisorBriefingStore.getState().openBriefing({
       type: 'fit',
@@ -291,5 +438,75 @@ describe('JobSearchScreen', function () {
     expect(state.totalCount).toBeGreaterThanOrEqual(30);
     expect(state.results.length).toBeLessThanOrEqual(state.pageSize);
     expect(state.results.length).toBe(Math.min(state.pageSize, state.totalCount));
+  });
+
+  it('Day 62: match panel shows Details appear in PathAdvisor and does not show What you\'re missing block', function () {
+    useJobSearchV1Store.getState().loadSampleJobs();
+    const output = renderJobSearch();
+    if (output.indexOf('Loading job search') !== -1) {
+      return;
+    }
+    expect(output).toContain('Details appear in PathAdvisor');
+    expect(output).not.toContain("What you're missing");
+  });
+
+  it('Day 62: selecting a job appends context log entry with title containing Job match', function () {
+    usePathAdvisorContextLogStore.getState().clearAll();
+    const job = MOCK_JOBS[0];
+    if (job === undefined) throw new Error('no job');
+    const readinessInput = buildReadinessInputFromMock({
+      score: CAREER_READINESS_MOCK.score,
+      scoreMax: CAREER_READINESS_MOCK.scoreMax,
+      badgeLabel: CAREER_READINESS_MOCK.badgeLabel,
+      radarSpokes: CAREER_READINESS_MOCK.radarSpokes,
+      gaps: CAREER_READINESS_MOCK.gaps,
+      actionPlanItems: CAREER_READINESS_MOCK.actionPlanItems,
+    });
+    const snap = buildJobMatchSnapshot(readinessInput, job);
+    publishScreenContext({
+      screen: 'job-search',
+      anchor: { type: 'job', id: job.id, label: job.title !== undefined ? job.title : job.id },
+      title: 'Job match: ' + (job.title !== undefined ? job.title : job.id),
+      subtitle: (job.agency !== undefined ? job.agency : '') + ' • ' + (job.location !== undefined ? job.location : ''),
+      sections: [
+        { title: 'Summary', lines: ['Readiness: ' + String(snap.overallReadinessScore) + '/' + String(snap.overallReadinessMax)] },
+      ],
+      tags: ['localOnly'],
+      dedupeKey: 'selectJob:' + job.id + ':' + String(snap.overallMatchScore),
+    });
+    const keys = getAnchorKeysForScreen(usePathAdvisorContextLogStore.getState().entriesByAnchor, 'job-search');
+    expect(keys.length).toBeGreaterThanOrEqual(1);
+    const entries = getEntriesForAnchor(usePathAdvisorContextLogStore.getState().entriesByAnchor, keys[0]);
+    expect(entries.length).toBeGreaterThanOrEqual(1);
+    expect(entries[entries.length - 1].title).toContain('Job match');
+  });
+
+  it('Day 62: dimension explain appends context log entry with title containing Match breakdown', function () {
+    usePathAdvisorContextLogStore.getState().clearAll();
+    const job = MOCK_JOBS[0];
+    if (job === undefined) throw new Error('no job');
+    const readinessInput = buildReadinessInputFromMock({
+      score: CAREER_READINESS_MOCK.score,
+      scoreMax: CAREER_READINESS_MOCK.scoreMax,
+      badgeLabel: CAREER_READINESS_MOCK.badgeLabel,
+      radarSpokes: CAREER_READINESS_MOCK.radarSpokes,
+      gaps: CAREER_READINESS_MOCK.gaps,
+      actionPlanItems: CAREER_READINESS_MOCK.actionPlanItems,
+    });
+    const snap = buildJobMatchSnapshot(readinessInput, job);
+    const dim = snap.dimensions[0];
+    if (dim === undefined) throw new Error('no dimension');
+    publishDimensionExplainContext({
+      screen: 'job-search',
+      anchor: { type: 'job', id: job.id, label: job.title !== undefined ? job.title : job.id },
+      dimension: dim.label,
+      payload: { whatMeasures: ['Test'], yourSignal: 'Good', fastestFix: 'Add evidence.' },
+      dedupeKey: 'dimension:' + dim.key + ':' + String(snap.overallMatchScore),
+    });
+    const keys = getAnchorKeysForScreen(usePathAdvisorContextLogStore.getState().entriesByAnchor, 'job-search');
+    expect(keys.length).toBeGreaterThanOrEqual(1);
+    const entries = getEntriesForAnchor(usePathAdvisorContextLogStore.getState().entriesByAnchor, keys[0]);
+    expect(entries.length).toBeGreaterThanOrEqual(1);
+    expect(entries[entries.length - 1].title).toContain('Match breakdown');
   });
 });

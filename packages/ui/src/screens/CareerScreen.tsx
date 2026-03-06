@@ -55,6 +55,7 @@ import * as DropdownMenuPrimitive from '@radix-ui/react-dropdown-menu';
 import { useNav } from '@pathos/adapters';
 import { RESUME_BUILDER, SAVED_JOBS } from '../routes/routes';
 import { OVERLAY_ROOT_ID, Z_DIALOG, Z_POPOVER } from '../styles/zIndex';
+import { publishSelectionContext } from '../lib/pathAdvisorPublish';
 import { loadSavedJobsStore, listSavedJobs } from '@pathos/core';
 import type { Job } from '@pathos/core';
 
@@ -222,6 +223,8 @@ function TailoringTargetJobPicker(props: {
   targetJobSearch: string;
   setTargetJobSearch: (v: string) => void;
   onGoToSavedJobs: () => void;
+  /** Optional: called when user selects a job (for context log). */
+  onJobSelected?: (job: Job) => void;
 }) {
   const [open, setOpen] = useState(false);
   const [jobs, setJobs] = useState<Job[]>([]);
@@ -330,6 +333,9 @@ function TailoringTargetJobPicker(props: {
                       }}
                       onClick={function () {
                         props.setTargetJobForTailoring(j.id);
+                        if (props.onJobSelected !== undefined) {
+                          props.onJobSelected(j);
+                        }
                         setOpen(false);
                       }}
                     >
@@ -489,6 +495,7 @@ export function CareerScreen(props: CareerScreenProps) {
   useEffect(
     function () {
       setOverrides({
+        screenId: 'resume-readiness',
         viewingLabel: 'Resume Readiness',
         suggestedPrompts: CAREER_SUGGESTED_PROMPTS,
         briefingLabel: 'From Resume Readiness',
@@ -629,8 +636,9 @@ export function CareerScreen(props: CareerScreenProps) {
       const gs = job.grade !== undefined && job.grade !== '' ? job.grade : '—';
       const name = job.title + ' – ' + gs;
       const now = new Date().toISOString();
+      const newResumeId = 'res-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 6);
       addResume({
-        id: 'res-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 6),
+        id: newResumeId,
         name: name,
         type: 'tailored',
         status: 'draft',
@@ -642,6 +650,16 @@ export function CareerScreen(props: CareerScreenProps) {
       setCreateTailoredDrawerOpen(false);
       setCreateTailoredSelectedJobId(null);
       setToast('Tailored resume created and set as active.');
+      publishSelectionContext({
+        screen: 'resume-readiness',
+        anchor: { type: 'resume', id: newResumeId, label: name },
+        payload: {
+          title: 'Tailored version created: ' + name,
+          subtitle: job.title !== undefined ? job.title : undefined,
+          lines: ['Target job: ' + (job.title !== undefined ? job.title : job.id) + '. Start tailoring to align with the job.'],
+        },
+        dedupeKey: 'resume-readiness:tailored-created:' + newResumeId,
+      });
       if (tailoringWorkspaceRef.current !== null) {
         tailoringWorkspaceRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }
@@ -1013,6 +1031,16 @@ export function CareerScreen(props: CareerScreenProps) {
                           onClick={function () {
                             setActiveResumeId(r.id);
                             setResumeDropdownOpen(false);
+                            publishSelectionContext({
+                              screen: 'resume-readiness',
+                              anchor: { type: 'resume', id: r.id, label: r.name },
+                              payload: {
+                                title: 'Active resume: ' + r.name,
+                                subtitle: r.type === 'tailored' && r.targetJobTitle !== undefined ? r.targetJobTitle : undefined,
+                                lines: ['Selected for editing and tailoring.'],
+                              },
+                              dedupeKey: 'resume-readiness:resume:' + r.id,
+                            });
                           }}
                         >
                           {/* Line 1: name left, chip group right (mockup 2-line layout; never 3 columns). */}
@@ -1051,6 +1079,16 @@ export function CareerScreen(props: CareerScreenProps) {
                           onClick={function () {
                             setActiveResumeId(r.id);
                             setResumeDropdownOpen(false);
+                            publishSelectionContext({
+                              screen: 'resume-readiness',
+                              anchor: { type: 'resume', id: r.id, label: r.name },
+                              payload: {
+                                title: 'Active resume: ' + r.name,
+                                subtitle: r.targetJobTitle !== undefined ? r.targetJobTitle : undefined,
+                                lines: ['Selected for editing and tailoring.'],
+                              },
+                              dedupeKey: 'resume-readiness:resume:' + r.id,
+                            });
                           }}
                         >
                           {/* Line 1: name left, chip group right (mockup 2-line layout; never 3 columns). */}
@@ -1274,6 +1312,18 @@ export function CareerScreen(props: CareerScreenProps) {
             targetJobSearch={targetJobSearch}
             setTargetJobSearch={setTargetJobSearch}
             onGoToSavedJobs={function () { nav.push(SAVED_JOBS); }}
+            onJobSelected={function (job: Job) {
+              publishSelectionContext({
+                screen: 'resume-readiness',
+                anchor: { type: 'job', id: job.id, label: job.title !== undefined && job.title !== '' ? job.title : job.id },
+                payload: {
+                  title: 'Target job: ' + (job.title !== undefined && job.title !== '' ? job.title : job.id),
+                  subtitle: job.agency !== undefined ? job.agency : undefined,
+                  lines: ['Selected for tailoring. Details appear in PathAdvisor.'],
+                },
+                dedupeKey: 'resume-readiness:target-job:' + job.id,
+              });
+            }}
           />
           <p className="text-[11px] font-medium mt-3 mb-1" style={{ color: 'var(--p-text-dim)' }}>
             Tailoring Checklist
@@ -1786,7 +1836,19 @@ export function CareerScreen(props: CareerScreenProps) {
                         ) : (
                           <button
                             type="button"
-                            onClick={function () { setActiveResumeId(r.id); }}
+                            onClick={function () {
+                              setActiveResumeId(r.id);
+                              publishSelectionContext({
+                                screen: 'resume-readiness',
+                                anchor: { type: 'resume', id: r.id, label: r.name },
+                                payload: {
+                                  title: 'Active resume: ' + r.name,
+                                  subtitle: r.targetJobTitle !== undefined ? r.targetJobTitle : undefined,
+                                  lines: ['Selected for editing and tailoring.'],
+                                },
+                                dedupeKey: 'resume-readiness:resume:' + r.id,
+                              });
+                            }}
                             className="rounded-[var(--p-radius)] px-2 py-1 text-[11px] font-medium"
                             style={{
                               background: 'var(--p-surface2)',
