@@ -117,6 +117,27 @@ export interface JobInputForSnapshot {
   grade?: string;
 }
 
+// ---------------------------------------------------------------------------
+// Demo match variety (mock jobs only): deterministic target scores for list variety
+// ---------------------------------------------------------------------------
+
+/** True if job id is a mock job (mock-js-<n>). Used to apply demo-only score override. */
+export function isMockJob(job: { id: string }): boolean {
+  return job.id !== undefined && typeof job.id === 'string' && job.id.indexOf('mock-js-') === 0;
+}
+
+/**
+ * Deterministic target match score for mock job by index. Cycle covers Strong/Moderate/Stretch.
+ * Used only for demo variety; audit-tagged so it is explainable and removable later.
+ */
+export function getDemoTargetMatchScore(jobId: string): number {
+  const cycle = [86, 78, 70, 62, 54, 46];
+  const s = jobId.replace('mock-js-', '');
+  const n = parseInt(s, 10);
+  if (Number.isNaN(n) || n < 1) return 70;
+  return cycle[(n - 1) % cycle.length];
+}
+
 /** Radar spoke name as in Career Readiness mock (e.g. "Specialized Exp"). */
 const RADAR_NAME_TO_DIMENSION: Record<string, DimensionKey> = {
   'Target Alignment': 'Target Alignment',
@@ -379,7 +400,7 @@ export function buildJobMatchSnapshot(
   if (profile.flags.keywordHeavy) auditRules.push('keywordHeavy');
   if (profile.flags.leadershipHeavy) auditRules.push('leadershipHeavy');
 
-  const dimensions: JobMatchDimension[] = [];
+  let dimensions: JobMatchDimension[] = [];
   const w = profile.weights;
   for (let i = 0; i < DIMENSION_KEYS.length; i++) {
     const key = DIMENSION_KEYS[i];
@@ -417,7 +438,7 @@ export function buildJobMatchSnapshot(
   }
   overallMatchScore = Math.round(clamp(overallMatchScore, 0, 100));
 
-  const matchLevel: MatchLevel =
+  let matchLevel: MatchLevel =
     overallMatchScore >= 75 ? 'Strong' : overallMatchScore >= 55 ? 'Moderate' : 'Stretch';
 
   let primaryBlocker: string;
@@ -447,6 +468,57 @@ export function buildJobMatchSnapshot(
       primaryBlocker =
         'Primary blocker: None detected. Improve the top gap to increase odds.';
     }
+  }
+
+  /* MOCK-ONLY: Apply deterministic demo match variety so list shows Strong/Moderate/Stretch range. */
+  if (isMockJob(job)) {
+    const targetScore = getDemoTargetMatchScore(job.id);
+    const delta = targetScore - overallMatchScore;
+    const adjusted: JobMatchDimension[] = [];
+    for (let i = 0; i < dimensions.length; i++) {
+      const d = dimensions[i];
+      if (d === undefined) continue;
+      const newMatchScore = clamp(d.matchScore + delta, 0, 100);
+      const newStatus = statusFromMatchScore(newMatchScore);
+      adjusted.push({
+        key: d.key,
+        label: d.label,
+        readinessScore: d.readinessScore,
+        demandWeight: d.demandWeight,
+        matchScore: newMatchScore,
+        status: newStatus,
+        why: whySentence(d.key, newStatus, newMatchScore),
+      });
+    }
+    dimensions = adjusted;
+    overallMatchScore = 0;
+    for (let i = 0; i < dimensions.length; i++) {
+      const d = dimensions[i];
+      if (d !== undefined) overallMatchScore += d.matchScore * d.demandWeight;
+    }
+    overallMatchScore = Math.round(clamp(overallMatchScore, 0, 100));
+    matchLevel =
+      overallMatchScore >= 75 ? 'Strong' : overallMatchScore >= 55 ? 'Moderate' : 'Stretch';
+    let weakDim: JobMatchDimension | null = null;
+    let maxW = 0;
+    for (let i = 0; i < dimensions.length; i++) {
+      const d = dimensions[i];
+      if (d !== undefined && d.status === 'Weak' && d.demandWeight > maxW) {
+        maxW = d.demandWeight;
+        weakDim = d;
+      }
+    }
+    if (weakDim !== null) {
+      primaryBlocker =
+        'Primary blocker: ' +
+        weakDim.label +
+        ' is limiting competitiveness for this job.';
+    } else {
+      primaryBlocker =
+        'Primary blocker: None detected. Improve the top gap to increase odds.';
+    }
+    auditRules.push('demoMatchVariety');
+    auditRules.push('demoTargetScore:' + String(targetScore));
   }
 
   const missingEvidence: MissingEvidenceItem[] = [];

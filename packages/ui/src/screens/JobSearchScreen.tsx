@@ -31,6 +31,7 @@ import {
   X,
   Check,
   BookOpen,
+  ChevronRight,
 } from 'lucide-react';
 import { useNav } from '@pathos/adapters';
 import { storageSetJSON, storageGetJSON } from '@pathos/core';
@@ -56,6 +57,7 @@ import {
   buildDimensionBriefingPayload,
   type JobMatchSnapshot,
   type JobMatchDimension,
+  type MatchLevel,
 } from '../lib/jobMatchSnapshot';
 import { CAREER_READINESS } from '../routes/routes';
 import { FilterDropdown } from './_components/FilterDropdown';
@@ -203,21 +205,21 @@ function getRemoteTeleworkLabel(job: Job | JobWithOverview): string | null {
 
 /**
  * Single row: entire row is click target for selection; hover and selected styles (token-only).
- * Left accent bar for selected; focus-visible ring on main focusable area; no layout shift (3px border both states).
+ * Option A2: Left-edge 2px match bar (scan-first signal) by matchLevel; selection is background-only (no double bar).
+ * Match badge (Strong/Moderate/Stretch) + match score from JobMatchSnapshot; no fit stars or "Why this fit?".
  */
 function JobListItem(props: {
   job: Job | JobWithOverview;
   isSelected: boolean;
   isSaved: boolean;
-  fitAssessment: FitAssessment;
+  /** Match level and score from JobMatchSnapshot (same builder as details panel). */
+  matchInfo: { matchLevel: MatchLevel; overallMatchScore: number };
   riskFlags: string[];
   tag?: 'New' | 'Close date updated';
   onSelect: (id: string) => void;
   onSave: () => void;
-  onWhyFit: (e: React.MouseEvent) => void;
 }) {
   const [hover, setHover] = useState(false);
-  const stars = fitScoreToStars(props.fitAssessment.score);
   const closeLabel = props.tag === 'Close date updated' ? 'Closes soon' : 'Closes Apr 1';
   const closeChipUrgency = props.tag === 'Close date updated';
   const remoteLabel = getRemoteTeleworkLabel(props.job);
@@ -226,22 +228,35 @@ function JobListItem(props: {
   const rowBg =
     props.isSelected ? 'var(--p-surface2)' : (hover ? 'var(--p-surface2)' : 'transparent');
 
+  /* Left match bar color by level: Strong = success-ish token, Moderate = accent-muted, Stretch = border-strong/dim. */
+  const matchBarColor =
+    props.matchInfo.matchLevel === 'Strong'
+      ? 'var(--p-success)'
+      : props.matchInfo.matchLevel === 'Moderate'
+        ? 'var(--p-accent-muted)'
+        : 'var(--p-border-strong)';
+
   return (
     <div
       role="option"
       aria-selected={props.isSelected}
-      className="border-b last:border-b-0 flex items-stretch min-h-[88px] cursor-pointer"
+      className="border-b last:border-b-0 flex items-stretch min-h-[88px] cursor-pointer relative"
       style={{
         borderColor: 'var(--p-border)',
         background: rowBg,
-        borderLeft: props.isSelected ? '3px solid var(--p-accent)' : '3px solid transparent',
       }}
       onMouseEnter={function () { setHover(true); }}
       onMouseLeave={function () { setHover(false); }}
       onClick={function () { props.onSelect(props.job.id); }}
     >
+      {/* Option A2: 2px left match bar always present (scan-first signal); no layout shift. */}
       <div
-        className="flex-1 min-w-0 text-left px-3 py-2 flex flex-col justify-center outline-none focus-visible:ring-2 focus-visible:ring-[var(--p-accent)] focus-visible:ring-inset"
+        className="absolute inset-y-0 left-0 w-[2px] flex-shrink-0"
+        style={{ background: matchBarColor }}
+        aria-hidden
+      />
+      <div
+        className="flex-1 min-w-0 text-left pl-[calc(0.75rem+2px)] pr-3 py-2 flex flex-col justify-center outline-none focus-visible:ring-2 focus-visible:ring-[var(--p-accent)] focus-visible:ring-inset"
         style={{ color: 'var(--p-text)' }}
         tabIndex={0}
         onKeyDown={function (e: React.KeyboardEvent) {
@@ -325,33 +340,28 @@ function JobListItem(props: {
           ) : null}
         </div>
         <div className="flex items-center gap-1.5 mt-1">
-          <Tooltip content={fitTooltips.fitStars} contentId="job-list-fit-stars">
-            <span className="inline-flex gap-0.5" style={{ color: 'var(--p-accent)' }} aria-label={'Fit: ' + stars + ' of 5 stars'}>
-              {Array.from({ length: 5 }, function (_, i) { return i < stars ? '★' : '☆'; }).join('')}
-            </span>
-          </Tooltip>
-          <Tooltip content={fitTooltips.confidence} contentId="job-list-confidence">
-            <span
-              className="text-[10px] px-1.5 py-0.5 rounded"
-              style={{ background: 'var(--p-surface2)', color: 'var(--p-text-dim)' }}
-            >
-              {props.fitAssessment.confidence}
-            </span>
-          </Tooltip>
-          <Tooltip content="Open fit briefing for this job (fit score, reasons, next steps)" contentId="job-list-why-fit">
-          <button
-            type="button"
-            onClick={function (e: React.MouseEvent) {
-              e.preventDefault();
-              e.stopPropagation();
-              props.onWhyFit(e);
+          <span
+            className="text-[10px] font-medium px-1.5 py-0.5 rounded"
+            style={{
+              background:
+                props.matchInfo.matchLevel === 'Strong'
+                  ? 'var(--p-accent-bg)'
+                  : 'var(--p-surface2)',
+              color:
+                props.matchInfo.matchLevel === 'Strong'
+                  ? 'var(--p-accent)'
+                  : 'var(--p-text-muted)',
             }}
-            className={INTERACTIVE_HOVER_CLASS + ' text-[10px] font-medium ml-0.5 underline-offset-2 hover:underline rounded px-0.5 py-0.5'}
-            style={{ color: 'var(--p-accent)' }}
           >
-            Why this fit?
-          </button>
-          </Tooltip>
+            {props.matchInfo.matchLevel}
+          </span>
+          <span
+            className="text-[10px] px-1.5 py-0.5 rounded inline-flex items-baseline"
+            style={{ background: 'var(--p-surface2)', color: 'var(--p-text-dim)' }}
+          >
+            <span style={{ fontWeight: 600, color: 'var(--p-text)' }}>{String(props.matchInfo.overallMatchScore)}</span>
+            <span style={{ color: 'var(--p-text-dim)' }}>/100</span>
+          </span>
         </div>
       </div>
       <Tooltip content={props.isSaved ? 'Saved to your list' : 'Save job'} contentId="job-list-save">
@@ -505,27 +515,17 @@ function JobDetailsPanel(props: {
             Match for this job
           </h3>
           <div className="space-y-2">
-            <div className="flex flex-wrap items-center gap-2">
-              <span
-                className="text-[10px] font-medium px-1.5 py-0.5 rounded"
-                style={{
-                  background:
-                    jobMatch.matchLevel === 'Strong'
-                      ? 'var(--p-accent-bg)'
-                      : jobMatch.matchLevel === 'Moderate'
-                        ? 'var(--p-surface2)'
-                        : 'var(--p-surface2)',
-                  color:
-                    jobMatch.matchLevel === 'Strong'
-                      ? 'var(--p-accent)'
-                      : 'var(--p-text-muted)',
-                }}
-              >
-                {jobMatch.matchLevel}
+            {/* Readiness vs Job match: both numbers visible to resolve confusion. */}
+            <div className="flex flex-wrap items-baseline gap-3 text-[11px]">
+              <span style={{ color: 'var(--p-text)' }}>
+                Readiness: {String(jobMatch.overallReadinessScore)}/{String(jobMatch.overallReadinessMax)}
+              </span>
+              <span style={{ color: 'var(--p-text)' }}>
+                Job match: {String(jobMatch.overallMatchScore)}/100 ({jobMatch.matchLevel})
               </span>
             </div>
-            <p className="text-[11px]" style={{ color: 'var(--p-text-muted)' }}>
-              Based on your readiness ({jobMatch.overallReadinessScore}/{jobMatch.overallReadinessMax}) and this announcement&apos;s requirements.
+            <p className="text-[10px]" style={{ color: 'var(--p-text-dim)' }}>
+              Job match weights what this announcement emphasizes most.
             </p>
             {/* Match breakdown: 5 dimensions in consistent order; each row is interactive (opens dimension briefing in PathAdvisor). */}
             <div className="mt-2">
@@ -551,9 +551,9 @@ function JobDetailsPanel(props: {
                               props.onOpenDimensionBriefing(dim);
                             }
                           }}
-                          className={INTERACTIVE_HOVER_CLASS + ' flex flex-wrap items-center gap-2 w-full text-left rounded px-0.5 py-0.5 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-[var(--p-accent)] focus-visible:ring-inset'}
-                          style={{ border: '1px solid transparent', background: 'transparent' }}
-                          aria-label={'Open briefing for ' + dim.label + ': ' + dim.status}
+                          className={INTERACTIVE_HOVER_CLASS + ' group flex flex-wrap items-center gap-2 w-full text-left rounded px-1 py-0.5 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-[var(--p-accent)] focus-visible:ring-inset border border-transparent hover:border-[var(--p-border)] hover:bg-[var(--p-surface2)]'}
+                          style={{ background: 'transparent' }}
+                          aria-label={'Open dimension details for ' + dim.label}
                         >
                           <span className="w-32 flex-shrink-0" style={{ color: 'var(--p-text)' }}>
                             {dim.label}
@@ -585,8 +585,14 @@ function JobDetailsPanel(props: {
                               }}
                             />
                           </div>
+                          <span className="text-[10px] flex-shrink-0" style={{ color: 'var(--p-text-dim)' }}>
+                            User: {String(dim.readinessScore)}/100
+                          </span>
                           <span className="flex-1 min-w-0 truncate" style={{ color: 'var(--p-text-muted)' }}>
                             {dim.why}
+                          </span>
+                          <span className="flex-shrink-0 opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100 flex items-center" style={{ color: 'var(--p-text-dim)' }}>
+                            <ChevronRight className="w-3.5 h-3.5" aria-hidden />
                           </span>
                         </button>
                       </Tooltip>
@@ -657,7 +663,7 @@ function JobDetailsPanel(props: {
                     className={INTERACTIVE_HOVER_CLASS + ' text-[11px]'}
                     style={{ color: 'var(--p-text-muted)' }}
                   >
-                    Explain this in PathAdvisor
+                    Explain this match
                   </button>
                 </Tooltip>
               ) : null}
@@ -1229,6 +1235,20 @@ export function JobSearchScreen(props: JobSearchScreenProps) {
       actionPlanItems: CAREER_READINESS_MOCK.actionPlanItems,
     });
   }, []);
+  /** Per-row match level and score from same JobMatchSnapshot builder; cached so 36 mock jobs do not recompute every render. */
+  const matchByJobId = useMemo(
+    function (): Record<string, { matchLevel: MatchLevel; overallMatchScore: number }> {
+      const out: Record<string, { matchLevel: MatchLevel; overallMatchScore: number }> = {};
+      for (let i = 0; i < sortedResults.length; i++) {
+        const job = sortedResults[i];
+        if (job === undefined) continue;
+        const snap = buildJobMatchSnapshot(readinessInput, job);
+        out[job.id] = { matchLevel: snap.matchLevel, overallMatchScore: snap.overallMatchScore };
+      }
+      return out;
+    },
+    [readinessInput, sortedResults]
+  );
   const jobMatchSnapshot = useMemo(
     function (): JobMatchSnapshot | undefined {
       if (selectedJob === undefined) return undefined;
@@ -2122,16 +2142,7 @@ export function JobSearchScreen(props: JobSearchScreenProps) {
             ) : (
               sortedResults.map(function (job) {
                 const tag = MOCK_JOB_TAGS[job.id];
-                const fitAssessment = buildFitAssessment({
-                  job,
-                  targetRole,
-                  profile: { skillsKeywords: [] },
-                  checklistCounts: (function () {
-                    const c = getChecklistForJob(job.id);
-                    if (c === null) return undefined;
-                    return { specialized: c.specializedExperience.length, skills: c.skillsKeywords.length, documents: c.documentsNeeded.length };
-                  })(),
-                });
+                const matchInfo = matchByJobId[job.id] !== undefined ? matchByJobId[job.id] : { matchLevel: 'Moderate' as MatchLevel, overallMatchScore: 50 };
                 const riskFlags = getRiskFlagLabels(job);
                 return (
                   <JobListItem
@@ -2139,7 +2150,7 @@ export function JobSearchScreen(props: JobSearchScreenProps) {
                     job={job}
                     isSelected={store.selectedJobId === job.id}
                     isSaved={store.isJobSaved(job.id)}
-                    fitAssessment={fitAssessment}
+                    matchInfo={matchInfo}
                     riskFlags={riskFlags}
                     tag={tag}
                     onSelect={handleSelectJob}
@@ -2149,27 +2160,6 @@ export function JobSearchScreen(props: JobSearchScreenProps) {
                       } else {
                         handleSaveJob(job);
                       }
-                    }}
-                    onWhyFit={function () {
-                      const effortForList = calcEffort(fitAssessment, (function () {
-                        const c = getChecklistForJob(job.id);
-                        if (c === null) return undefined;
-                        return { specialized: c.specializedExperience.length, skills: c.skillsKeywords.length, documents: c.documentsNeeded.length };
-                      })());
-                      openFitBriefing({
-                        type: 'fit',
-                        jobId: job.id,
-                        jobTitle: job.title,
-                        stars: fitScoreToStars(fitAssessment.score),
-                        confidence: fitAssessment.confidence,
-                        reasons: fitAssessment.reasons,
-                        blocker: primaryBlocker(job, targetRole, fitAssessment),
-                        effort: effortForList,
-                        risks: getRiskFlagLabels(job),
-                        inputsUsed: fitAssessment.inputsUsed,
-                        missingInputs: fitAssessment.missingInputs !== undefined ? fitAssessment.missingInputs : [],
-                        isJobSaved: store.isJobSaved(job.id),
-                      });
                     }}
                   />
                 );

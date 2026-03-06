@@ -3848,3 +3848,68 @@ Do not commit or push.
 - **Incremental:** `artifacts/day-61-this-run.patch` (HEAD → working tree). UTF-8. Excludes artifacts/.
 
 **Get-Item output (day-61 patches):** day-61.patch Length 88713; day-61-this-run.patch Length 88713. (Get-ChildItem artifacts | Select Name,Length,LastWriteTime — day-61.patch and day-61-this-run.patch listed above.)
+
+---
+
+# Day 61 (run 3) — Option A: Match badge in list; readiness vs job match clarity; breakdown affordance
+
+**Branch:** `feature/day-61-job-search-jobmatchsnapshot-v1`  
+**Date:** March 5, 2026  
+**Goal:** Polish JobMatchSnapshot UI; Option A — replace list fit stars with Match badge + score; clarify readiness vs job match; make breakdown rows obviously interactive.
+
+## Summary of changes
+
+- **List rows (Option A):** Removed fit stars, confidence chip, and "Why this fit?". Replaced with Match badge (Strong/Moderate/Stretch) and match score (e.g. 68/100) from same JobMatchSnapshot builder; per-row snapshot cached with useMemo(keyed by readinessInput + sortedResults).
+- **Match panel header:** "Readiness: 74/100" and "Job match: 68/100 (Moderate)" shown explicitly; one microcopy line: "Job match weights what this announcement emphasizes most."
+- **Match breakdown rows:** Right-edge chevron (visible on hover/focus-visible); row hover border/background (token-only); per-dimension "User: 58/100" shown without tooltip; aria-label "Open dimension details for &lt;dimension&gt;"; Enter/Space open dimension briefing (unchanged).
+- **Single entrypoint:** "Explain this in PathAdvisor" renamed to "Explain this match" in details panel; no duplicate link on list rows.
+- **Tests:** JobSearchScreen — match panel shows Readiness + Job match; at least one row has Match badge and /100 (when panel visible); "Why this fit?" absent; at least one "Open dimension details" in aria-label. Explain this match test renamed.
+
+## Commands run
+
+- **pnpm lint:** Pass.
+- **pnpm -r typecheck:** Pass.
+- **pnpm test:** 788 passed.
+- **pnpm build:** Pass.
+- **pnpm overlays:check:** Fail (pre-existing ReadinessTrajectoryChart.tsx).
+
+## Patch Artifacts (FINAL)
+
+- **Cumulative:** `artifacts/day-61.patch` (main → working tree). UTF-8. Excludes artifacts/.
+- **Incremental:** `artifacts/day-61-this-run.patch` (HEAD → working tree). UTF-8. Excludes artifacts/.
+
+**Get-Item output (run 3):** day-61.patch Length 101897; day-61-this-run.patch Length 21123.
+
+**Post-change logging:** git status — 5 files modified (day-61.md, merge-notes.md, current.md, JobSearchScreen.test.tsx, JobSearchScreen.tsx). git diff --name-status main...HEAD — 11 files (branch vs main). git diff --stat main...HEAD — 11 files changed, 1470 insertions(+), 93 deletions(-). (Diffs not pasted.)
+
+---
+
+# Day 61 (run N) — Option A2 left match bar; demo match variety; score visibility
+
+**Branch:** `feature/day-61-job-search-jobmatchsnapshot-v1`  
+**Date:** March 5, 2026  
+**Goal:** Option A2 left-edge match bar on job list rows; deterministic demo match variety for mock jobs; match score more visible in list row; tests and gates.
+
+## Summary of changes
+
+- **Option A2 — Left match bar:** Job list rows now show a 2px left-edge bar by match level (Strong = var(--p-success), Moderate = var(--p-accent-muted), Stretch = var(--p-border-strong)). Bar is always present (position absolute left-0); selection is background-only (no double bar). Row padding adjusted (pl-[calc(0.75rem+2px)]) so content does not overlap the bar. No layout shift; no new hardcoded colors.
+- **Demo fake match variety:** In jobMatchSnapshot.ts added isMockJob(job), getDemoTargetMatchScore(jobId) with cycle [86, 78, 70, 62, 54, 46]. For mock jobs (id mock-js-*), snapshot is adjusted to target score; dimensions and overallMatchScore/matchLevel/primaryBlocker recomputed; audit.rulesFired gets "demoMatchVariety" and "demoTargetScore:&lt;n&gt;". List and details panel both use buildJobMatchSnapshot so scores are consistent.
+- **Match score visibility (C):** List row score shown as "68/100" with number at fontWeight 600 and /100 muted; no new label or line.
+- **Tests:** After loadSampleJobs, assert list contains at least two different match labels (Strong/Moderate/Stretch); when details panel visible, assert "Job match:" present. Existing /100 and Match for this job assertions retained.
+
+## Gates
+
+- **pnpm lint:** Pass (warnings only).
+- **pnpm -r typecheck:** Pass.
+- **pnpm test:** 790 passed (JobSearchScreen 30 tests).
+- **pnpm build:** Pass.
+- **pnpm overlays:check:** Fail (pre-existing ReadinessTrajectoryChart.tsx; not introduced by this run).
+
+## Patch Artifacts (FINAL)
+
+- **Cumulative:** `artifacts/day-61.patch` (main...HEAD → working tree). UTF-8. Excludes artifacts/.
+- **Incremental:** `artifacts/day-61-this-run.patch` (git diff working tree). UTF-8. Excludes artifacts/.
+
+**Get-Item output (run N):** day-61.patch Length 88878; day-61-this-run.patch Length 34975.
+
+**Post-change logging (run N):** git status — 6 files modified (day-61.md, merge-notes.md, current.md, jobMatchSnapshot.ts, JobSearchScreen.test.tsx, JobSearchScreen.tsx). git diff --name-status main...HEAD — 11 files (A/M). git diff --stat main...HEAD — 11 files changed, 1470 insertions(+), 93 deletions(-).

@@ -13,6 +13,10 @@
 - **PathAdvisor rail:** When a job is selected, the rail shows Viewing: Job Search, insight bullets, and the next best action button. Clicking a Match Breakdown row opens a dedicated briefing for that dimension in the same rail, with a CTA to improve that dimension.
 - **Local only:** All matching logic runs in the browser; no backend. The snapshot is computed from existing Career Readiness mock data and the selected job’s checklist/summary.
 
+- **Option A polish:** Job list now shows match level/score instead of fit stars; match breakdown rows are clearly clickable (chevron, hover, focus-visible); match header clarifies readiness vs job match; single "Explain this match" entrypoint in details panel.
+- **Job rows now show a left-edge match bar for scan-first navigation.** (Option A2: 2px bar by match level; selection is background-only.)
+- **Mock jobs now show deterministic match score variety for demo/testing (audit-tagged).** (isMockJob + getDemoTargetMatchScore; snapshot override only for mock-js-*; audit.rulesFired includes demoMatchVariety and demoTargetScore.)
+
 ## Gates
 
 - **pnpm lint:** Pass.

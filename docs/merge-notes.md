@@ -12,7 +12,10 @@ Create a clear, deterministic mapping between Career Readiness (person intellige
 - **UI:** "Match for this job" panel (header, MatchLevel badge, readiness summary, Match breakdown rows, What you're missing, primary blocker, CTA "Open Career Readiness: Fix &lt;gap&gt; (+impact)" → /dashboard/career-readiness#action-plan).
 - **PathAdvisor rail:** When job selected: insight bullets (match level/score, top limiting factor, fastest improvement), next best action button → Career Readiness #action-plan, job-aware suggested prompts.
 - **pnpm lint / typecheck / test / build:** Pass. 780 tests. overlays:check fails on pre-existing ReadinessTrajectoryChart.tsx only.
-- **Patch artifacts:** artifacts/day-61.patch (63138 bytes), artifacts/day-61-this-run.patch (63138 bytes). UTF-8. main baseline.
+- **Patch artifacts:** artifacts/day-61.patch (88878 bytes), artifacts/day-61-this-run.patch (29075 bytes). UTF-8. main baseline. Excludes artifacts/.
+- **Option A polish (run 3):** List rows show Match badge + score from JobMatchSnapshot; fit stars and "Why this fit?" removed. Match panel header: Readiness + Job match + microcopy. Breakdown rows: chevron, User: X/100, hover/focus-visible. One "Explain this match" in details panel. Tests updated. Gates: lint, typecheck, test, build pass; overlays:check pre-existing fail.
+- **Job rows now show a left-edge match bar for scan-first navigation.** (Option A2: 2px bar by match level; selection background-only.)
+- **Mock jobs now show deterministic match score variety for demo/testing (audit-tagged).**
 
 ---
 

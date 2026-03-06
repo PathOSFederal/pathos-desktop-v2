@@ -9,11 +9,34 @@ import {
   buildJobMatchSnapshot,
   buildReadinessInputFromMock,
   buildDimensionBriefingPayload,
+  isMockJob,
+  getDemoTargetMatchScore,
   type ReadinessInput,
   type JobInputForSnapshot,
   type JobMatchDimension,
   DIMENSION_KEYS,
 } from './jobMatchSnapshot';
+
+describe('isMockJob', function () {
+  it('returns true for id starting with mock-js-', function () {
+    expect(isMockJob({ id: 'mock-js-1' })).toBe(true);
+    expect(isMockJob({ id: 'mock-js-36' })).toBe(true);
+  });
+  it('returns false for non-mock ids', function () {
+    expect(isMockJob({ id: 'usa-123' })).toBe(false);
+    expect(isMockJob({ id: 'job-1' })).toBe(false);
+  });
+});
+
+describe('getDemoTargetMatchScore', function () {
+  it('returns deterministic score from cycle by job index', function () {
+    expect(getDemoTargetMatchScore('mock-js-1')).toBe(86);
+    expect(getDemoTargetMatchScore('mock-js-2')).toBe(78);
+    expect(getDemoTargetMatchScore('mock-js-5')).toBe(54);
+    expect(getDemoTargetMatchScore('mock-js-6')).toBe(46);
+    expect(getDemoTargetMatchScore('mock-js-7')).toBe(86);
+  });
+});
 
 describe('buildReadinessInputFromMock', function () {
   it('maps radar spoke names to dimension scores including Specialized Exp', function () {
@@ -148,6 +171,13 @@ describe('buildJobMatchSnapshot', function () {
     const snapshot = buildJobMatchSnapshot(baseReadiness, job);
     expect(Array.isArray(snapshot.audit.rulesFired)).toBe(true);
     expect(snapshot.audit.localOnly).toBe(true);
+  });
+
+  it('for mock jobs audit includes demoMatchVariety and demoTargetScore', function () {
+    const job: JobInputForSnapshot = { id: 'mock-js-1', title: 'Analyst', summary: 'Short.' };
+    const snapshot = buildJobMatchSnapshot(baseReadiness, job);
+    expect(snapshot.audit.rulesFired.indexOf('demoMatchVariety') !== -1).toBe(true);
+    expect(snapshot.audit.rulesFired.some(function (r) { return r.indexOf('demoTargetScore:') === 0; })).toBe(true);
   });
 });
 

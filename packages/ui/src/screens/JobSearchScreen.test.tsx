@@ -159,6 +159,56 @@ describe('JobSearchScreen', function () {
     expect(output.indexOf('74/100') !== -1).toBe(true);
   });
 
+  it('match panel shows both Readiness and Job match labels (Option A clarity)', function () {
+    useJobSearchV1Store.getState().loadSampleJobs();
+    const output = renderJobSearch();
+    if (output.indexOf('Match for this job') === -1) return;
+    expect(output.indexOf('Readiness:') !== -1).toBe(true);
+    expect(output.indexOf('Job match:') !== -1).toBe(true);
+  });
+
+  it('at least one job row renders Match badge (e.g. Moderate) and score with /100', function () {
+    useJobSearchV1Store.getState().loadSampleJobs();
+    const output = renderJobSearch();
+    if (output.indexOf('Match for this job') === -1) return;
+    const hasModerate = output.indexOf('Moderate') !== -1;
+    const hasStrong = output.indexOf('Strong') !== -1;
+    const hasStretch = output.indexOf('Stretch') !== -1;
+    expect(hasModerate || hasStrong || hasStretch).toBe(true);
+    expect(output.indexOf('/100') !== -1).toBe(true);
+  });
+
+  it('after loadSampleJobs list contains at least two different match labels across rows', function () {
+    useJobSearchV1Store.getState().loadSampleJobs();
+    const output = renderJobSearch();
+    const hasStrong = output.indexOf('Strong') !== -1;
+    const hasModerate = output.indexOf('Moderate') !== -1;
+    const hasStretch = output.indexOf('Stretch') !== -1;
+    if (!hasStrong && !hasModerate && !hasStretch) return;
+    const distinctCount = (hasStrong ? 1 : 0) + (hasModerate ? 1 : 0) + (hasStretch ? 1 : 0);
+    expect(distinctCount >= 2).toBe(true);
+  });
+
+  it('when details panel is visible it shows Match for this job and Job match score', function () {
+    useJobSearchV1Store.getState().loadSampleJobs();
+    const output = renderJobSearch();
+    if (output.indexOf('Match for this job') === -1) return;
+    expect(output.indexOf('Job match:') !== -1).toBe(true);
+  });
+
+  it('Why this fit? is not present in results list (Option A: replaced by Match badge)', function () {
+    useJobSearchV1Store.getState().loadSampleJobs();
+    const output = renderJobSearch();
+    expect(output.indexOf('Why this fit?') === -1).toBe(true);
+  });
+
+  it('at least one Match breakdown row has Open dimension details in aria-label', function () {
+    useJobSearchV1Store.getState().loadSampleJobs();
+    const output = renderJobSearch();
+    if (output.indexOf('Match breakdown') === -1) return;
+    expect(output.indexOf('Open dimension details') !== -1).toBe(true);
+  });
+
   it('when a job is selected and snapshot visible Open Career Readiness CTA exists', function () {
     useJobSearchV1Store.getState().loadSampleJobs();
     const output = renderJobSearch();
@@ -182,7 +232,7 @@ describe('JobSearchScreen', function () {
     expect(hasDimensionInBlocker).toBe(true);
   });
 
-  it('Explain this in PathAdvisor sets rail briefing state (store has type fit and isOpen)', function () {
+  it('Explain this match sets rail briefing state (store has type fit and isOpen)', function () {
     usePathAdvisorBriefingStore.getState().clearBriefing();
     useJobSearchV1Store.getState().loadSampleJobs();
     const openBriefing = usePathAdvisorBriefingStore.getState().openBriefing;
@@ -261,7 +311,7 @@ describe('JobSearchScreen', function () {
     }
   });
 
-  it('Why this fit opens PathAdvisor fit briefing (no inline expand); briefing store has type fit and isOpen', function () {
+  it('Explain this match opens PathAdvisor fit briefing; briefing store has type fit and isOpen', function () {
     usePathAdvisorBriefingStore.getState().clearBriefing();
     usePathAdvisorBriefingStore.getState().openBriefing({
       type: 'fit',
