@@ -69,6 +69,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/hooks/use-toast';
 import { PageShell } from '@/components/layout/page-shell';
+import { SharedDashboardRouteShell } from '../(shared)/dashboard/_components/SharedDashboardRouteShell';
 import {
   useJobAlertsStore,
   selectAlerts,
@@ -577,15 +578,18 @@ export default function AlertsCenterPage() {
   // ---------------------------------------------------------------------------
   if (!isAlertsLoaded) {
     return (
-      <PageShell className="p-6">
-        <div className="flex items-center justify-center h-64">
-          <RefreshCcw className="h-6 w-6 animate-spin text-muted-foreground" />
-        </div>
-      </PageShell>
+      <SharedDashboardRouteShell>
+        <PageShell className="p-6">
+          <div className="flex items-center justify-center h-64">
+            <RefreshCcw className="h-6 w-6 animate-spin text-muted-foreground" />
+          </div>
+        </PageShell>
+      </SharedDashboardRouteShell>
     );
   }
 
   return (
+    <SharedDashboardRouteShell>
     <PageShell className="p-6 space-y-6">
       {/* Page Header */}
       <div className="flex items-center justify-between">
@@ -938,5 +942,6 @@ export default function AlertsCenterPage() {
         </Card>
       </Collapsible>
     </PageShell>
+    </SharedDashboardRouteShell>
   );
 }

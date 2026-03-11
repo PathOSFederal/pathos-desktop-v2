@@ -1,10 +1,18 @@
+'use client';
+
 /**
- * Guided Apply alias route. Redirects to canonical path so Sidebar and
- * external links resolve. Canonical path: /desktop/usajobs-guided.
+ * Guided Apply — current frontend page.
+ * Renders GuidedApplyScreen inside the shared shell so tab resolves to the
+ * intended page (not the legacy desktop/usajobs-guided workspace).
  */
 
-import { redirect } from 'next/navigation';
+import { GuidedApplyScreen } from '@pathos/ui';
+import { SharedDashboardRouteShell } from '../(shared)/dashboard/_components/SharedDashboardRouteShell';
 
-export default function GuidedApplyRedirectPage() {
-  redirect('/desktop/usajobs-guided');
+export default function GuidedApplyPage() {
+  return (
+    <SharedDashboardRouteShell>
+      <GuidedApplyScreen />
+    </SharedDashboardRouteShell>
+  );
 }

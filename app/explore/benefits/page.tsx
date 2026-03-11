@@ -33,6 +33,7 @@ import {
   Calculator,
 } from 'lucide-react';
 import { PageShell } from '@/components/layout/page-shell';
+import { SharedDashboardRouteShell } from '../../(shared)/dashboard/_components/SharedDashboardRouteShell';
 import { useAdvisorContext } from '@/contexts/advisor-context';
 import { useEffect } from 'react';
 
@@ -136,7 +137,8 @@ export default function ExploreBenefitsPage() {
   }, [setScreenInfo]);
 
   return (
-    <PageShell>
+    <SharedDashboardRouteShell>
+      <PageShell>
       <div className="p-6">
         {/* ================================================================
             HEADER (Full Width)
@@ -241,5 +243,6 @@ export default function ExploreBenefitsPage() {
         </div>
       </div>
     </PageShell>
+    </SharedDashboardRouteShell>
   );
 }
