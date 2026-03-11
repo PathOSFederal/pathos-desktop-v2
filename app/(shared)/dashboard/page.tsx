@@ -15,7 +15,7 @@ import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/comp
 import { useToast } from '@/hooks/use-toast';
 const RESUME_BUILDER_ROUTE = '/dashboard/resume-builder';
 const TRACKED_APPLICATIONS_ROUTE = '/import';
-const GUIDED_APPLY_ROUTE = '/desktop/usajobs-guided';
+const GUIDED_APPLY_ROUTE = '/guided-apply';
 
 /**
  * Weekly briefing (60–90s) modal: script preview (6–10 lines), Regenerate script,

@@ -41,6 +41,7 @@
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
+import { SharedDashboardRouteShell } from '../(shared)/dashboard/_components/SharedDashboardRouteShell';
 import {
   Mail,
   Upload,
@@ -2582,6 +2583,7 @@ export default function ImportCenterPage() {
   // =========================================================================
 
   return (
+    <SharedDashboardRouteShell>
     <div className="p-6 space-y-6 max-w-5xl mx-auto">
       {/* Header */}
       <div className="space-y-2">
@@ -3458,5 +3460,6 @@ export default function ImportCenterPage() {
         </DialogContent>
       </Dialog>
     </div>
+    </SharedDashboardRouteShell>
   );
 }

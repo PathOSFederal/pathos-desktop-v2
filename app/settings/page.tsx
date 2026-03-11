@@ -118,6 +118,7 @@ import { useAdvisorContext } from '@/contexts/advisor-context';
 import { OnboardingWizard } from '@/components/onboarding-wizard';
 import { cn } from '@/lib/utils';
 import { PageShell } from '@/components/layout/page-shell';
+import { SharedDashboardRouteShell } from '../(shared)/dashboard/_components/SharedDashboardRouteShell';
 
 const gradeOptions = [
   'GS-5',
@@ -588,6 +589,7 @@ export default function SettingsPage() {
   };
 
   return (
+    <SharedDashboardRouteShell>
     <PageShell fullWidth>
       <div className="p-6 lg:p-8 space-y-6 max-w-6xl mx-auto">
         {/* ============================================================
@@ -2102,5 +2104,6 @@ export default function SettingsPage() {
         <OnboardingWizard open={showOnboarding} onOpenChange={setShowOnboarding} />
       </div>
     </PageShell>
+    </SharedDashboardRouteShell>
   );
 }

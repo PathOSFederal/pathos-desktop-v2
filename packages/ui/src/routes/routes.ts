@@ -46,13 +46,14 @@ export const SAVED_JOBS = '/dashboard/saved-jobs';
 /**
  * Canonical Guided Apply path. Sidebar links here.
  * Both Next and Desktop must serve this route (or redirect alias to it).
+ * Current frontend page: GuidedApplyScreen at /guided-apply.
  */
-export const GUIDED_APPLY_CANON = '/desktop/usajobs-guided';
+export const GUIDED_APPLY_CANON = '/guided-apply';
 
 /**
- * Alias for Guided Apply. Redirect to GUIDED_APPLY_CANON; not used by Sidebar.
+ * Alias for Guided Apply (legacy desktop shell path). Redirect to GUIDED_APPLY_CANON; not used by Sidebar.
  */
-export const GUIDED_APPLY_ALIAS = '/guided-apply';
+export const GUIDED_APPLY_ALIAS = '/desktop/usajobs-guided';
 
 /** Application Confidence Center. */
 export const APPLICATION_CONFIDENCE_CENTER = '/application-confidence-center';
