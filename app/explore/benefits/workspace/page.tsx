@@ -87,6 +87,7 @@ import {
 } from '@/lib/benefits';
 import { Copy } from 'lucide-react';
 import { PageShell } from '@/components/layout/page-shell';
+import { SharedDashboardRouteShell } from '../../../(shared)/dashboard/_components/SharedDashboardRouteShell';
 import { AskPathAdvisorButton } from '@/components/pathadvisor/AskPathAdvisorButton';
 // Day 43: Use askPathAdvisor() for all Ask CTAs to enforce Focus Mode opens immediately
 import { askPathAdvisor } from '@/lib/pathadvisor/askPathAdvisor';
@@ -473,6 +474,7 @@ export default function BenefitsWorkspacePage() {
   }
 
   return (
+    <SharedDashboardRouteShell>
     <PageShell>
       <div className="p-6">
         {/* ================================================================
@@ -1465,5 +1467,6 @@ export default function BenefitsWorkspacePage() {
         </div>
       </div>
     </PageShell>
+    </SharedDashboardRouteShell>
   );
 }

@@ -61,6 +61,9 @@ export const APPLICATION_CONFIDENCE_CENTER = '/application-confidence-center';
 /** Explore Federal Benefits (job seeker). */
 export const EXPLORE_BENEFITS = '/explore/benefits';
 
+/** Benefits Comparison Workspace (job seeker). */
+export const BENEFITS_WORKSPACE = '/explore/benefits/workspace';
+
 /** Alerts Center. */
 export const ALERTS = '/alerts';
 
@@ -88,6 +91,7 @@ export const SIDEBAR_ROUTES: readonly string[] = [
   GUIDED_APPLY_CANON,
   APPLICATION_CONFIDENCE_CENTER,
   EXPLORE_BENEFITS,
+  BENEFITS_WORKSPACE,
   ALERTS,
   IMPORT,
   SETTINGS,
