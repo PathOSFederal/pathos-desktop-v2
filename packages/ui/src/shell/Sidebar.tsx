@@ -32,6 +32,7 @@ import {
   Inbox,
   ClipboardList,
   Target,
+  Calculator,
 } from 'lucide-react';
 import { cn } from '@pathos/core';
 import { useNav, useNavLink } from '@pathos/adapters';
@@ -49,6 +50,7 @@ import {
   GUIDED_APPLY_CANON,
   APPLICATION_CONFIDENCE_CENTER,
   EXPLORE_BENEFITS,
+  BENEFITS_WORKSPACE,
   ALERTS,
   IMPORT,
   SETTINGS,
@@ -134,6 +136,7 @@ const navSections: NavSection[] = [
     title: 'EXPLORE',
     items: [
       { label: 'Explore Federal Benefits', href: EXPLORE_BENEFITS, icon: <BookOpen className="w-4 h-4" /> },
+      { label: 'Benefits Workspace', href: BENEFITS_WORKSPACE, icon: <Calculator className="w-4 h-4" /> },
     ],
     jobSeekerOnly: true,
   },
@@ -286,6 +289,9 @@ export function Sidebar(props: SidebarProps) {
     }
     if (itemHref === RESUME_READINESS) {
       return pathname === RESUME_READINESS || pathname === CAREER;
+    }
+    if (itemHref === EXPLORE_BENEFITS) {
+      return pathname === EXPLORE_BENEFITS;
     }
     return pathname === itemHref || pathname.indexOf(itemHref + '/') === 0;
   };
