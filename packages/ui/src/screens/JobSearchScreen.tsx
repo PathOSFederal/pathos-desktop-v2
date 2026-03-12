@@ -61,7 +61,7 @@ import {
   type MatchLevel,
 } from '../lib/jobMatchSnapshot';
 import { publishScreenContext, publishDimensionExplainContext, publishSelectionContext } from '../lib/pathAdvisorPublish';
-import { CAREER_READINESS } from '../routes/routes';
+import { CAREER_READINESS, RESUME_BUILDER } from '../routes/routes';
 import { FilterDropdown } from './_components/FilterDropdown';
 import {
   buildFitAssessment,
@@ -1365,7 +1365,7 @@ export function JobSearchScreen(props: JobSearchScreenProps) {
           const record = buildDecisionBriefRecord(job.id, job, targetRole, { skillsKeywords: [] });
           useDecisionBriefsV1Store.getState().saveBrief(record);
         }
-        nav.push('/dashboard/resume-readiness');
+        nav.push(RESUME_BUILDER);
       },
     });
     return function () {
@@ -1378,7 +1378,7 @@ export function JobSearchScreen(props: JobSearchScreenProps) {
     if (selectedJob !== undefined) {
       setHeroDoNow({
         label: 'Save and start tailoring',
-        route: '/dashboard/resume-readiness',
+        route: RESUME_BUILDER,
       });
     } else {
       setHeroDoNow(null);
@@ -2258,7 +2258,7 @@ export function JobSearchScreen(props: JobSearchScreenProps) {
               if (selectedJob !== undefined) handleSaveJob(selectedJob);
             }}
             onTailor={function () {
-              nav.push('/dashboard/resume-readiness');
+              nav.push(RESUME_BUILDER);
             }}
             onAskPathAdvisor={function () {}}
             onOpenCareerReadinessActionPlan={function () {
