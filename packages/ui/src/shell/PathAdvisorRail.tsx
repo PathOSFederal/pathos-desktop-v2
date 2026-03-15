@@ -112,6 +112,11 @@ export function PathAdvisorRail(props: PathAdvisorRailProps) {
       ? overrides.briefingLabel
       : undefined;
 
+  const briefingHelperText =
+    overrides !== null && overrides !== undefined && overrides.briefingHelperText !== undefined
+      ? overrides.briefingHelperText
+      : undefined;
+
   const railContent =
     overrides !== null && overrides !== undefined && overrides.railContent !== undefined
       ? overrides.railContent
@@ -120,6 +125,11 @@ export function PathAdvisorRail(props: PathAdvisorRailProps) {
   const onRailNextBestActionClick =
     overrides !== null && overrides !== undefined && overrides.onRailNextBestActionClick !== undefined
       ? overrides.onRailNextBestActionClick
+      : undefined;
+
+  const composerPlaceholder =
+    overrides !== null && overrides !== undefined && overrides.composerPlaceholder !== undefined
+      ? overrides.composerPlaceholder
       : undefined;
 
   const currentScreen =
@@ -136,8 +146,10 @@ export function PathAdvisorRail(props: PathAdvisorRailProps) {
         viewingLabel={viewingLabel}
         currentScreen={currentScreen}
         briefingLabel={briefingLabel}
+        briefingHelperText={briefingHelperText}
         railContent={railContent}
         onRailNextBestActionClick={onRailNextBestActionClick}
+        composerPlaceholder={composerPlaceholder}
       />
     </div>
   );

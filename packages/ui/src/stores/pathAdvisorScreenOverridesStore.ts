@@ -20,6 +20,8 @@ export interface PathAdvisorRailContent {
   nextBestAction: { text: string; ctaLabel: string };
   /** Optional collapsed section labels (e.g. "Explain scoring", "How this works"). */
   collapsedSectionLabels?: string[];
+  /** When true, style the NEXT BEST ACTION box with orange outline and accent-tinted background (mockup: Prioritize High Match). */
+  highlightNextBestAction?: boolean;
 }
 
 export interface PathAdvisorScreenOverrides {
@@ -31,6 +33,8 @@ export interface PathAdvisorScreenOverrides {
   suggestedPrompts: string[];
   /** Label above the "Do now" block (e.g. "From Resume Readiness"). When unset, card uses "From Today's Focus". */
   briefingLabel?: string;
+  /** Optional one-line helper under briefingLabel (e.g. "Select a saved job to get personalized guidance."). Shown in rail when briefingLabel is set. */
+  briefingHelperText?: string;
   /** Optional helper text for Job Search screen context. */
   helperParagraph?: string;
   /** Optional callback when user takes primary action from fit briefing (e.g. Save + Start Tailoring). */
@@ -39,6 +43,8 @@ export interface PathAdvisorScreenOverrides {
   railContent?: PathAdvisorRailContent;
   /** Optional: when user clicks the rail NEXT BEST ACTION button (e.g. Job Search "Fix <gap>"). */
   onRailNextBestActionClick?: () => void;
+  /** Optional: composer input placeholder (e.g. "Ask about saved jobs..."). When set, overrides default "Ask PathAdvisor...". */
+  composerPlaceholder?: string;
 }
 
 interface PathAdvisorScreenOverridesState {

@@ -60,14 +60,20 @@ export interface PathAdvisorCardProps {
   currentScreen?: string;
   /** Optional label above the Do now block (e.g. "From Career & Resume"). When unset, shows "From Today's Focus". */
   briefingLabel?: string;
+  /** Optional one-line helper under briefingLabel (e.g. "Select a saved job to get personalized guidance."). */
+  briefingHelperText?: string;
   /** Optional rail content: INSIGHT card + NEXT BEST ACTION card (e.g. Career Readiness). When set, these render instead of hero Do now. */
   railContent?: {
     insightBullets: string[];
     nextBestAction: { text: string; ctaLabel: string };
     collapsedSectionLabels?: string[];
+    /** When true, style NEXT BEST ACTION box with orange outline and accent-tinted background (mockup). */
+    highlightNextBestAction?: boolean;
   };
   /** Optional: when user clicks the rail NEXT BEST ACTION button (e.g. Job Search Fix gap CTA). */
   onRailNextBestActionClick?: () => void;
+  /** Optional: composer input placeholder (e.g. "Ask about saved jobs..."). When unset, default "Ask PathAdvisor...". */
+  composerPlaceholder?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -578,6 +584,25 @@ export function PathAdvisorCard(props: PathAdvisorCardProps) {
           </span>
         </div>
 
+      {/* Briefing card (mockup: "from Saved Jobs" + helper text) when briefingLabel set; shows above railContent. */}
+      {!hasContextLogEntries && props.briefingLabel !== undefined && props.briefingLabel !== '' ? (
+        <div className="flex-shrink-0 mb-3">
+          <div
+            className="rounded-[var(--p-radius)] border p-2.5"
+            style={{ background: 'var(--p-surface2)', borderColor: 'var(--p-border)' }}
+          >
+            <p className="text-[10px] uppercase tracking-wide mb-1" style={{ color: 'var(--p-text-dim)' }}>
+              {props.briefingLabel}
+            </p>
+            {props.briefingHelperText !== undefined && props.briefingHelperText !== '' ? (
+              <p className="text-[12px]" style={{ color: 'var(--p-text-muted)' }}>
+                {props.briefingHelperText}
+              </p>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
+
       {/* When Context Log has entries for this screen, skip static rail content (Do now / Insight); log replaces it. */}
       {!hasContextLogEntries && props.railContent !== undefined && props.railContent !== null ? (
         <div className="flex-shrink-0 mb-3 space-y-3">
@@ -595,21 +620,39 @@ export function PathAdvisorCard(props: PathAdvisorCardProps) {
               })}
             </ul>
           </div>
+          {/* Mockup: when highlightNextBestAction, solid orange background and white text; CTA button darker orange + border. */}
           <div
             className="rounded-[var(--p-radius)] border p-2.5"
-            style={{ background: 'var(--p-surface2)', borderColor: 'var(--p-border)' }}
+            style={
+              props.railContent.highlightNextBestAction === true
+                ? {
+                    background: 'var(--p-accent)',
+                    border: '1px solid color-mix(in srgb, var(--p-accent) 70%, black)',
+                    color: 'var(--p-bg)',
+                  }
+                : { background: 'var(--p-surface2)', borderColor: 'var(--p-border)' }
+            }
           >
-            <p className="text-[10px] uppercase tracking-wide mb-1.5" style={{ color: 'var(--p-accent)' }}>
+            <p className="text-[10px] uppercase tracking-wide mb-1.5 flex items-center gap-1" style={{ color: 'var(--p-bg)' }}>
+              <Lightbulb className="w-3 h-3" aria-hidden />
               NEXT BEST ACTION
             </p>
-            <p className="text-[12px] mb-2" style={{ color: 'var(--p-text)' }}>{props.railContent.nextBestAction.text}</p>
+            <p className="text-[12px] mb-2" style={{ color: 'var(--p-bg)' }}>{props.railContent.nextBestAction.text}</p>
             <button
               type="button"
-              className="w-full rounded-[var(--p-radius)] px-3 py-1.5 text-[12px] font-medium transition-colors"
-              style={{
-                background: 'var(--p-accent)',
-                color: 'var(--p-bg)',
-              }}
+              className="w-full rounded-[var(--p-radius)] px-3 py-1.5 text-[12px] font-medium transition-colors outline-none hover:opacity-90 active:opacity-95 focus-visible:ring-2 focus-visible:ring-[var(--p-bg)] focus-visible:ring-offset-1"
+              style={
+                props.railContent.highlightNextBestAction === true
+                  ? {
+                      background: 'color-mix(in srgb, var(--p-accent) 75%, black)',
+                      color: 'var(--p-bg)',
+                      border: '1px solid var(--p-bg)',
+                    }
+                  : {
+                      background: 'var(--p-accent)',
+                      color: 'var(--p-bg)',
+                    }
+              }
               aria-label={props.railContent.nextBestAction.ctaLabel}
               onClick={props.onRailNextBestActionClick !== undefined ? props.onRailNextBestActionClick : undefined}
             >
@@ -994,7 +1037,7 @@ export function PathAdvisorCard(props: PathAdvisorCardProps) {
             >
               <input
                 type="text"
-                placeholder="Ask PathAdvisor..."
+                placeholder={props.composerPlaceholder !== undefined && props.composerPlaceholder !== '' ? props.composerPlaceholder : 'Ask PathAdvisor...'}
                 value={inputValue}
                 onChange={function (e) {
                   setInputValue(e.target.value);

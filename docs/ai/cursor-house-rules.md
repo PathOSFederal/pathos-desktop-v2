@@ -1,73 +1,202 @@
-# Cursor House Rules
+# PathOS Frontend Execution Rules
 
-> **Purpose**: Canonical guidance for all AI-assisted development in the PathOS Tier 1 Frontend repo.
-> This file is the source of truth for Cursor rules. Future prompts should reference this file.
-> If any AI doc conflicts, cursor-house-rules.md wins.
+> **Purpose**: Repo-local execution guidance for AI-assisted development in the PathOS frontend.
+> These rules define how to execute work in this repo. They do not redefine task intent.
+> Apply them using the precedence model from `C:\dev\PathOS\AGENTS.md`.
 
 ---
 
-## Hard Rules (Enforced)
+## How To Apply This File
+
+- Explicit user request and the active task file define what to build.
+- This file defines repo-local coding, UI, testing, and workflow standards.
+- Hard constraints in this file remain mandatory.
+- Soft execution preferences in this file must not override explicit task intent.
+- Generic guidance in this file must not be used to avoid structural UI correction or mock-parity work that is explicitly required inside the targeted surface.
+
+---
+
+## Hard Constraints
 
 - **Never use `var`**. Always use `const` or `let`.
-- **Avoid `?.`, `??`, and `...` (spread)**. Use explicit null checks and manual object/array construction.
-- **Over-comment new/modified code** with teaching-level headers explaining why/how.
+- **Avoid `?.`, `??`, and `...` (spread)**. Use explicit null checks and manual object or array construction.
+- **Over-comment new or modified code** with teaching-level headers explaining purpose, fit, and behavior.
 - **Never run `git commit` or `git push`**. Leave commits to the developer.
-- **Always update `docs/merge-notes/current.md`** with git state, diff outputs, and patch artifact info.
-- **Always update `docs/change-briefs/day-XX.md`** for the current day's changes.
-- **Always log `git diff` and create patch artifact** in `artifacts/` folder.
-  - **Preferred method:** Run `pnpm docs:day-patches --day <N>` to auto-generate both patch files (cumulative and incremental). The script generates the canonical baseline patch (develop → working tree) and excludes artifacts.
-  - **Fallback (manual):** See "Patch Artifact Rules (Canonical)" section below for the correct commands.
+- **Always update `docs/merge-notes/current.md`** with git state, diff outputs, and patch artifact info when the active workflow requires it.
+- **Always update `docs/change-briefs/day-XX.md`** for the current day's changes when the active workflow requires it.
+- **Always log `git diff` and create patch artifacts** in the `artifacts/` folder when the active workflow requires it.
 
 ---
 
-## Code Style Rules
+## Coding Standards
 
 ### Variables
 
-- **Never use `var`**. Always use `const` or `let`.
+- Never use `var`.
 - Prefer `const` unless reassignment is genuinely needed.
 - Use descriptive variable names that explain intent.
 
-### Operators to Avoid
+### Operators To Avoid
 
-- **Avoid `?.` (optional chaining)**. Use explicit null checks: `if (x !== null && x !== undefined) { x.prop }`.
-- **Avoid `??` (nullish coalescing)**. Use explicit ternary: `x !== null && x !== undefined ? x : defaultValue`.
-- **Avoid `...` (spread operator)**. Use explicit loops or Object.assign for object copying.
+- Avoid `?.` (optional chaining). Use explicit null checks.
+- Avoid `??` (nullish coalescing). Use explicit ternaries or clear conditionals.
+- Avoid `...` (spread operator). Use explicit loops or `Object.assign` for object copying.
 
 ### Comments
 
-- **Over-comment new logic** with teaching-level comments.
+- Over-comment new logic with teaching-level comments.
 - Comments should explain:
-  - **Why** the code exists
-  - **How** it works
-  - **Where** it fits in the architecture
-- Include JSDoc for all exported functions and types.
+  - why the code exists
+  - how it works
+  - where it fits in the architecture
+- Include JSDoc for exported functions and types when that is the local convention.
 
 ### Coding Conventions
 
 - Follow existing code style and folder conventions in this repo.
-- Use `function` declarations over arrow functions for top-level exports (consistency with existing codebase).
-- Avoid `for...of` loops and spread operators in hot paths (browser compatibility).
-- Prefer explicit `for` loops when iterating arrays in store/adapter code.
+- Use `function` declarations over arrow functions for top-level exports where that matches local convention.
+- Avoid `for...of` loops and spread operators in hot paths.
+- Prefer explicit `for` loops when iterating arrays in store or adapter code.
+- Use explicit, maintainable code over clever abstractions.
+- Avoid unrelated rewrites, renames, formatting churn, or file moves.
 
 ---
 
-## Development Workflow
+## Execution Guidance
 
-### Before Making Changes
+### Reviewable Diffs
 
-1. Read and understand relevant files before proposing edits.
-2. Check existing patterns in similar files.
-3. Verify the change aligns with the component's documented purpose.
+- Keep changes proportional to the task and easy to review.
+- Keep the diff focused on the requested work.
+- Avoid broad incidental churn.
+- If the task explicitly requires structural UI correction, mock parity, or stronger visual hierarchy inside the targeted surface, make those changes directly instead of stopping at smaller cosmetic adjustments.
 
-### After Making Changes
+### Architecture Discipline
 
-Run these commands and paste their outputs:
+- Prefer the active architecture path for the feature you are touching.
+- Avoid legacy paths unless required for correctness or compatibility.
+- Preserve routing, shell behavior, hydration boundaries, and persistence behavior unless the task explicitly requires changes there.
+- Treat existing page structure as reusable context, not as an automatic veto against targeted screen restructuring.
+
+### File Organization
+
+- Place new components in the appropriate subdirectory under `components/`.
+- Create barrel exports (`index.ts`) for component groups when that is the local pattern.
+- Keep component files focused and extract shared logic to hooks or utilities where it improves maintainability.
+- Keep pure functions in appropriate `lib/` subdirectories.
+- Keep adapters and mappers in the repo's established adapter locations.
+
+---
+
+## UI And Accessibility Standards
+
+- Semantic HTML first. Use native `<button>`, `<a>`, `<input>`, and form labeling before ARIA fallbacks.
+- Build 508-ready by default (WCAG-aligned mechanics), but do not claim formal certification or compliance without a completed audit.
+- Tooltips for non-obvious controls must include name, short purpose, and keyboard shortcut when available.
+- Tooltip behavior must work on hover and keyboard focus, and must not reveal private or sensitive data.
+- Trust-first UX and local-first behavior must remain clear where the product depends on them.
+
+### Interaction-State Standard
+
+Every interactive control must show appropriate visible feedback for the states that apply to it. Static, unresponsive controls are not acceptable unless there is a strong product reason.
+
+**Required states** (apply the ones relevant to the control):
+
+| State | Requirement |
+|-------|-------------|
+| `hover` | Visible background, border, or opacity change on pointer hover. |
+| `focus-visible` | Keyboard-triggered focus ring or equivalent outline. Must be at least as visually obvious as hover. Must use PathOS theme tokens (`--p-accent` ring or equivalent) for consistency across the app. |
+| `active` / `pressed` | Brief visual shift (scale, darken, or opacity) confirming the interaction was registered. |
+| `selected` / `current` | Persistent highlight that remains while the item is the active selection. Must be visually stronger and more persistent than hover. Must not rely on color alone — use a border, accent bar, icon, check, label, or equivalent secondary signal alongside color. |
+
+**Controls this applies to:**
+
+- Buttons (primary, secondary, icon buttons, ghost buttons)
+- Inputs and search boxes (border highlight on focus, visible placeholder change on hover where appropriate)
+- List rows and cards (selectable rows, job cards, saved-job rows)
+- Tabs and nav items
+- Mode switches and segmented controls (workspace mode toggles, view switchers)
+- Section-level sub-navigation (document section tabs, content area nav)
+- Dropdown triggers and dropdown options
+- Chips and filter tags
+- Clickable panels, sidebar actions, and similar interactive surfaces
+
+**Consistency rules:**
+
+- Focus-visible treatment must be keyboard-visible (`:focus-visible`, not `:focus`) and consistent across all pages.
+- Hover and focus-visible must use PathOS theme tokens, not hardcoded color values.
+- Selected/current state must survive hover — hovering a selected item must not make it look unselected.
+- When multiple items can be selected or one item is "current," the distinction between selected and unselected must be immediately obvious without relying on color alone.
+
+**Implementation patterns per control type:**
+
+| Control | hover | focus-visible | active | selected |
+|---------|-------|---------------|--------|----------|
+| Primary button | Slight darken or opacity shift on `var(--p-accent)` fill | `ring-2 ring-[var(--p-accent)]` outline via `:focus-visible` | Scale or opacity shift confirming press | N/A |
+| Secondary / ghost button | `var(--p-surface2)` background | `ring-2 ring-[var(--p-accent)]` outline | Slight darken | N/A |
+| Icon button | `INTERACTIVE_HOVER_CLASS` (theme.css) | `ring-2 ring-[var(--p-accent)]` inset | Opacity shift | N/A |
+| Input / search box | Border brightens to `var(--p-text-dim)` | `ring-2 ring-[var(--p-accent)]` inset ring | N/A | N/A |
+| List row / card | `var(--p-surface2)` background (explicit hover tracking) | `ring-2 ring-[var(--p-accent)]` inset ring on focusable child | N/A | Accent-tinted bg (`color-mix`) + accent left border. Must be stronger than hover. |
+| Tab / nav item | Subtle background shift | `ring-2 ring-[var(--p-accent)]` | N/A | Accent border-bottom or fill; text color shift to `var(--p-accent)` |
+| Mode switch / segmented | Text brightens to `var(--p-text-muted)` + faint underline hint (useState tracking) | `ring-2 ring-[var(--p-accent)]` inset | Opacity reduction (0.75) | Accent text + 2px accent underline + subtle accent bg tint. Must survive hover without regression. |
+| Section sub-nav | Text brightens + subtle underline hint (useState tracking, lighter than mode switch) | `ring-2 ring-[var(--p-accent)]` inset | Opacity reduction | Accent text + 2px accent underline + faint accent bg tint. |
+| Dropdown trigger | `INTERACTIVE_HOVER_CLASS` + border change | `ring-2 ring-[var(--p-accent)]` inset | N/A | N/A |
+| Dropdown option | Background shift to `var(--p-surface2)` | `ring-2 ring-[var(--p-accent)]` inset | N/A | Accent text + tinted background; font-weight 600 |
+| Chip / filter tag | Slight background brighten | `ring-2 ring-[var(--p-accent)]` | N/A | Accent-tinted bg if toggleable |
+
+**Recurring-defect prevention rules:**
+
+- Every new interactive control must have explicit hover and focus-visible treatment before the PR is considered complete.
+- Use `INTERACTIVE_HOVER_CLASS` (from `styles/interactiveHover.ts`) for buttons, triggers, and icon actions — it provides consistent token-based hover via theme.css.
+- For selectable list rows, use explicit `useState` hover tracking (not CSS-only `:hover`) when the selected state needs to coexist with hover without visual conflict.
+- For mode switches, segmented controls, and section sub-navigation, use explicit `useState` hover tracking with underline-accent patterns (not `INTERACTIVE_HOVER_CLASS`, which applies background-fill hover that conflicts with underline tab semantics). See `WorkspaceModeTab` and `AnnouncementSectionTab` in `SavedJobsScreen.tsx` for the reference implementation.
+- Score indicators and progress bars must use consistent color tiers across all surfaces: green (`--p-success`) for strong (>=80), amber (`--p-warning`) for medium (>=60), red (`--p-danger`) for weak (<60). Never hardcode score-tier colors — use `scoreTierColor()` from `styles/scoreTiers.ts`. The same shared function must be used in Saved Jobs, Job Search, and any other surface that renders score-coded indicators. Gap-state labels (Strong / Adequate / Gap) must use the same color scale.
+- Horizontal bar fills (e.g. match dimension bars) must include `role="progressbar"` with `aria-valuenow`, `aria-valuemin`, `aria-valuemax`, and `aria-label` for accessibility.
+- Interactive rows in list panes (saved jobs, search results) must maintain consistent height regardless of selection state. No expanding inline buttons or height changes on hover/select.
+- Action icon buttons (trash, remove, etc.) inside list rows must be vertically centered and use `INTERACTIVE_HOVER_CLASS` for consistent feedback. Do not add extra navigational icons (chevrons, arrows) unless they serve a distinct navigation purpose.
+- When the same derived value (e.g. readiness score) appears in both a list row and a detail view, both must use the same derivation function to ensure consistency.
+- When adding a new page or component, verify interaction states against this table before considering the work complete. Missing states are defects, not optional polish.
+
+---
+
+## State, Persistence, And Testing Expectations
+
+### State And Persistence
+
+- When saving objects to state or localStorage, deep clone arrays to avoid shared references.
+- Verify persistence behavior by setting a value, refreshing, and confirming the value persists or does not persist per design.
+- Use controlled mode for Radix components when programmatic state access is required.
+
+### Tests
+
+- Tests are required for:
+  - business logic functions
+  - bug fixes that can be reproduced deterministically
+  - adapters and mappers
+  - store behavior with persistence expectations
+- Tests are optional for:
+  - pure UI-only changes such as styling or layout
+  - trivial one-line utilities
+
+### Accessibility Checks
+
+- Dialogs must have proper focus management.
+- Select components should support keyboard navigation.
+- Interactive elements need appropriate accessible names or labels.
+
+Use `C:\dev\PathOS\docs\testing\testing-standards.md` and `C:\dev\PathOS\docs\testing\playwright-guidelines.md` for canonical testing doctrine and runtime validation expectations.
+
+---
+
+## Workflow Outputs
+
+### Validation Commands
+
+Run the repo's required validation commands for the task scope and report what actually ran.
+
+When the active workflow requires full frontend validation, the standard command set is:
 
 ```bash
-# Set DAY environment variable first (required for ci:validate)
-# PowerShell: $env:DAY="34"; pnpm ci:validate
-# Bash: DAY=34 pnpm ci:validate
 pnpm ci:validate
 pnpm lint
 pnpm typecheck
@@ -75,192 +204,32 @@ pnpm test
 pnpm build
 ```
 
-**Day Selection for Validation:**
-- Set `DAY` environment variable before running `pnpm ci:validate`
-- PowerShell: `$env:DAY="34"; pnpm ci:validate`
-- Bash: `DAY=34 pnpm ci:validate`
-- This ensures validators check the correct day's artifacts and change briefs
+### Merge Notes And Change Briefs
 
-All quality gates must pass before a PR can be merged. **Warnings Policy:** Warnings in lint/typecheck/test/build output are allowed for now. Only hard failures block merging. A dedicated "Warnings Cleanup Day" will be scheduled in the future to eliminate warnings and optionally tighten rules.
+- `docs/merge-notes/current.md` is append-only.
+- Add a new dated section for the run with branch name, summary of changes, files changed, behavior changes, follow-ups, and commands run.
+- Update the applicable `docs/change-briefs/day-XX.md` file for the current day's work when required by the workflow.
 
-### Documentation Updates
+### Patch Artifact Rules
 
-- **`docs/merge-notes/current.md` is append-only**. Never delete or modify existing sections.
-- **Archiving rule**: When starting a new day, MOVE `docs/merge-notes/current.md` to `docs/merge-notes/archive/day-<N>.md` (where N is the prior day number), then create a fresh `docs/merge-notes/current.md` for the new day.
-- Add a new dated section at the end with:
-  - Branch name
-  - Summary of changes
-  - Files changed
-  - Behavior changes
-  - Follow-ups/deferred items
-  - Commands run and outputs
+Key principle: because work often remains uncommitted during a run, the canonical cumulative patch must reflect `develop` to working tree, not `develop...HEAD`.
 
-### Patch Artifact Rules (Canonical)
+- Regenerate patch artifacts at the end of the run after final edits.
+- Exclude `artifacts/` from patch contents.
+- Use UTF-8 output when generating patch files in PowerShell.
+- Record artifact filenames and file metadata in merge notes when the workflow requires it.
 
-> **Key principle**: Since we do NOT commit during runs, `HEAD` often does not advance. Therefore, the canonical cumulative patch must reflect **develop → working tree** (including staged and unstaged changes), NOT `develop...HEAD`.
-
-- **Patch artifact must be regenerated at end of every run** (after all changes and after `pnpm gates`)
-- **Use PowerShell UTF-8 method** — do NOT use `>` (can produce UTF-16)
-- **No paraphrased sizes** (e.g., "~260KB" or "approximately 260 KB" is forbidden)
-- **If code changes after patch generation, regenerate** before stopping
-- **Always exclude `artifacts/` folder** from the patch content
-- **Append a "Patch Artifacts (FINAL)" block at the end of each run** — mark it as FINAL and authoritative
-- **Do not edit prior "Patch Artifacts" blocks** — since `docs/merge-notes/current.md` is append-only, prior blocks remain for reference
-
-#### Two patches required at the end of each prompt run:
-
-1. **Cumulative day patch (required):** `artifacts/day-<N>.patch` — all changes from develop baseline to current working tree
-2. **Incremental patch (required):** `artifacts/day-<N>-run.patch` — incremental changes for the latest Cursor run (HEAD to working tree)
-
-**Note:** Use `pnpm docs:day-patches --day <N>` to generate both patches automatically. The script handles UTF-8 encoding and excludes artifacts/ folder.
-
-#### Preferred method (automated):
-
-```bash
-pnpm docs:day-patches --day <N>
-```
-
-This generates both patches automatically:
-- `artifacts/day-<N>.patch` (cumulative: develop → working tree)
-- `artifacts/day-<N>-run.patch` (incremental: HEAD → working tree)
-
-#### Manual method (PowerShell UTF-8):
-
-**Cumulative day patch:**
-
-```powershell
-git add -N .
-New-Item -ItemType Directory -Force artifacts | Out-Null
-git diff --binary develop -- . ":(exclude)artifacts" | Out-File -FilePath artifacts/day-<N>.patch -Encoding utf8
-Get-Item artifacts/day-<N>.patch | Format-List Name,Length,LastWriteTime
-```
-
-**Incremental patch:**
-
-```powershell
-git add -N .
-git diff --binary HEAD -- . ":(exclude)artifacts" | Out-File -FilePath artifacts/day-<N>-run.patch -Encoding utf8
-Get-Item artifacts/day-<N>-run.patch | Format-List Name,Length,LastWriteTime
-```
-
-#### Manual method (Bash):
-
-**Cumulative day patch:**
-
-```bash
-git add -N .
-mkdir -p artifacts
-git diff --binary develop -- . ':(exclude)artifacts' > artifacts/day-<N>.patch
-ls -lh artifacts/day-<N>.patch
-```
-
-**Incremental patch:**
-
-```bash
-git add -N .
-git diff --binary HEAD -- . ':(exclude)artifacts' > artifacts/day-<N>-run.patch
-ls -lh artifacts/day-<N>-run.patch
-```
-
-### Patch Artifact Checklist
-
-Before ending every Cursor run, verify:
-
-- [ ] Patch regenerated at end (overwritten)
-- [ ] Patch written as UTF-8 (PowerShell `Out-File -Encoding utf8`)
-- [ ] Patch uses develop baseline (NOT `develop...HEAD`)
-- [ ] Patch excludes `artifacts/` folder
-- [ ] `Get-Item ... | Format-List` output pasted into current.md
-- [ ] No diffs pasted into current.md
+Required artifacts when the workflow calls for them:
+1. `artifacts/day-<N>.patch`
+2. `artifacts/day-<N>-run.patch` or the repo's current incremental naming variant
 
 ---
 
-## Change discipline
+## Human Simulation Gate
 
-### Minimal diffs
-
-Make the smallest possible edits required to complete the task. Do not rewrite whole files, reformat broadly, or reorder code unless necessary. If you accidentally create large diffs (auto-formatting, import churn), undo those hunks with `git restore -p` and re-apply a minimal targeted fix.
-
-> **Note**: Patch artifact commands are defined in the "Patch Artifact Rules (Canonical)" section above. Do not use `develop...HEAD` for patch generation — use the canonical develop baseline commands.
-
----
-
-## File Organization
-
-### Component Files
-
-- Place new components in the appropriate subdirectory under `components/`.
-- Create barrel exports (`index.ts`) for component groups.
-- Keep component files focused; extract shared logic to hooks or utilities.
-
-### Store Files
-
-- Zustand stores live in `store/`.
-- Include detailed file headers explaining the store's purpose.
-- Export selectors for all commonly accessed state.
-
-### Library Files
-
-- Pure functions go in `lib/` subdirectories.
-- Adapters/mappers go in `lib/jobs/adapters/`.
-- API client functions go in `lib/api/`.
-
----
-
-## Common Pitfalls to Avoid
-
-### State Persistence Bugs
-
-- When saving objects to state or localStorage, **deep clone arrays** to avoid shared references.
-- Verify persistence behavior by:
-  1. Setting a value
-  2. Refreshing the page
-  3. Confirming the value persists (or doesn't, per design)
-
-### UI Patterns
-
-- Use `Button asChild` + `Link` for navigational buttons (avoids `<a>` inside `<button>`).
-- Add `type="button"` to buttons inside forms or Radix Collapsible components.
-- Use controlled mode for Radix components when you need programmatic state access.
-
-### UI and Accessibility Implementation Standards
-
-- Semantic HTML first. Use native `<button>`, `<a>`, `<input>`, and form labeling before ARIA fallbacks.
-- Build 508-ready by default (WCAG-aligned mechanics), but do not claim formal certification/compliance without a completed audit.
-- Tooltips for non-obvious controls must include name, short purpose, and keyboard shortcut when available.
-- Tooltip behavior must work on hover and keyboard focus, and must not reveal private/sensitive data.
-- Any interactive element must have visible `hover`, `focus-visible`, `active/pressed`, and `disabled` states.
-- Any selectable list row/card/tab/item must show hover highlight, selected state, and focus-visible indicator.
-- Selected state must not rely on color alone (use icon/check, border, label, or equivalent).
-- Focus-visible must be at least as visually obvious as hover.
-- Verification for tooltip behavior and accessibility requirements is enforced in `docs/ai/testing-standards.md` (A11y/508-ready Gate).
-
-### Type Safety
-
-- Avoid `any` types. Use explicit types or `unknown` with type guards.
-- Use Zod schemas for runtime validation of external data.
-- Cast to extended types only when you've verified the shape.
-
----
-
-## Quality Standards
-
-### Tests
-
-- Tests are required for:
-  - Business logic functions
-  - Bug fixes (add a test that would have caught the bug)
-  - Adapters/mappers
-  - Store behavior with persistence expectations
-- Tests are optional for:
-  - Pure UI-only changes (styling, layout)
-  - Trivial one-liner utilities
-
-### Accessibility
-
-- Dialogs must have proper focus management.
-- Select components should support keyboard navigation.
-- Interactive elements need appropriate ARIA labels.
+- Evaluate whether human simulation is required using the canonical testing doctrine.
+- Record the decision and triggers in `docs/merge-notes/current.md` when the workflow requires it.
+- If required, run the appropriate runtime validation steps and document the evidence.
 
 ---
 
@@ -269,111 +238,20 @@ Make the smallest possible edits required to complete the task. Do not rewrite w
 | Rule | Do | Don't |
 |------|-----|-------|
 | Variables | `const x = 1;` | `var x = 1;` |
-| Comments | Explain why and how | Leave complex code unexplained |
+| Comments | Explain why and how | Restate syntax |
 | Arrays | Deep clone when saving | Share references between state |
 | Buttons in links | `<Button asChild><Link>` | `<Button><a>` |
-| Form buttons | `<button type="button">` | `<button>` (defaults to submit) |
+| Form buttons | `<button type="button">` | `<button>` |
 
 ---
 
----
+## Hard Rules Summary
 
-## AI Acceptance Checklist (Required in merge-notes)
-
-Before marking any feature complete, document in `docs/merge-notes/current.md`:
-
-1. **Flow explanation**: Describe the data flow as UI → store → persistence → UI
-2. **Store(s) touched**: List all Zustand stores affected
-3. **Storage key(s) touched**: List all localStorage keys read/written
-4. **Failure mode if broken**: What would happen if this code fails?
-5. **How tested**: Manual verification steps or automated tests
-
-Example:
-
-```markdown
-### AI Acceptance Checklist
-
-| Item | Value |
-|------|-------|
-| Flow | CreateAlert button → jobAlertsStore.createAlert() → pathos-job-alerts → Alerts tab shows new alert |
-| Store(s) | jobAlertsStore |
-| Storage key(s) | pathos-job-alerts |
-| Failure mode | Alert not saved, disappears on refresh |
-| How tested | Manual: create → appears → refresh → persists |
-```
-
----
-
-## Owner Map Update Rule
-
-Any PR that changes:
-- Routes (adds/removes pages in `app/`)
-- Stores (adds/modifies files in `store/`)
-- Persistence keys (changes to `lib/storage-keys.ts`)
-- Critical flows
-
-**MUST**:
-1. Update `docs/owner-map.md` (human-maintained)
-2. Regenerate `docs/owner-map.generated.md` by running `pnpm docs:owner-map`
-3. Generate/update both files in the same PR. Do not commit or push during Cursor runs; the developer will commit after review.
-
-**CI Behavior:**
-- Owner map check runs conditionally in CI (only when relevant paths change: `app/`, `components/`, `lib/`, `store/`, `pages/`, or `docs/owner-map*`)
-- CI will fail if the generated owner map is out of sync (only when the check runs)
-- Unrelated PRs (docs-only, CI-only, etc.) will skip the owner map check
-
----
-
-## Human Simulation Gate (required decision per ticket)
-
-> **Purpose**: Ensure human simulation is performed when needed and explicitly skipped when not.
-> **Triggers**: Defined in `docs/ai/testing-standards.md` under "Human Simulation Rule (conditional, required)"
-
-### Decision Process
-
-At the start of every ticket, Cursor must:
-
-1. **Evaluate triggers** from `docs/ai/testing-standards.md` (Human Simulation Rule)
-2. **Record in `docs/merge-notes/current.md`**:
-   - "Human Simulation Gate: required yes/no"
-   - "Triggers hit: [list or 'none']"
-   - "Why: [brief explanation]"
-
-### When Required
-
-If **any trigger** is hit:
-
-1. Include a "Testing Evidence" section in `docs/merge-notes/current.md`
-2. Run the required dev simulation steps (pnpm dev → flow → refresh → localStorage check)
-3. If SSR/hydration/routing is involved: also run `pnpm build && pnpm start` and repeat the flow
-
-### When Not Required
-
-If **no triggers** are hit:
-
-- Document: "Human simulation not required"
-- Document: "Reason: [e.g., 'text-only change', 'cosmetic CSS update', 'comment-only']"
-
-### Example Gate Entry
-
-```markdown
-### Human Simulation Gate
-
-| Item | Value |
-|------|-------|
-| Required | Yes |
-| Triggers hit | Changes Zustand store logic, Adds Create action |
-| Why | New alert creation action modifies jobAlertsStore |
-```
-
----
-
-## Hard Rules (Summary)
-
-- **No `var`** — use `let` or `const` only
-- **Minimal diffs** — do not rewrite whole files
-- **Do not commit/push** — leave commits to the developer
-- **For any feature with a create button**: Test create → appears elsewhere → refresh → still there, and confirm the intended localStorage key exists and changes
+- No `var`
+- No commit or push
+- Reviewable, task-scoped diffs
+- Preserve trust-first, local-first, accessibility, and persistence standards where applicable
+- Complete required workflow reporting and artifacts when the active workflow requires them
 
 ---
 

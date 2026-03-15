@@ -33,6 +33,7 @@ import {
   BookOpen,
   ChevronRight,
   Info,
+  FileText,
 } from 'lucide-react';
 import { useNav } from '@pathos/adapters';
 import { storageSetJSON, storageGetJSON } from '@pathos/core';
@@ -945,7 +946,8 @@ function JobDetailsPanel(props: {
             borderRadius: 'var(--p-radius)',
           }}
         >
-          Tailor resume
+          <FileText className="w-4 h-4" />
+          Build Resume
         </button>
         <AskPathAdvisorButton
           onClick={props.onAskPathAdvisor}

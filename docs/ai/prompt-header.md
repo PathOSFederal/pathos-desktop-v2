@@ -1,73 +1,31 @@
-# Cursor Prompt Header
+# Frontend Prompt Stack Pointer
 
-> **Usage**: Copy this header to the beginning of any Cursor prompt to ensure consistent behavior.
+This path is retained for compatibility with older prompts and local repo references.
 
----
+Use the execution stack below:
 
-## Standard Header (Copy This)
+1. explicit user request
+2. active task file
+3. repo-local app guidance
+4. root builder guidance
+5. workflow and process docs
 
-```
-Do not commit or push.
+Hard repo constraints remain mandatory.
+Soft guidance must not override explicit task intent.
 
-Cursor/Codex: Read these first, in order:
-1) docs/ai/cursor-house-rules.md
-2) docs/ai/testing-standards.md
-3) docs/ai/prompt-header.md
-Process source of truth: docs/ai/cursor-house-rules.md
+Canonical builder stack:
+- `C:\dev\PathOS\AGENTS.md`
+- `C:\dev\PathOS\docs\agents\builder-agent-rules.md`
+- `C:\dev\PathOS\docs\workflow\fast-iteration-checklist.md`
+- `C:\dev\PathOS\tasks\<task>.md`
+- applicable repo-local guidance such as `apps/pathos-platform/frontend/AGENTS.md`
 
-Then execute the task using the sections below.
+Canonical hardening stack:
+- `C:\dev\PathOS\AGENTS.md`
+- `C:\dev\PathOS\docs\agents\codex-hardening-rules.md`
+- `C:\dev\PathOS\docs\workflow\hardening-checklist.md`
+- `C:\dev\PathOS\docs\testing\testing-standards.md`
+- `C:\dev\PathOS\tasks\<task>.md`
+- applicable repo-local guidance such as `apps/pathos-platform/frontend/AGENTS.md`
 
-## 1) Task Summary
-- Day/ticket number, branch, goal, scope.
-
-## 2) Constraints
-- Repo-specific constraints and non-goals.
-- Keep diffs minimal.
-
-## 3) Commands To Run
-- Preflight git state commands.
-- Build/test/lint/typecheck commands needed for this ticket.
-
-## 4) Gates To Run
-- Human Simulation Gate decision (required yes/no, triggers hit, why).
-- A11y/508-ready Gate when UI-impacting.
-
-## 5) Patch Artifacts
-- Generate required day patch artifacts.
-- Record exact artifact metadata in docs/merge-notes/current.md.
-
-## 6) Merge-Notes + Change Brief Updates
-- Update docs/merge-notes/current.md (append-only) with commands, outputs, and evidence.
-- Update docs/change-briefs/day-<N>.md for this day.
-
-Task:
-[Insert task details]
-```
-
----
-
-## Required Prompt Sections
-
-Every prompt must include:
-
-1. Task Summary
-2. Constraints
-3. Commands To Run
-4. Gates To Run
-5. Patch Artifacts
-6. Merge-Notes + Change Brief Updates
-
----
-
-## Tooltip Standard Callout
-
-For UI work, enforce the tooltip standard from canonical docs:
-- Interactive Feedback Standard also applies to all interactive UI states; see `docs/ai/cursor-house-rules.md`.
-- Include name + short purpose + keyboard shortcut when available.
-- Must work on hover and keyboard focus.
-- Must not reveal private/sensitive data.
-- Verify behavior in the A11y/508-ready Gate evidence.
-
----
-
-*Last updated: March 2026*
+Do not copy stale prompt blocks from this location into new prompts.

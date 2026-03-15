@@ -88,7 +88,7 @@ export {
 } from './guided-apply-storage';
 
 // Job types
-export type { Job, JobSearchStore } from './job-types';
+export type { Job, JobSearchStore, SavedJobStatus } from './job-types';
 export { JOB_SEARCH_SCHEMA_VERSION, createMockJobs } from './job-types';
 
 // Job storage helpers
@@ -128,6 +128,12 @@ export {
   clearSavedJobs,
   exportSavedJobsJSON,
 } from './saved-jobs-storage';
+
+// Saved Jobs mock data (deterministic dev dataset)
+export {
+  seedSavedJobsIfEmpty,
+  createSavedJobsMockData,
+} from './saved-jobs-mock-data';
 
 // Today types
 export type { TodayItem, TodayStore } from './today-types';

@@ -1,3 +1,156 @@
+# Day 73 run 10 — Tab label rename on Saved Jobs workspace (March 15, 2026)
+
+**Branch:** `savedJobsPage`
+**Scope:** Saved Jobs page only — tab label rename. No layout, behavior, routing, or architecture changes. No commit/push.
+
+## What changed
+
+- Renamed "Decision View" tab to "Match Overview"
+- Renamed "Announcement" tab to "Job Overview"
+- Updated aria-labels, comments, and test expectations to match
+- No changes to interaction states, styling, layout, or architecture
+
+## Required workflow logging
+
+- **git status:** branch `savedJobsPage` with pre-existing Day 73 working-tree changes plus this label rename; no staged changes
+- **git branch --show-current:** `savedJobsPage`
+- **git diff --name-status develop...HEAD:** empty (all changes are uncommitted working-tree modifications)
+- **git diff --stat develop...HEAD:** empty (same reason)
+- **Baseline note:** `develop` exists, but `develop...HEAD` is empty because all Day 73 work remains in the working tree rather than in branch commits.
+
+## Patch artifacts
+
+- **Cumulative:** `artifacts/day-73.patch` — generated from `git diff develop -- . ':!artifacts/'`; 334,312 bytes (326.5 KB)
+- **Incremental:** `artifacts/day-73-this-run.patch` — generated from `git diff -- ':!artifacts/'`; 334,312 bytes (326.5 KB)
+- **Note:** Both patches are equivalent because all branch changes are uncommitted.
+- **ls -lh output:**
+  - `artifacts/day-73.patch` — 326.5 KB
+  - `artifacts/day-73-this-run.patch` — 326.5 KB
+
+---
+
+# Day 73 run 9 — Saved Jobs hardening review pass (March 15, 2026)
+
+**Branch:** `savedJobsPage`  
+**Scope:** Saved Jobs only. No Job Search implementation changes. No commit/push.
+
+## Required workflow logging
+
+- **git status:** branch contains pre-existing Day 73 working-tree changes plus this hardening pass; new Saved Jobs files remain unstaged.
+- **git branch --show-current:** `savedJobsPage`
+- **git diff --name-status develop...HEAD:** no output in this checkout
+- **git diff --stat develop...HEAD:** no output in this checkout
+- **Baseline note:** `develop` exists, but `develop...HEAD` is empty here because the current Day 73 work is still in the working tree rather than in branch commits.
+
+## Patch artifacts
+
+- **Cumulative:** `artifacts/day-73.patch` — generated from `git diff develop...HEAD`; currently `0` bytes because the commit-range diff is empty in this checkout.
+- **Incremental:** `artifacts/day-73-this-run.patch` — generated from `git diff`; currently `322147` bytes.
+- **Artifact size log (`ls artifacts/day-73.patch,artifacts/day-73-this-run.patch`):**
+  - `artifacts/day-73.patch` — `0`
+  - `artifacts/day-73-this-run.patch` — `322147`
+
+## Hardening summary
+
+- **Accessibility:** added proper tab/panel semantics to Decision View and Announcement navigation (`aria-controls`, stable ids, selected tab focus handling).
+- **Interaction states:** added `focus-within` treatment on saved-job rows so keyboard navigation now has a visible row-level state instead of only an inner text ring.
+- **Score correctness:** fixed the header match badge so its color follows the shared score-tier rules instead of always rendering as success green.
+- **Layout stability:** kept the fixed footer pattern, added explicit test hooks for the scroll region and action row, and made the decision-summary grids auto-fit instead of forcing cramped four-column layouts at narrower widths.
+- **Decision hierarchy:** retained the decision-first strip, but hardened it as the clear first-glance layer above Match Intelligence; low-value `Schedule` remains out of the prime decision band.
+- **Build Resume:** verified and preserved as a first-class fixed action; added regression coverage for its presence.
+- **Mock data:** widened the deterministic score spread and added exact threshold examples so red / amber / green bands can all be reviewed, including `60` and `80` readiness boundaries.
+- **Tests:** replaced the prior smoke-only Saved Jobs test file with focused regressions for action-row presence, Build Resume, tab/panel semantics, mode-specific rendering, score-tier behavior, and deterministic mock-data coverage.
+
+## Files changed in this pass
+
+- `packages/ui/src/screens/SavedJobsScreen.tsx`
+- `packages/ui/src/screens/SavedJobsScreen.test.tsx`
+- `packages/core/src/saved-jobs-mock-data.ts`
+- `docs/change-briefs/day-73.md`
+- `docs/merge-notes/current.md`
+- `artifacts/codexReview.md`
+- `artifacts/day-73.patch`
+- `artifacts/day-73-this-run.patch`
+
+## Validation
+
+- `pnpm lint` — pass with pre-existing repo warnings; no lint errors after this pass
+- `pnpm typecheck` — pass
+- `pnpm test` — pass (`57` files, `814` tests)
+- `pnpm build` — pass
+- `pnpm test packages/ui/src/screens/SavedJobsScreen.test.tsx` — pass (`10` tests)
+
+## Known risks / follow-ups
+
+- **Branch hygiene:** `git status` still shows many Day 73 branch-wide working-tree changes outside the three Saved Jobs files touched in this pass; reviewers should evaluate this run within that broader branch context.
+- **Runtime feel still needs human eyes:** the new semantics and layout stability are validated structurally, but the hover/active feel of the tabs still deserves a quick manual pass in `/dashboard/saved-jobs`.
+- **Existing repo warnings remain:** lint warnings and noisy test stderr from unrelated areas remain outside this task’s scope.
+- **Unused helpers remain in the screen file:** `buildAnchorKey` and `countUniqueAgencies` are still unused pre-existing leftovers; not changed here to avoid scope creep.
+
+---
+
+# Day 73 run 8 — Saved Jobs visual parity correction (March 14, 2026)
+
+**Branch:** `savedJobsPage`  
+**Scope:** Saved Jobs page only; Job Search as live visual/theme baseline; approved mockup as structure/composition target. No commit/push.
+
+## Required workflow logging
+
+- **git status:** On branch savedJobsPage; changes not staged (SavedJobsScreen.tsx, docs, etc.).
+- **git branch --show-current:** savedJobsPage.
+- **git diff --stat:** 20 files changed, 2524 insertions(+), 918 deletions(-).
+
+## Patch artifacts
+
+- **Cumulative:** `artifacts/day-73.patch` (git diff; 180KB).
+- **Incremental (this run):** `artifacts/day-73-this-run.patch` (git diff -- SavedJobsScreen.tsx; 67KB).
+
+## Summary (run 8 — visual parity correction)
+
+Used Job Search as the live visual/theme baseline and the approved Saved Jobs mockup as the structure/composition target.
+
+### Theme corrections (Saved Jobs → Job Search parity)
+- **Header:** Reduced from text-2xl font-bold px-6 to text-xl font-semibold px-4 pt-4 pb-2 (matches Job Search).
+- **Subtitle:** Changed from --p-text-dim to --p-text-muted (matches Job Search).
+- **Removed** decorative Bookmark icon from header title.
+- **Selected card:** Replaced 4px accent left border + surface2 always-bg with Job Search pattern — transparent bg for unselected, surface2 for selected; 2px left accent bar on selected (like Job Search match bar).
+- **Card hover:** Added explicit onMouseEnter/onMouseLeave hover tracking with surface2 bg (like Job Search), replacing opacity-based hover.
+- **Card layout:** Consolidated agency+location into one "Agency • Location" line (like Job Search); reduced padding from px-4 py-3.5 to pl-[calc(0.75rem+2px)] pr-3 py-2.
+- **Chips:** All chips now use surface2/text-dim (same as Job Search); close-date-soon chips use accent-bg/accent (same as Job Search urgent chips).
+- **Detail action bar:** Made sticky at bottom with border-t and var(--p-surface) bg (same pattern as Job Search action bar).
+- **Guided Apply button:** Changed from custom font-semibold px-4 py-3 rounded-lg to INTERACTIVE_HOVER_CLASS with standard px-4 py-2 text-sm rounded (Job Search button family).
+- **Remove from Saved button:** Changed from solid danger fill to outlined danger (transparent bg, danger border+text) — Job Search has no solid danger buttons.
+- **Open Official Listing:** Changed from accent border to standard var(--p-border) (matches Job Search secondary button pattern).
+- **AskPathAdvisorButton:** Removed accentBorder prop so it uses default var(--p-border) (matches Job Search usage).
+- **"Why This May Be Worth Attention" callout:** Changed from accent-tinted surface (color-mix 18% accent) to standard surface2/border (no page-specific accent surfaces that Job Search doesn't use).
+- **Trust footer:** Changed from bordered card with Shield icon to compact text line matching Job Search trust cue style.
+- **Search input:** Changed from surface2 bg + custom padding to transparent bg with standard border (matches Job Search input style).
+- **Metrics strip:** Reduced padding from px-6 py-2.5 to px-4 py-2.
+
+### Structure corrections (Saved Jobs → approved mockup parity)
+- **Two-pane workspace:** Changed from flex + borderRight layout to CSS grid with gap-3, px-4, pb-3 — both panes wrapped in rounded-lg border containers with var(--p-surface) bg and var(--p-radius-lg) (matches Job Search panel treatment).
+- **Search + Sort/Filter:** Consolidated into a single compact row (search left, sort/filter right) matching Job Search control density.
+- **List pane:** Added listbox role, aria-label, overscrollBehavior: contain (matches Job Search results pane).
+- **Detail sections:** Reduced px-6 py-4 to px-4 py-3 throughout for tighter section density.
+- **Card interactive element:** Added role="option", aria-selected, keyboard handler (Enter/Space) for proper listbox semantics.
+
+### Interaction states verified
+- Saved job cards: hover bg change, focus-visible ring, keyboard Enter/Space, selected accent bar (persistent > hover)
+- Search input: focus-visible ring
+- Sort/Filter buttons: INTERACTIVE_HOVER_CLASS
+- Sort dropdown items: hover bg, focus-visible ring, selected accent color
+- All action buttons: INTERACTIVE_HOVER_CLASS
+- Empty state button: INTERACTIVE_HOVER_CLASS
+- Clear search button: INTERACTIVE_HOVER_CLASS
+
+## Files changed (this run)
+
+- `packages/ui/src/screens/SavedJobsScreen.tsx` — full theme+structure parity correction.
+- `docs/change-briefs/day-73.md` — run 8 entry.
+- `docs/merge-notes/current.md` — this section.
+
+---
+
 # Day 62 (run 1) — PathAdvisor Context Log (Option A) global v1
 
 **Branch:** `feature/day-62-pathadvisor-context-log-global-v1`  
@@ -4080,3 +4233,642 @@ Name: day-62-this-run.patch; Length: 79662; LastWriteTime: 3/5/2026 7:15:28 PM
 **git status (after fix):**
 - Branch: `feature/day-62-pathadvisor-context-log-global-v1`
 - Modified: `docs/merge-notes/current.md`, `packages/ui/src/screens/careerReadiness/ReadinessTrajectoryChart.tsx` (plus existing day-62 changes).
+
+---
+
+# Day 73 — Saved Jobs page mockup alignment (March 14, 2026)
+
+**Branch:** `savedJobsPage`  
+**Status:** In progress
+
+## Summary
+
+Refined the Saved Jobs page (`/dashboard/saved-jobs`) to match the approved mockup: prominent header with Search, Sort, Filter; five-metric strip (Total Saved, Ready to Apply, Needs Review, High Match, Recently Saved); left-pane list header "X saved jobs." and richer cards with status tag, match score, Apply Soon, and Guided Apply + Remove on the selected card; detail pane with match score, PathOS Brief, Readiness & Considerations, and "Why This May Be Worth Attention" callout. Added optional Job fields in core (matchScore, closeDate, telework, appointmentType, status). Local-first preserved; no backend dependencies.
+
+## Files changed
+
+- `packages/core/src/job-types.ts` — Optional Job fields and SavedJobStatus type.
+- `packages/core/src/index.ts` — Export SavedJobStatus.
+- `packages/ui/src/screens/SavedJobsScreen.tsx` — Header, MetricsStrip, SavedJobItem, SavedJobDetails, callbacks for card actions.
+
+## Patch Artifacts (FINAL)
+
+- Cumulative: `artifacts/day-73.patch` (develop → working tree). Length: 103518.
+- Incremental: `artifacts/day-73-run.patch` (HEAD → working tree). Length: 103518.
+
+---
+
+# Day 73 (run 2) — Saved Jobs visual correction pass + interaction states
+
+**Branch:** `savedJobsPage`  
+**Date:** March 14, 2026  
+**Status:** In progress
+
+## Summary
+
+Visual correction pass for `/dashboard/saved-jobs`: tightened layout and spacing to align with approved mockup intent; strengthened selected-card emphasis; added consistent hover, focus-visible, and active states to every interactive surface so the page feels responsive and alive.
+
+## Git state (this run)
+
+**git status:** On branch savedJobsPage; modified: SavedJobsScreen.tsx, docs/merge-notes/current.md, docs/change-briefs/day-73.md; plus pre-existing changes from day 73 run 1.
+
+**git branch --show-current:** savedJobsPage
+
+**git diff --name-status develop...HEAD** (tracked files vs develop):
+- A AGENTS.md
+- M docs/ai/prompt-header.md
+- M docs/ai/testing-standards.md
+- A docs/change-briefs/_template.md
+- M docs/merge-notes/current.md
+- A docs/workflow/fast-iteration-checklist.md
+- A docs/workflow/hardening-checklist.md
+- M merge-notes.md
+- M packages/core/src/index.ts
+- M packages/core/src/job-types.ts
+- M packages/ui/src/screens/SavedJobsScreen.tsx
+- A scripts/harden.ps1
+- A tasks/_template.md
+- A tasks/saved-jobs-page-v1.md
+
+**git diff --stat develop...HEAD:** 15 files changed, 1823 insertions(+), 596 deletions(-) (includes prior day-73 work).
+
+## Files changed (this run only)
+
+- `packages/ui/src/screens/SavedJobsScreen.tsx` — Interaction states (hover, focus-visible, active) on search input, sort/filter buttons, sort dropdown options, saved job cards, card Guided Apply/Remove, detail Guided Apply, Open Official Listing, Remove from Saved, empty state button, Clear search; strengthened selected-card (4px accent border, 12% tint); tightened metrics strip and detail section spacing.
+
+## Patch Artifacts (FINAL — run 2)
+
+- Cumulative: `artifacts/day-73.patch` (develop → working tree). Length: 115508.
+- Incremental: `artifacts/day-73-run.patch` (HEAD → working tree). Length: 115508.
+- Get-Item artifacts\day-73.patch: Name day-73.patch, Length 115508, LastWriteTime 3/14/2026 12:04:06 PM.
+- Get-Item artifacts\day-73-run.patch: Name day-73-run.patch, Length 115508, LastWriteTime 3/14/2026 12:04:06 PM.
+
+---
+
+# Day 73 — Generic frontend interaction-state rule (March 14, 2026)
+
+**Branch:** `savedJobsPage`  
+**Status:** In progress
+
+## Summary
+
+Added a reusable frontend guidance rule so interactive PathOS UI surfaces are expected to show visible feedback states by default. The canonical rule now lives in `docs/ai/cursor-house-rules.md`, with a short reinforcement note in `AGENTS.md` for discoverability during builder runs.
+
+## Files changed
+
+- `AGENTS.md`
+- `docs/ai/cursor-house-rules.md`
+- `docs/change-briefs/day-73.md`
+- `docs/merge-notes/current.md`
+
+## Rule added
+
+- Interactive surfaces must not remain visually static by default unless there is a strong product reason.
+- Cover the states that apply to the control: `hover`, `focus-visible`, `active` or `pressed`, and `selected` or `current` where relevant.
+- Users must be able to tell what is clickable, what is focused, what is selected, and what state a control is in across pointer and keyboard use.
+- Apply this expectation broadly to buttons, cards, tabs, nav items, dropdown triggers, chips, list rows, clickable panels, sidebar actions, and similar interactive surfaces.
+- Selected or current state must remain more persistent and visually stronger than hover.
+
+## Validation performed
+
+- Reviewed frontend AI guidance and repo entry-point docs to choose a canonical location.
+- No code tests run. This was a docs-only update.
+
+## Git logging
+
+- `git branch --show-current`: `savedJobsPage`
+- `git diff --name-status develop...HEAD`: no output
+- `git diff --stat develop...HEAD`: no output
+
+## Patch artifacts
+
+- `artifacts/day-73.patch`
+- `artifacts/day-73-this-run.patch`
+- Artifact output:
+  - `day-73.patch` Length `125592` LastWriteTime `3/14/2026 12:05:53 PM`
+  - `day-73-this-run.patch` Length `125592` LastWriteTime `3/14/2026 12:05:54 PM`
+
+---
+
+# Day 73 (run 3) — Saved Jobs hard correction pass (mockup parity)
+
+**Branch:** `savedJobsPage`  
+**Date:** March 14, 2026  
+**Status:** In progress
+
+## Summary
+
+Hard correction pass to bring `/dashboard/saved-jobs` to approved mockup parity. Updated header (large bold title, spacing), metrics strip (card-style cells, dominant value, High Match/Recently Saved accent colors), left list (one-third width, "X saved jobs" header, selected card white text and status right-aligned), detail (Job match blue, Readiness bullets with chevron, single-row action buttons, Remove from Saved filled red), and PathAdvisor rail (railContent with Prioritize High Match + insights, composer placeholder "Ask about saved jobs...", rail CTA hover/focus). All interactive surfaces retain or have visible hover/focus/active states.
+
+## Git state (this run)
+
+**git status:** On branch savedJobsPage; modified: SavedJobsScreen.tsx, PathAdvisorCard.tsx, PathAdvisorRail.tsx, pathAdvisorScreenOverridesStore.ts, docs/merge-notes/current.md, docs/change-briefs/day-73.md, merge-notes.md; plus pre-existing day-73 files.
+
+**git branch --show-current:** savedJobsPage
+
+**git diff --name-status develop...HEAD:** (see list in Summary; this run touched SavedJobsScreen, PathAdvisorCard, PathAdvisorRail, pathAdvisorScreenOverridesStore.)
+
+**git diff --stat develop...HEAD:** 19 files changed, 2082 insertions(+), 609 deletions(-).
+
+## Files changed (this run)
+
+- `packages/ui/src/screens/SavedJobsScreen.tsx` — Header (text-2xl title), metrics strip (card-style, value dominant, accent colors), list pane (33% width, "X saved jobs", selected card treatment, status right-aligned), detail (Job match blue, chevron bullets, single-row actions, Remove filled red), getSavedJobsRailContent + overrides with railContent and composerPlaceholder.
+- `packages/ui/src/stores/pathAdvisorScreenOverridesStore.ts` — Added `composerPlaceholder?: string` to overrides type.
+- `packages/ui/src/shell/PathAdvisorRail.tsx` — Read and pass `composerPlaceholder` to PathAdvisorCard.
+- `packages/ui/src/shell/PathAdvisorCard.tsx` — Optional `composerPlaceholder` prop; use in input. Rail next-best-action button: hover/active/focus-visible.
+
+## Patch Artifacts (FINAL — run 3)
+
+- Cumulative: `artifacts/day-73.patch` (develop → working tree). Length: 129829.
+- Incremental: `artifacts/day-73-run.patch` (HEAD → working tree). Length: 129829.
+- Get-Item artifacts\day-73.patch: Name day-73.patch, Length 129829, LastWriteTime 3/14/2026 12:18:25 PM.
+- Get-Item artifacts\day-73-run.patch: Name day-73-run.patch, Length 129829, LastWriteTime 3/14/2026 12:18:25 PM.
+
+---
+
+# Day 73 (run 4) — Saved Jobs structural mock-parity correction
+
+**Branch:** `savedJobsPage`  
+**Date:** March 14, 2026  
+**Status:** In progress
+
+## Summary
+
+Structural mock-parity pass for `/dashboard/saved-jobs`: corrected layout, section composition, and hierarchy to match the approved mockup. Header title-to-search spacing increased; metrics strip value size and card min-width aligned to mockup; selected-card actions reordered to Apply Soon + Remove on first row, Guided Apply on second row; detail job title set to text-xl and section padding increased; PathAdvisor rail shows briefing card ("From Saved Jobs" + "Select a saved job to get personalized guidance.") above INSIGHT/NEXT BEST ACTION and styles the NEXT BEST ACTION box with orange outline and accent-tinted background when highlightNextBestAction is set.
+
+## Git state (this run)
+
+**git status:** On branch savedJobsPage; modified: SavedJobsScreen.tsx, PathAdvisorCard.tsx, PathAdvisorRail.tsx, pathAdvisorScreenOverridesStore.ts, docs/merge-notes/current.md, docs/change-briefs/day-73.md, merge-notes.md.
+
+**git branch --show-current:** savedJobsPage
+
+**git diff --name-status develop...HEAD:** 19 files (A/M as in run 3; this run touched SavedJobsScreen, PathAdvisorCard, PathAdvisorRail, pathAdvisorScreenOverridesStore, docs).
+
+**git diff --stat develop...HEAD:** 19 files changed, 2174 insertions(+), 611 deletions(-).
+
+## Files changed (this run)
+
+- `packages/ui/src/screens/SavedJobsScreen.tsx` — Header mb-4; metrics value text-lg and min-w-[7rem] on cards; selected card actions: Apply Soon + Remove row, then Guided Apply row; detail h2 text-xl font-bold; PathOS Brief and Readiness py-4; overrides include briefingHelperText and railContent.highlightNextBestAction.
+- `packages/ui/src/stores/pathAdvisorScreenOverridesStore.ts` — briefingHelperText on overrides; PathAdvisorRailContent.highlightNextBestAction.
+- `packages/ui/src/shell/PathAdvisorRail.tsx` — Pass briefingHelperText to PathAdvisorCard.
+- `packages/ui/src/shell/PathAdvisorCard.tsx` — briefingHelperText prop; briefing card (briefingLabel + briefingHelperText) when briefingLabel set; NEXT BEST ACTION box styled with orange border/background when railContent.highlightNextBestAction.
+
+## Patch Artifacts (FINAL — run 4)
+
+- Cumulative: `artifacts/day-73.patch` (develop → working tree). Length: 139350.
+- Incremental: `artifacts/day-73-run.patch` (HEAD → working tree). Length: 139350.
+- Get-Item artifacts\day-73.patch: Name day-73.patch, Length 139350, LastWriteTime 3/14/2026 2:02:45 PM.
+- Get-Item artifacts\day-73-run.patch: Name day-73-run.patch, Length 139350, LastWriteTime 3/14/2026 2:02:45 PM.
+
+---
+
+# Day 73 (run 5) — Instruction stack cleanup
+
+**Branch:** `savedJobsPage`  
+**Date:** March 14, 2026  
+**Status:** In progress
+
+## Summary
+
+Rewrote the root and frontend instruction stack so the docs function as execution-guidance documents instead of role-defining documents. Added an explicit precedence model, separated hard constraints from soft execution preferences, cleaned compatibility pointers, and rewrote the Saved Jobs task so parity is the output target and screen-level structural correction is allowed inside the targeted page surface.
+
+## Files changed
+
+- `C:\dev\PathOS\AGENTS.md`
+- `C:\dev\PathOS\docs\agents\builder-agent-rules.md`
+- `C:\dev\PathOS\docs\workflow\fast-iteration-checklist.md`
+- `C:\dev\PathOS\apps\pathos-platform\frontend\AGENTS.md`
+- `C:\dev\PathOS\apps\pathos-platform\frontend\tasks\saved-jobs-page-v1.md`
+- `C:\dev\PathOS\apps\pathos-platform\frontend\docs\ai\cursor-house-rules.md`
+- `C:\dev\PathOS\apps\pathos-platform\frontend\docs\ai\testing-standards.md`
+- `C:\dev\PathOS\apps\pathos-platform\frontend\docs\ai\prompt-header.md`
+- `C:\dev\PathOS\apps\pathos-platform\frontend\docs\change-briefs\day-73.md`
+- `C:\dev\PathOS\apps\pathos-platform\frontend\docs\merge-notes\current.md`
+
+## Validation
+
+- Docs-only rewrite.
+- No code tests run for this run.
+
+## Git logging
+
+- `git branch --show-current`: `savedJobsPage`
+- `git diff --name-status develop...HEAD`: no output
+- `git diff --stat develop...HEAD`: no output
+
+## Patch artifacts
+
+- `artifacts/day-73.patch`
+- `artifacts/day-73-this-run.patch`
+- Artifact output:
+  - `day-73.patch` Length `169846`
+  - `day-73-this-run.patch` Length `169846`
+
+---
+
+# Run 9 — Page-only structural parity pass
+
+**Branch:** `savedJobsPage`
+**Date:** March 14, 2026
+**Status:** Complete
+
+## Summary
+
+Page-only structural parity pass for the Saved Jobs page. Brought header, metrics strip, left list pane, detail workspace, and overall proportions materially closer to the approved mockup. No PathAdvisor changes, no Job Search changes, no broad theme tuning.
+
+## Files changed
+
+- `packages/ui/src/screens/SavedJobsScreen.tsx`
+- `docs/change-briefs/day-73.md`
+- `docs/merge-notes/current.md`
+
+## Structural corrections
+
+- Header: title `text-2xl font-bold`; search icon inside input; sort shows "Sort" label
+- Metrics strip: `flex-1` even distribution; more padding/breathing room
+- Left pane: accent-tinted selected card background; 3px accent bar; better card padding
+- Detail: more section spacing; accent-tinted attention box; inline action row (not sticky)
+- Grid: left pane 30% instead of 33%; slightly wider gutter
+
+## Validation
+
+- Linter: no errors
+- Manual check: `/dashboard/saved-jobs`
+
+## Git logging
+
+- `git branch --show-current`: `savedJobsPage`
+- `git diff --name-status`: working tree changes only (no commits ahead of develop)
+- `git diff --stat`: SavedJobsScreen.tsx + docs
+
+## Patch artifacts
+
+- `artifacts/day-73.patch` (cumulative)
+- `artifacts/day-73-this-run.patch` (incremental, SavedJobsScreen.tsx only)
+
+---
+
+# Run: Day 73 — Add deterministic mock data to Saved Jobs
+
+**Date:** 2026-03-14
+**Branch:** savedJobsPage
+**Task:** Populate the Saved Jobs page with deterministic fake data for mockup density
+
+## Summary
+
+Added a deterministic 8-entry mock dataset for the Saved Jobs page so it renders fully populated during development. When the saved-jobs localStorage store is empty, the screen auto-seeds with the mock data on mount. The dataset exercises all mockup UI surfaces: varied statuses, match scores, grades, salary ranges, close dates, telework types, appointment types, and realistic summaries. No type additions needed — the Job interface already had all required fields.
+
+## Files changed (this run)
+
+- `packages/core/src/saved-jobs-mock-data.ts` — NEW: deterministic mock dataset + seedSavedJobsIfEmpty()
+- `packages/core/src/index.ts` — export seedSavedJobsIfEmpty and createSavedJobsMockData
+- `packages/ui/src/screens/SavedJobsScreen.tsx` — import and call seedSavedJobsIfEmpty in mount effect
+
+## Behavior changes
+
+- When localStorage has no saved jobs, the page auto-seeds 8 mock entries and selects the first
+- Mock data persists to localStorage so it survives refresh
+- Existing saved jobs are never overwritten (seedSavedJobsIfEmpty guards on non-empty store)
+- PathAdvisor rail content derives from mock data (3 high-match, 2 needs-review, closing-soon counts)
+- Metrics strip now shows intentional counts: 8 total, 2 ready, 2 needs-review, 3 high-match, recent count based on 7-day window
+
+## Git logging
+
+- `git branch --show-current`: savedJobsPage
+- `git status`: 1 new untracked file (saved-jobs-mock-data.ts), modified index.ts + SavedJobsScreen.tsx + docs
+- `git diff --name-status`: A/M across 20+ files (cumulative branch work)
+- `git diff --stat`: ~2700 insertions, ~920 deletions (cumulative)
+
+## Patch artifacts
+
+- `artifacts/day-73.patch` (cumulative, develop to working tree)
+- `artifacts/day-73-this-run.patch` (incremental, working tree)
+
+---
+
+# Day 73 — Run 3: Saved Jobs parity correction pass
+
+Date: 2026-03-14
+Branch: savedJobsPage
+
+## Summary
+
+Corrected three specific defects in the Saved Jobs page (/dashboard/saved-jobs):
+
+1. **Detail pane content density** — Added Position Details key-value table, Required Documents checklist, enhanced Readiness & Considerations section with dual readiness/match scores and job-specific derived bullets. Detail workspace now has 8 distinct content sections for proper layout evaluation.
+
+2. **Row interaction model** — Removed expanding inline Guided Apply/Remove buttons that grew the row on selection. Replaced with compact right-side icon buttons (quick preview + remove) matching Job Search's JobListItem pattern. Row height is now stable.
+
+3. **Summary metric cards** — Increased padding (px-4 py-3.5), icon container (w-10 h-10), value size (text-2xl), label size (text-[11px]), and shadow depth. Cards now read as meaningful summary tiles, not compact chips.
+
+## Files changed (this run)
+
+- `packages/ui/src/screens/SavedJobsScreen.tsx` — all three fixes applied
+
+## Behavior changes
+
+- Saved-job rows no longer expand to reveal inline action buttons
+- Rows have compact ChevronRight (peek) and Trash2 (remove) icons on the right
+- Quick preview selects the job so the detail workspace shows it
+- Detail pane now shows: header + metadata pills, PathOS Brief, Readiness & Considerations (with readiness + match scores + derived bullets), Position Details table, Required Documents, Why This May Be Worth Attention callout, action row, trust footer
+- Metric cards are visually larger with bigger numbers, labels, and icon containers
+
+## Git logging
+
+- `git branch --show-current`: savedJobsPage
+- `git status`: M packages/ui/src/screens/SavedJobsScreen.tsx + 19 other branch files
+- `git diff --stat`: ~2913 insertions, ~917 deletions (cumulative)
+
+## Patch artifacts
+
+- `artifacts/day-73.patch` (202 KB, cumulative, develop to working tree)
+- `artifacts/day-73-this-run.patch` (78 KB, incremental, SavedJobsScreen.tsx only)
+
+---
+
+# Day 73 — Run 4: Saved Jobs refinement pass (row action fix, PathOS Brief, interaction-state guidance)
+
+Date: 2026-03-14
+Branch: savedJobsPage
+
+## Summary
+
+Targeted refinement pass on the Saved Jobs page with three scoped changes:
+
+1. **Row action defect** — Removed extra ChevronRight icon above the trash icon in each saved-job row. Only the Trash2 icon remains, vertically centered. Row height stable. No expanding row buttons.
+
+2. **PathOS Brief expansion** — Replaced the thin single-paragraph Brief with a structured decision-intelligence section: Role Fit, Strategic Relevance, Strengths (green bullets), Risks (red bullets), Career Trajectory, Timing (with Urgent badge), and Recommendation (accent-tinted callout). All content is derived from job data fields.
+
+3. **Interaction-state guidance** — Updated `docs/ai/cursor-house-rules.md` with a formal Interaction-State Standard (required states table, control type list, consistency rules). Added cross-reference in `AGENTS.md`.
+
+## Files changed (this run)
+
+- `packages/ui/src/screens/SavedJobsScreen.tsx` — row action fix + PathOS Brief expansion
+- `docs/ai/cursor-house-rules.md` — interaction-state standard
+- `AGENTS.md` — cross-reference
+
+## Behavior changes
+
+- Saved-job rows no longer show a ChevronRight icon; only Trash2 (remove) icon on right side, vertically centered
+- PathOS Brief in detail pane now shows 7 structured sub-sections instead of one paragraph
+- `handlePeekJob` callback and `onPeek` prop removed (ChevronRight was the only consumer)
+
+## Git logging
+
+- `git branch --show-current`: savedJobsPage
+- `git status`: M packages/ui/src/screens/SavedJobsScreen.tsx + docs/ai/cursor-house-rules.md + AGENTS.md + docs/change-briefs/day-73.md + docs/merge-notes/current.md + 16 other branch files
+- `git diff --name-status develop`: A/M across 20 files (cumulative branch work)
+- `git diff --stat develop`: 3253 insertions, 906 deletions (cumulative)
+
+## Patch artifacts
+
+- `artifacts/day-73.patch` (218 KB, cumulative, develop to working tree)
+- `artifacts/day-73-this-run.patch` (218 KB, incremental, working tree)
+
+---
+
+# Run 5 — Structural correction pass (March 14, 2026)
+
+## Summary
+
+Saved Jobs page structural correction: detail card hierarchy restructured (job info → match intelligence → PathOS Brief), comprehensive match intelligence block with weighted horizontal bars added, readiness scores visible in list rows, Position Details and Required Documents removed and folded into header metadata pills, interaction-state consistency guidance updated.
+
+## Changes
+
+### SavedJobsScreen.tsx
+- **List rows:** Added readiness score indicator (number + "ready" label) next to trash icon, color-coded by tier
+- **Detail header:** Large readiness score (text-2xl) in top-right with color-coded background container
+- **Match Intelligence block:** New section 2 with five weighted dimension bars (Target Alignment 35%, Specialized Experience 25%, Resume Evidence 20%, Keywords Coverage 12%, Leadership/Scope 8%) + Key Considerations bullets
+- **Section reordering:** Job info → Match Intelligence → PathOS Brief → Why Worth Attention → Actions → Trust footer
+- **Removed:** Position Details (standalone section) — essential data folded into metadata pills
+- **Removed:** Required Documents (standalone section)
+- **Added:** Promotion potential and status to metadata pills row
+- **Added:** `BarChart2` icon import, `deriveMatchDimensions()` helper, `dimensionScoreColor()` helper, `MatchDimension` interface
+
+### docs/ai/cursor-house-rules.md
+- Added 5 interaction-state consistency rules: score color tiers, progress bar a11y, list row height stability, action icon patterns, derived-value consistency
+
+## Files changed
+- `packages/ui/src/screens/SavedJobsScreen.tsx` (M)
+- `docs/ai/cursor-house-rules.md` (M)
+- `docs/change-briefs/day-73.md` (M)
+- `docs/merge-notes/current.md` (M)
+
+## Validation
+- Typecheck: pass (clean)
+- Build: not run this session
+- Tests: not run this session
+
+## Git logging
+- `git branch --show-current`: savedJobsPage
+- `git status`: M packages/ui/src/screens/SavedJobsScreen.tsx + docs/ai/cursor-house-rules.md + docs/change-briefs/day-73.md + docs/merge-notes/current.md + 18 other branch files
+
+---
+
+## Day 73 — Structural correction pass (Saved Jobs page only)
+
+### Branch: savedJobsPage
+### Date: March 14, 2026
+
+### Summary
+Saved Jobs page structural correction: front-loaded decision intelligence in detail card, enhanced match intelligence with dimensional breakdown showing score/demand/gap per axis, added prominent readiness score to list rows, removed standalone bottom sections (Why This May Be Worth Attention), updated canonical interaction-state guidance with per-control-type implementation patterns table.
+
+### Files changed this run
+- `packages/ui/src/screens/SavedJobsScreen.tsx` (M) — row readiness badge, match intelligence columns, section removal, import cleanup
+- `docs/ai/cursor-house-rules.md` (M) — interaction-state implementation patterns table
+- `docs/change-briefs/day-73.md` (M) — run documentation
+
+### Patch artifacts
+- Cumulative: `artifacts/day-73.patch`
+- Incremental: `artifacts/day-73-this-run.patch`
+
+### Git state
+- `git branch --show-current`: savedJobsPage
+- `git diff --name-status develop...HEAD`: (empty — no commits vs develop; all changes are working tree)
+- `git diff --stat`: 20 files changed, ~3600 insertions, ~900 deletions (cumulative across all day-73 runs)
+- No commits made. No push.
+
+---
+
+## Day 73 — Detail workspace polish and structural stabilization pass — March 15, 2026
+
+### Date: March 15, 2026
+
+### Goal
+Bring the Saved Jobs selected-job detail panel to professional workspace quality. Fix the layout and navigation design so the center detail panel reads as a structured review workspace with fixed structural zones and an independently scrolling content viewport.
+
+### What changed
+
+**A. Workspace frame restructuring:**
+- Replaced the single `overflow-y-auto` root wrapper with a five-zone flex-column workspace frame
+- Zones: (1) Header, (2) Mode strip, (3) Section nav (announcement only), (4) Scrollable content viewport, (5) Action bar + trust footer
+- Each fixed zone uses `flex-shrink-0` so it stays in place regardless of content length
+- Only the content viewport (zone 4) scrolls, using `flex-1 min-h-0 overflow-y-auto`
+- The action bar no longer drifts vertically when switching tabs or when content length changes
+
+**B. Mode switch redesigned:**
+- Replaced filled/bordered button pair with a professional segmented workspace mode strip
+- Uses underline-accent tab treatment: active mode gets accent text + 2px accent bottom bar; inactive mode uses dim text with no underline
+- Reads as workspace mode navigation, not ordinary buttons
+- Uppercase tracking-wide font-semibold for restrained, serious visual treatment
+- Each tab has `INTERACTIVE_HOVER_CLASS` for hover background + `focus-visible:ring-2` for keyboard focus
+
+**C. Announcement section nav redesigned:**
+- Extracted section tabs from inside the scrollable announcement content to a fixed zone above the scroll container
+- Replaced rounded-md pill/chip buttons with low-profile text tabs using underline-accent treatment
+- Active section gets accent text + 2px accent bottom bar; inactive sections use dim text
+- No rounded backgrounds, no pill borders, no chip styling — reads as professional document navigation
+- Tabs remain fixed while announcement content scrolls independently below
+
+**D. Scrollable content viewport:**
+- Content viewport wraps only the Decision View and Announcement View content
+- Uses `overscrollBehavior: contain` to prevent scroll chaining to the parent
+- Decision View content (job details + match intelligence) scrolls naturally
+- Announcement View content scrolls independently while section tabs stay fixed above
+
+**E. Action bar and trust footer pinned:**
+- Action bar (Guided Apply, Open Official Listing, Ask PathAdvisor, Remove from Saved) is now outside the scroll container
+- Uses `flex-shrink-0` and sits in the workspace frame below the scroll viewport
+- Trust footer also pinned below the action bar with `flex-shrink-0`
+- Neither element moves when switching between modes or when content length changes
+
+### Files changed this run
+- `packages/ui/src/screens/SavedJobsScreen.tsx` (M) — workspace frame restructuring, mode switch redesign, section nav redesign, scroll container, action bar pinning
+
+### Interaction states verified
+- Mode strip tabs: hover (INTERACTIVE_HOVER_CLASS), focus-visible (ring-2 ring-accent), selected (accent text + 2px underline)
+- Section nav tabs: hover (INTERACTIVE_HOVER_CLASS), focus-visible (ring-2 ring-accent), selected (accent text + 2px underline)
+- Action bar buttons: unchanged (already had INTERACTIVE_HOVER_CLASS and focus-visible states)
+- All pre-existing interaction states in the detail workspace preserved
+
+### Validation performed
+- Linter: clean (no errors in SavedJobsScreen.tsx)
+- Typecheck: pass (pre-existing test file module resolution error only, not related to this run)
+- Structural review: workspace frame has correct 5-zone layout; scroll container wraps only content; action bar is outside scroll
+- Mode switch reads as professional workspace mode navigation, not cheap button pair
+- Announcement section nav reads as professional document navigation, not toy tabs
+- Action bar position is structurally stable regardless of content length or active tab
+
+### Patch artifacts
+- Cumulative: `artifacts/day-73.patch` (282.4 KB)
+- Incremental: `artifacts/day-73-this-run.patch` (282.4 KB)
+
+### Git state
+- `git branch --show-current`: savedJobsPage
+- `git diff --name-status develop...HEAD`: (empty — no commits vs develop; all changes are working tree)
+- No commits made. No push.
+
+---
+
+## Run 4 — Decision View Refinement (Day 73, late evening)
+
+**Branch:** savedJobsPage
+**Baseline:** develop (no commits ahead — all working tree changes)
+
+### Summary
+
+Refined the Saved Jobs Decision View to be more professional, decision-first, and structurally stable. Three targeted changes:
+
+1. **Interaction states for mode switch and sub-nav**: Replaced INTERACTIVE_HOVER_CLASS (background-fill hover) with dedicated WorkspaceModeTab and AnnouncementSectionTab components that manage their own hover/active/selected states via useState. Underline-accent pattern reads as workspace mode navigation, not action buttons. Each tab now has: hover (text brightens + faint underline), focus-visible (accent ring), active (opacity reduction), selected (accent text + 2px bar + subtle bg tint). Selected state survives hover without regression.
+
+2. **Decision-first summary band**: Replaced the 10-row flat metadata grid with a compact 4-tile primary strip (Salary, Grade+Promotion, Work Mode, Deadline) and a secondary inline metadata row (Location, Appointment, Status). Removed "Saved" and "Schedule" from the decision summary — user already knows the job is saved, and Schedule is almost always Full-time. Salary is now the first thing the user sees, in success green. Grade+Promotion uses an arrow (→) to show trajectory. Deadline uses accent color when closing soon.
+
+3. **Interaction-state standard tightened**: Added "Mode switches and segmented controls" and "Section-level sub-navigation" explicitly to the Controls list and Implementation Patterns table in cursor-house-rules.md. Added a prevention rule pointing to the reference implementation. This prevents revisiting the same interaction-state gap on future pages.
+
+### UX decisions
+
+**Mode switch treatment:**
+- WorkspaceModeTab uses per-tab useState for hover and active tracking
+- Hover (not selected): text brightens from dim to muted; faint dim underline hint
+- Hover (selected): no visual change — selected state is persistent and dominant
+- Active/pressed: 0.75 opacity reduction confirming click
+- Selected: accent text + 2px accent bottom bar + 5% accent background tint
+- Background-fill hover (from INTERACTIVE_HOVER_CLASS) intentionally NOT used — conflicts with underline tab semantics
+
+**Announcement sub-nav treatment:**
+- AnnouncementSectionTab uses same pattern, slightly lighter (section-level vs mode-level)
+- Selected: 4% accent bg tint (vs 5% for mode switch) — visual hierarchy preserved
+
+**Decision summary band:**
+- Primary 4 tiles: Salary (success green), Grade+Promotion (text color, arrow notation), Work Mode, Deadline (accent when soon)
+- Secondary row: Location (with MapPin icon), Appointment type, Status — all dimmer, smaller
+- Removed: Saved date (wastes prime space), Schedule (almost always Full-time)
+
+### Anchored footer / scrollable middle
+
+No structural changes to the anchored footer mechanism — it was already correct from prior runs:
+- FIXED ZONE 4 (action bar) uses flex-shrink-0 outside the overflow-y-auto scroll container
+- FIXED ZONE 5 (trust footer) also uses flex-shrink-0 below the action bar
+- Only the content viewport between the mode strip and action bar scrolls
+
+The decision summary band change reduces vertical space consumed above Match Intelligence, so more of the analytical content is visible at first glance before scrolling is needed.
+
+### Files changed this run
+- `packages/ui/src/screens/SavedJobsScreen.tsx` (M) — added WorkspaceModeTab and AnnouncementSectionTab components; replaced mode switch and sub-nav; replaced Job Details grid with decision-first summary band
+- `docs/ai/cursor-house-rules.md` (M) — added mode switches, segmented controls, and section sub-nav to interaction-state standard
+
+### Interaction states verified
+- Mode strip tabs: hover (text brightens + underline hint), focus-visible (ring-2 ring-accent), active (opacity 0.75), selected (accent text + 2px bar + bg tint)
+- Section nav tabs: hover (text brightens + underline hint), focus-visible (ring-2 ring-accent), active (opacity 0.75), selected (accent text + 2px bar + bg tint)
+- Action bar buttons: unchanged (already had INTERACTIVE_HOVER_CLASS and focus-visible)
+- Sort/Filter buttons: unchanged (already had INTERACTIVE_HOVER_CLASS and focus-visible)
+- Saved job rows: unchanged (already had useState hover + accent-tinted selection)
+- Row trash icon: unchanged (already had INTERACTIVE_HOVER_CLASS)
+
+### Validation performed
+- Linter: clean (no errors in SavedJobsScreen.tsx)
+- Structural review: decision summary band renders 4 primary tiles + secondary row; mode switch uses WorkspaceModeTab; sub-nav uses AnnouncementSectionTab
+- cursor-house-rules.md updated with two new control types and reference implementation pointer
+
+### Patch artifacts
+- Cumulative: `artifacts/day-73.patch` (297 KB)
+- Incremental: `artifacts/day-73-this-run.patch` (163 KB)
+
+### Git state
+- `git branch --show-current`: savedJobsPage
+- `git diff --name-status develop...HEAD`: (empty — no commits vs develop; all changes are working tree)
+- No commits made. No push.
+
+---
+
+## Run 5 — Shared Score Tier Colors (Day 73, late evening)
+
+**Branch:** savedJobsPage
+**Baseline:** develop (no commits ahead — all working tree changes)
+
+### Summary
+
+Extracted score-to-color mapping into a shared module (`styles/scoreTiers.ts`) and corrected the color scale from green/blue/amber to green/amber/red. This makes readiness scores visually scannable using a universally understood traffic-light severity gradient.
+
+### Changes
+
+1. **Created `packages/ui/src/styles/scoreTiers.ts`**: Shared module exporting `scoreTierColor()` and threshold constants (`SCORE_TIER_STRONG = 80`, `SCORE_TIER_MEDIUM = 60`). Deterministic, pure, reusable by Saved Jobs, Job Search, and future surfaces.
+
+2. **Updated `SavedJobsScreen.tsx`**: Removed local `dimensionScoreColor()` function. Imported `scoreTierColor` from the shared module. Replaced all 9 call sites. Also fixed:
+   - Gap-state colors: Adequate now uses `--p-warning` (amber), Gap now uses `--p-danger` (red) — previously Adequate used `--p-accent` (blue) and Gap used `--p-warning` (amber).
+   - Limiting Factor label: now uses `--p-danger` (red) since it represents the weakest dimension.
+
+3. **Updated `docs/ai/cursor-house-rules.md`**: Score-tier rule now specifies green/amber/red scale and points to `scoreTierColor()` as the canonical implementation.
+
+### Color scale change
+
+| Tier | Old color | New color | Token |
+|------|-----------|-----------|-------|
+| Strong (>=80) | green (`--p-success`) | green (`--p-success`) | unchanged |
+| Medium (>=60) | blue (`--p-accent`) | amber (`--p-warning`) | changed |
+| Weak (<60) | amber (`--p-warning`) | red (`--p-danger`) | changed |
+
+### Files changed this run
+- `packages/ui/src/styles/scoreTiers.ts` (A) — new shared score-tier color module
+- `packages/ui/src/screens/SavedJobsScreen.tsx` (M) — replaced local function with shared import; fixed gap-state and limiting factor colors
+- `docs/ai/cursor-house-rules.md` (M) — updated score-tier rule
+
+### Validation
+- Linter: clean (no errors in SavedJobsScreen.tsx or scoreTiers.ts)
+- All `dimensionScoreColor` references removed (0 remaining)
+- 9 call sites now use `scoreTierColor` from shared module
+- Gap-state colors consistent with score-tier scale
+
+### Git state
+- `git branch --show-current`: savedJobsPage
+- No commits made. No push.
