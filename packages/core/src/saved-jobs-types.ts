@@ -15,7 +15,7 @@ import type { Job } from './job-types';
 // Store shape
 // ---------------------------------------------------------------------------
 
-export const SAVED_JOBS_SCHEMA_VERSION = 1;
+export const SAVED_JOBS_SCHEMA_VERSION = 2;
 
 export interface SavedJobsStore {
   schemaVersion: number;

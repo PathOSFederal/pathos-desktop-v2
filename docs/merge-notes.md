@@ -1,3 +1,21 @@
+# Day 73 — Saved Jobs architecture correction: page/PathAdvisor ownership boundary
+
+(Do not commit or push.)
+
+## Goal
+
+Enforce the core product rule: the page owns job details + visual match intelligence; PathAdvisor owns interpretation, explanation, and decision guidance. Restructure the detail card to show job details first, remove the PathOS Brief from the page, and push brief intelligence into PathAdvisor as context log entries (unified output surface).
+
+## Result
+
+- **Detail card hierarchy corrected:** Header → Job Details (compact key-value grid, FIRST) → Match Intelligence (weighted bars) → Actions → Trust Footer. PathOS Brief removed from the page entirely.
+- **GS badge removed from emphasis corner:** Only readiness badge + match badge in top-right. Grade moved into Job Details section.
+- **PathAdvisor unified output:** Removed railContent (stacked insight + next-best-action mini-cards). When a saved job is selected, deriveBriefContent() output is pushed as a single PathAdvisorContextEntry with 7 sections (Role Fit, Strategic Relevance, Strengths, Risks, Career Trajectory, Timing, Recommendation) + CTA. Deduplication via dedupeKey. Screen cleanup on unmount.
+- **Gates:** Typecheck pass. Build not run (network issue). No test regressions expected (UI-only changes).
+- **Files changed:** SavedJobsScreen.tsx (M), change-briefs/day-73.md (M), merge-notes.md (M).
+
+---
+
 # Day 62 — PathAdvisor Context Log global v1
 
 (Do not commit or push. Branch: feature/day-62-pathadvisor-context-log-global-v1.)

@@ -1,3 +1,16 @@
+# Current run — Day 73 run 6 (Saved Jobs mock-parity: solid orange, white text)
+
+**Branch:** `savedJobsPage`  
+**git branch --show-current:** savedJobsPage  
+**git status:** (working tree) — modified: docs, merge-notes.md, packages/core (index, job-types), packages/ui (AskPathAdvisorButton, SavedJobsScreen, PathAdvisorCard, PathAdvisorRail, pathAdvisorScreenOverridesStore); new: AGENTS.md, docs/change-briefs, docs/workflow, scripts/harden.ps1, tasks.  
+**git diff --name-status develop...HEAD:** (empty — no commits ahead of develop on this branch.)  
+**git diff --name-status (working tree):** A AGENTS.md, M docs/ai/*, A docs/change-briefs/*, M docs/merge-notes/current.md, A docs/workflow/*, M merge-notes.md, M packages/core/*, M packages/ui/src/components/AskPathAdvisorButton.tsx, M packages/ui/src/screens/SavedJobsScreen.tsx, M packages/ui/src/shell/PathAdvisorCard.tsx, M packages/ui/src/shell/PathAdvisorRail.tsx, M packages/ui/src/stores/pathAdvisorScreenOverridesStore.ts, A scripts/harden.ps1, A tasks/*.  
+**git diff --stat develop...HEAD:** (empty.)  
+**git diff --stat (working tree):** 20 files changed, 2391 insertions(+), 906 deletions(-).  
+**Patch artifacts:** artifacts/day-73.patch (cumulative vs develop...HEAD), artifacts/day-73-this-run.patch (incremental = working tree diff). Full log in docs/merge-notes/current.md.
+
+---
+
 # Day 39 — Ask PathAdvisor CTA Standardization + openPathAdvisor helper
 
 **Branch:** `feature/day-39-resume-export-pathadvisor-wiring-v1`  
@@ -546,3 +559,71 @@ Shows Day 39 changes vs develop baseline ✓
 - `docs/change-briefs/day-47.md`
 - `docs/merge-notes/current.md`
 - `README.md`
+
+---
+
+# Day 73 — Saved Jobs page mockup alignment
+
+**Branch:** `savedJobsPage`  
+**Date:** March 14, 2026  
+**Status:** In progress
+
+## Summary
+
+Refined the PathOS Saved Jobs page (`/dashboard/saved-jobs`) to align with the approved mockup: header (prominent title, Search, Sort, Filter), five-metric strip (Total Saved, Ready to Apply, Needs Review, High Match, Recently Saved), left-pane list header and richer cards (status tag, match score, Apply Soon, Guided Apply + Remove on selected card), and detail pane (match score, PathOS Brief, Readiness & Considerations, "Why This May Be Worth Attention" callout, metadata pills). Added optional Job fields in core (matchScore, closeDate, telework, appointmentType, status) so the UI can display mockup structure when data exists. No backend or remote dependencies; local-first preserved.
+
+## Git State (this run)
+
+**Command:** `git status`
+```
+On branch savedJobsPage
+Changes not staged for commit:
+	modified:   docs/ai/prompt-header.md
+	modified:   docs/ai/testing-standards.md
+	modified:   packages/core/src/index.ts
+	modified:   packages/core/src/job-types.ts
+	modified:   packages/ui/src/screens/SavedJobsScreen.tsx
+Untracked: AGENTS.md, docs/change-briefs/_template.md, docs/workflow/, scripts/harden.ps1, tasks/, etc.
+```
+
+**Command:** `git branch --show-current`
+```
+savedJobsPage
+```
+
+**Command:** `git diff --name-status develop...HEAD`
+```
+(empty if no commits on branch vs develop; working tree has changes vs develop)
+```
+
+**Command:** `git diff --stat develop`
+```
+M	docs/ai/prompt-header.md
+M	docs/ai/testing-standards.md
+M	packages/core/src/index.ts
+M	packages/core/src/job-types.ts
+M	packages/ui/src/screens/SavedJobsScreen.tsx
+ 5 files changed, 1154 insertions(+), 595 deletions(-)
+```
+
+## Patch Artifacts (FINAL)
+
+- **Cumulative:** `artifacts/day-73.patch` (develop → working tree, excludes artifacts).
+- **Incremental:** `artifacts/day-73-run.patch` (HEAD → working tree, excludes artifacts).
+
+**Get-Item output:**
+```
+Name          : day-73.patch
+Length        : 103518
+LastWriteTime : 3/14/2026 11:54:19 AM
+
+Name          : day-73-run.patch
+Length        : 103518
+LastWriteTime : 3/14/2026 11:54:19 AM
+```
+
+## Files changed (Saved Jobs task)
+
+- `packages/core/src/job-types.ts` — Added optional Job fields: matchScore, closeDate, telework, appointmentType, status; SavedJobStatus type.
+- `packages/core/src/index.ts` — Export SavedJobStatus.
+- `packages/ui/src/screens/SavedJobsScreen.tsx` — Header (title, Filter, 5-metric strip), list header "X saved jobs.", SavedJobItem (status, match, Apply Soon, card actions), SavedJobDetails (PathOS Brief, Readiness, callout, metadata), handleStartGuidedApplyForId, handleRemoveId.

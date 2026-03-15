@@ -41,6 +41,11 @@ export interface AskPathAdvisorButtonProps {
    * multiple buttons on the same page need distinct tooltip ids.
    */
   tooltipId?: string;
+  /**
+   * When true, use accent (orange) border instead of default border.
+   * Used on Saved Jobs detail action row to match mockup.
+   */
+  accentBorder?: boolean;
 }
 
 const DEFAULT_TOOLTIP = 'Opens a PathAdvisor briefing for this recommendation.';
@@ -75,6 +80,7 @@ export function AskPathAdvisorButton(props: AskPathAdvisorButtonProps) {
     props.tooltipId !== undefined && props.tooltipId !== ''
       ? props.tooltipId
       : 'ask-pathadvisor-tooltip';
+  const accentBorder = props.accentBorder === true;
 
   const isSm = size === 'sm';
   const buttonPadding = isSm ? 'px-2 py-1' : 'px-3 py-1.5';
@@ -105,7 +111,7 @@ export function AskPathAdvisorButton(props: AskPathAdvisorButtonProps) {
         className={buttonClassName}
         style={{
           background: 'var(--p-surface2)',
-          border: '1px solid var(--p-border)',
+          border: accentBorder ? '1px solid var(--p-accent)' : '1px solid var(--p-border)',
           color: 'var(--p-text-muted)',
         }}
         aria-label="Ask PathAdvisor"
