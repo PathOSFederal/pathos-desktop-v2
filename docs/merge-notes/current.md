@@ -1,3 +1,69 @@
+# Day 74 — Job Search Parity with Saved Jobs v1 (March 15, 2026)
+
+**Branch:** `feature/day-74-job-search-parity-with-saved-jobs-v1`
+**Scope:** Job Search screen only — structural parity with Saved Jobs. No commit/push.
+
+## Required workflow logging
+
+- **git status:** branch `feature/day-74-job-search-parity-with-saved-jobs-v1`, clean before edits; 2 files modified after edits
+- **git branch --show-current:** `feature/day-74-job-search-parity-with-saved-jobs-v1`
+- **git diff --name-status develop...HEAD:** empty (all changes are uncommitted working-tree modifications)
+- **git diff --stat develop...HEAD:** empty (same reason — no commits on this branch yet)
+
+## What changed
+
+- **JobSearchScreen.tsx:** Restructured the selected-job detail panel to match Saved Jobs' fixed-zone architecture:
+  - FIXED ZONE 1: Job header with title, agency, large color-coded readiness badge, match score badge
+  - FIXED ZONE 2: Professional mode tabs (Match Overview / Job Details) with hover/active/selected states
+  - FIXED ZONE 3: Professional sub-tabs (Overview & Docs / Requirements / PathOS Brief) in listing mode
+  - Scrollable content viewport (only this zone scrolls)
+  - FIXED ZONE 4: Structurally fixed action bar (Save, Build Resume, Ask PathAdvisor, View on USAJOBS)
+  - Trust footer
+- **Decision Summary Band:** Job info tiles (Agency, Grade & Promotion, Salary, Work Mode, Deadline) + secondary metadata row
+- **Per-job readiness derivation:** `deriveJobReadiness()` produces varied scores per job exercising green/amber/red tiers
+- **List item readiness pills:** Each row shows a color-coded readiness percentage badge (matching Saved Jobs)
+- **List item selection:** Accent-tinted background matching Saved Jobs row selection
+- **Search input focus:** Added focus-visible ring with transition to both search inputs
+- **New tab components:** `JobSearchModeTab` and `JobSearchSubTab` with explicit hover/active/selected state management
+- **JobSearchScreen.test.tsx:** 12 new Day 74 tests covering structural parity, mode tabs, readiness badges, action bar, decision summary band, search controls preservation
+
+## Files changed
+
+1. `packages/ui/src/screens/JobSearchScreen.tsx` — major restructure (+1105 −415)
+2. `packages/ui/src/screens/JobSearchScreen.test.tsx` — 12 new tests (+94)
+
+## Preserved as Job Search-specific
+
+- Live search/discovery behavior (Search, Reset, filter dropdowns, sort)
+- Describe → Translate to Filters panel
+- Quick preview behavior (info icon on list rows)
+- Save/unsave toggle per job
+- Match intelligence (readiness + match scores, match breakdown, dimension briefings)
+- Open Career Readiness action
+- Explain this match → PathAdvisor
+- Applied from prompt indicator with View/Undo
+- Filter guide drawers (series, agency, location)
+- Target role modal
+- Load more pagination
+
+## Validation
+
+- 44 vitest tests pass (12 new + 32 existing)
+- 10 Saved Jobs tests pass (no regressions)
+- Linter: 0 errors
+- No commit, no push
+
+## Patch artifacts
+
+- **Cumulative:** `artifacts/day-74.patch` — 84,106 bytes (82.1 KB)
+- **Incremental:** `artifacts/day-74-this-run.patch` — 84,106 bytes (82.1 KB)
+- **Note:** Both patches are equivalent because all branch changes are uncommitted.
+- **ls -lh output:**
+  - `artifacts/day-74.patch` — 82.1 KB
+  - `artifacts/day-74-this-run.patch` — 82.1 KB
+
+---
+
 # Day 73 run 10 — Tab label rename on Saved Jobs workspace (March 15, 2026)
 
 **Branch:** `savedJobsPage`
@@ -4872,3 +4938,200 @@ Extracted score-to-color mapping into a shared module (`styles/scoreTiers.ts`) a
 ### Git state
 - `git branch --show-current`: savedJobsPage
 - No commits made. No push.
+
+---
+
+## Day 74 — Run 2: Job Search Layout Parity with Saved Jobs (March 15, 2026)
+
+**Branch:** `feature/day-74-job-search-parity-with-saved-jobs-v1`
+**Scope:** Job Search workspace grid proportions + helper string removal.
+
+### What changed
+- **Grid proportions:** Changed Job Search two-pane grid from `clamp(480px, 38vw, 560px) minmax(420px, 1fr)` to `clamp(250px, 30%, 360px) minmax(320px, 1fr)` — matching Saved Jobs exactly. This narrows the left results column from ~480-560px to ~250-360px and gives the center detail workspace the remaining space.
+- **Grid gap/padding/margin:** Changed `gap-4 mt-4` (no horizontal padding) to `gap-3.5 mt-3 px-4 pb-3` — matching Saved Jobs spacing.
+- **Removed helper strings:**
+  - "PathOS will translate it into filters you can review." (below Describe CTA)
+  - "Results shown from saved snapshots (mock). Sorted by..." (above filters bar)
+- **No changes to Saved Jobs.** No changes to interaction states, search controls, or Job Search-specific functionality.
+
+### Files changed this run
+- `packages/ui/src/screens/JobSearchScreen.tsx` (M) — grid layout, spacing, removed 2 helper strings
+
+### Commands run
+- `pnpm typecheck` — passed (exit 0)
+- `pnpm test -- JobSearchScreen` — 44 tests passed
+- `pnpm test -- SavedJobsScreen` — 10 tests passed
+- Linter: clean (no errors)
+
+### Git state
+- `git branch --show-current`: `feature/day-74-job-search-parity-with-saved-jobs-v1`
+- `git status`: 3 files modified (merge-notes, JobSearchScreen.tsx, JobSearchScreen.test.tsx — test file was modified in a prior run)
+- `git diff --name-status develop...HEAD`: empty (no commits on branch)
+- `git diff --stat develop...HEAD`: empty (all changes in working tree)
+- No commits made. No push.
+
+### Patch artifacts
+- `artifacts/day-74.patch` — cumulative working-tree diff (develop to working tree)
+- `artifacts/day-74-this-run.patch` — incremental diff (this layout-parity run)
+
+### Known risks / follow-ups
+- At very narrow viewport widths (<900px), the 250px minimum left column may compete with the 320px minimum center column. The Saved Jobs page has the same constraint; both pages target desktop-primary widths.
+- The Job Search result cards now render in a narrower column; cards with long titles or many tags will truncate more aggressively. This is the same behavior Saved Jobs has.
+- Visual validation at supported desktop widths is recommended before merge.
+
+---
+
+## Run 3 — Day 74 Polish Pass: Tile Order, Noise Reduction, Alignment (March 15, 2026)
+
+### Summary
+Consistency and polish pass bringing Job Search's detail panel closer to Saved Jobs in tile order, text density, and Match Breakdown alignment while preserving Job Search's distinct search/exploration purpose.
+
+### What changed
+
+**JobSearchScreen.tsx:**
+- **Tile reorder:** Top info tiles now follow Saved Jobs scan order: Salary → Grade & Promotion → Work Mode → Deadline. Previously was Agency → Grade → Salary → Work Mode → Deadline.
+- **Agency removed from tiles:** The Agency tile was removed from the decision summary band. Agency is already shown in the fixed header zone (FIXED ZONE 1) under the job title, consistent with how Saved Jobs treats identity (title + agency) separately from decision-relevant detail tiles.
+- **Grid minWidth aligned:** Tile grid changed from `minmax(140px, 1fr)` to `minmax(150px, 1fr)` to match Saved Jobs exactly.
+- **Helper text removed:** Removed "Job match weights what this announcement emphasizes most." one-liner — did not pull its weight.
+- **PathAdvisor helper removed:** Removed "Details appear in PathAdvisor." helper text below match breakdown — obvious from context.
+- **Career Readiness CTA simplified:** "Open Career Readiness: Fix {label} (+{points})" shortened to "Fix {label}" — the full context now lives in the tooltip. More restrained, less busy.
+- **Explain action shortened:** "Explain this match" → "Explain Match" for a tighter feel.
+- **Match Breakdown alignment fixed:** Status column header and row values changed from `w-[48px]` to `w-[56px]` to match Saved Jobs' breakdown column widths. All five columns (Dimension 120px, Score flex, Pts 32px, Demand 48px, Status 56px) now match exactly across both screens.
+
+**JobSearchScreen.test.tsx:**
+- Updated "Day 74: decision summary band" test to check for Salary, Grade, Work Mode, Deadline (no longer checks for Agency tile).
+- Updated "Day 62: Details appear in PathAdvisor" test to only check that "What you're missing" is not present (helper text removed).
+- Updated "Open Career Readiness CTA" test to check for the simplified "Fix " prefix instead of "Open Career Readiness".
+
+### Tab naming confirmation
+- Tabs already said "Match Overview" and "Job Details" — no change needed. Confirmed correct.
+
+### Files changed this run
+- `packages/ui/src/screens/JobSearchScreen.tsx` (M) — tile reorder, Agency removal, noise reduction, alignment fix
+- `packages/ui/src/screens/JobSearchScreen.test.tsx` (M) — test updates for changed text
+
+### Commands run
+- `npx vitest run packages/ui/src/screens/JobSearchScreen.test.tsx` — 44 tests passed (exit 0)
+- `npx vitest run packages/ui/src/screens/SavedJobsScreen.test.tsx` — 10 tests passed (exit 0)
+- Linter: clean (no errors in modified files)
+
+### Git state
+- `git branch --show-current`: `feature/day-74-job-search-parity-with-saved-jobs-v1`
+- `git status`: 3 files modified (merge-notes, JobSearchScreen.tsx, JobSearchScreen.test.tsx), 1 untracked (change-briefs/day-74.md)
+- `git diff --name-status develop...HEAD`: empty (no commits on branch)
+- `git diff --stat develop...HEAD`: empty (all changes in working tree)
+- No commits made. No push.
+
+### Patch artifacts
+- `artifacts/day-74.patch` — cumulative working-tree diff (92 KB)
+- `artifacts/day-74-this-run.patch` — incremental diff for this run (86 KB)
+
+### Known risks / follow-ups
+- The chevron icon on interactive Match Breakdown rows adds a small amount of extra width beyond the Status column. This is cosmetically acceptable at desktop widths and matches the existing interactive-row pattern in the screen.
+- Visual validation at desktop width recommended to confirm tile rhythm, breakdown alignment, and action row density match expectations.
+- Human simulation gate: not required for this run (pure UI polish, no logic changes, no persistence changes, no routing changes).
+
+---
+
+## Run 4 — Day 74 Shared Match Breakdown Table: Alignment + Interaction Parity (March 15, 2026)
+
+### Summary
+Extracted the match-breakdown dimension table into a shared component (`MatchBreakdownTable.tsx`) and integrated it into both Job Search and Saved Jobs. This eliminates the cross-page inconsistency where Job Search had interactive rows (hover, click, focus-visible, tooltip, chevron) and Saved Jobs had static divs. Both screens now use the same shared component with identical alignment, column widths, and interaction model. The alignment bug (header not accounting for row padding and chevron column) is also fixed.
+
+### What changed
+
+**NEW: `packages/ui/src/components/MatchBreakdownTable.tsx`**
+- `MatchBreakdownRowData` interface: normalized data shape for a single dimension row, used by both screens.
+- `MatchBreakdownHeader` component: shared column-header row with px-1 padding and a trailing 20px spacer matching the chevron column in data rows. Fixes the alignment bug where header labels were offset from row data.
+- `MatchBreakdownRow` component: shared interactive row with `<button>`, `INTERACTIVE_HOVER_CLASS`, `focus-visible:ring-2`, hover border/background, `Tooltip`, `ChevronRight` on hover/focus, and `role="progressbar"` accessibility on the score bar. Accepts optional `onRowClick` callback.
+
+**`packages/ui/src/screens/JobSearchScreen.tsx`**
+- Added imports for `MatchBreakdownHeader`, `MatchBreakdownRow`, `MatchBreakdownRowData`.
+- Replaced the inline column-header div and inline `<button>` rows in the match breakdown section with `<MatchBreakdownHeader />` and `<MatchBreakdownRow />` calls.
+- Each Job Search dimension maps its `JobMatchDimension` data to `MatchBreakdownRowData` and passes `onRowClick` to open the dimension briefing.
+
+**`packages/ui/src/screens/SavedJobsScreen.tsx`**
+- Added imports for `MatchBreakdownHeader`, `MatchBreakdownRow`, `MatchBreakdownRowData`.
+- Replaced the inline column-header div and inline static `<div>` rows with `<MatchBreakdownHeader />` and `<MatchBreakdownRow />` calls.
+- Each Saved Jobs dimension maps its `MatchDimension` data to `MatchBreakdownRowData`. No `onRowClick` is passed (rows are hoverable/focusable but do not navigate — click action can be added later).
+- Rows now have hover, focus-visible, tooltip, and chevron affordances that were previously absent.
+
+### Alignment fix details
+- Header row now includes `px-1` padding matching the `<button>` row padding, so all columns align.
+- Header row includes a trailing `w-[20px]` spacer matching the chevron column in data rows, preventing the Status header from appearing offset left.
+- All column widths remain: Dimension 120px, Score flex-1, Pts 32px, Demand 48px, Status 56px, Chevron 20px.
+
+### Files changed this run
+- `packages/ui/src/components/MatchBreakdownTable.tsx` (A) — new shared component
+- `packages/ui/src/screens/JobSearchScreen.tsx` (M) — replaced inline breakdown with shared component
+- `packages/ui/src/screens/SavedJobsScreen.tsx` (M) — replaced inline breakdown with shared component
+
+### Commands run
+- `npx tsc --noEmit` — exit 0 (clean)
+- `npx vitest run packages/ui/src/screens/JobSearchScreen.test.tsx packages/ui/src/screens/SavedJobsScreen.test.tsx` — 54 tests passed (44 + 10), exit 0
+- Linter: clean (no errors in modified files)
+
+### Git state
+- `git branch --show-current`: `feature/day-74-job-search-parity-with-saved-jobs-v1`
+- `git status`: 4 files modified (merge-notes, JobSearchScreen.tsx, SavedJobsScreen.tsx, JobSearchScreen.test.tsx), 2 untracked (MatchBreakdownTable.tsx, change-briefs/day-74.md)
+- `git diff --name-status develop...HEAD`: empty (no commits on branch)
+- `git diff --stat`: 4 files, 1434 insertions, 520 deletions
+- No commits made. No push.
+
+### Patch artifacts
+- `artifacts/day-74.patch` — cumulative working-tree diff (115 KB)
+- `artifacts/day-74-this-run.patch` — incremental diff for this run (115 KB)
+
+### Known risks / follow-ups
+- Saved Jobs rows do not yet fire an `onRowClick` action. The visual affordance (hover, chevron) is present, but clicking is a no-op. A follow-up could wire rows to open a PathAdvisor dimension context panel.
+- The Saved Jobs breakdown now uses `<ul>/<li>` structure (matching Job Search) instead of a flat `<div>` container. The `space-y-2.5` on the outer container is retained for vertical rhythm.
+- Human simulation gate: not required (UI component extraction, no logic changes, no persistence changes, no routing changes).
+
+---
+
+## Run 5 — Day 74 Match Overview Cleanup: Remove Redundant Summary Stats + Interaction Parity (March 15, 2026)
+
+### Summary
+Removed the redundant summary stat grids (Readiness, Weighted Fit/Job Match, Limiting Factor/Primary Blocker) from the Match Overview section on both Job Search and Saved Jobs. These values were already visible in the header badges (FIXED ZONE 1), making the grid redundant. Preserved useful recommendation guidance as compact advisory lines. Additionally, wired Saved Jobs breakdown row clicks to publish dimension-explanation context to PathAdvisor — matching the same interaction pattern already present in Job Search.
+
+### What changed
+
+**`packages/ui/src/screens/JobSearchScreen.tsx`:**
+- Removed the 3-cell summary stat grid (Readiness / Job Match / Primary blocker) from the Match Intelligence section. All three values were already displayed in the header badges.
+- Replaced with a compact single-line advisory `<p>` element that renders `jobMatch.primaryBlocker` — preserving the actionable guidance without restating headline metrics.
+- The advisory uses subdued text (`--p-text-muted`) with a bottom border separator above the match breakdown table.
+
+**`packages/ui/src/screens/SavedJobsScreen.tsx`:**
+- Removed the 4-cell summary stat grid (Readiness / Weighted Fit / Limiting Factor / Top Action) from the Match Overview section. Readiness and match score were already in header badges.
+- Replaced with a compact advisory line: "Top action: {matchSummary.topAction}" — preserving the actionable recommendation in a lighter, non-redundant form.
+- Added `import { publishDimensionExplainContext } from '../lib/pathAdvisorPublish'`.
+- Wired all breakdown row `onRowClick` callbacks to call `publishDimensionExplainContext` with the selected job and dimension context. This mirrors the same interaction pattern used in Job Search:
+  - Clicking a dimension row publishes a PathAdvisor context entry with: what the dimension measures, user's current signal, and fastest fix advice.
+  - Dedupe key prevents duplicate entries for the same dimension/score.
+  - Anchor is the current saved job (id + title).
+  - Screen is 'saved-jobs' for proper log attribution.
+
+### Files changed this run
+- `packages/ui/src/screens/JobSearchScreen.tsx` (M) — removed summary grid, added compact advisory
+- `packages/ui/src/screens/SavedJobsScreen.tsx` (M) — removed summary grid, added compact advisory, wired row click to PathAdvisor
+
+### Commands run
+- `npx tsc --noEmit` — exit 0 (clean)
+- `npx vitest run packages/ui/src/screens/JobSearchScreen.test.tsx packages/ui/src/screens/SavedJobsScreen.test.tsx` — 54 tests passed (44 + 10), exit 0
+- Linter: clean (no errors in modified files)
+
+### Git state
+- `git branch --show-current`: `feature/day-74-job-search-parity-with-saved-jobs-v1`
+- `git status`: 4 files modified (merge-notes, JobSearchScreen.tsx, SavedJobsScreen.tsx, JobSearchScreen.test.tsx), 2 untracked (MatchBreakdownTable.tsx, change-briefs/day-74.md)
+- `git diff --name-status develop...HEAD`: empty (no commits on branch)
+- `git diff --stat`: 4 files, 1503 insertions, 567 deletions
+- No commits made. No push.
+
+### Patch artifacts
+- `artifacts/day-74.patch` — cumulative working-tree diff (124 KB)
+- `artifacts/day-74-this-run.patch` — incremental diff for this run (124 KB)
+
+### Known risks / follow-ups
+- The Saved Jobs dimension-explain payload is lighter than Job Search's (no `buildDimensionBriefingPayload` with evidence-found/missing detail). A follow-up could introduce a Saved Jobs-specific snapshot to produce richer evidence data.
+- The Saved Jobs `topAction` advisory text is prefixed with "Top action:" while Job Search renders `primaryBlocker` directly (which already includes its own "Primary blocker:" prefix). Both are intentional — they surface different but equivalent guidance.
+- Human simulation gate: not required (UI simplification + interaction wiring, no logic changes to core data, no persistence changes, no routing changes).
