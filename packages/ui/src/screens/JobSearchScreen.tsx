@@ -34,6 +34,12 @@ import {
   ChevronRight,
   Info,
   FileText,
+  Building2,
+  DollarSign,
+  Calendar,
+  TrendingUp,
+  BarChart2,
+  MapPin,
 } from 'lucide-react';
 import { useNav } from '@pathos/adapters';
 import { storageSetJSON, storageGetJSON } from '@pathos/core';
@@ -84,6 +90,9 @@ import { Tooltip } from '../components/Tooltip';
 import { FilterGuideDrawer } from '../components/filter-guides';
 import type { FilterGuideKind } from '../components/filter-guides';
 import { INTERACTIVE_HOVER_CLASS } from '../styles/interactiveHover';
+import { scoreTierColor } from '../styles/scoreTiers';
+import { MatchBreakdownHeader, MatchBreakdownRow } from '../components/MatchBreakdownTable';
+import type { MatchBreakdownRowData } from '../components/MatchBreakdownTable';
 
 /** localStorage key for prompt-to-filters audit (view evidence). Not exported from core. */
 const PROMPT_TO_FILTERS_AUDIT_KEY = 'pathos:prompt-to-filters-audit';
@@ -230,8 +239,14 @@ function JobListItem(props: {
   const remoteLabel = getRemoteTeleworkLabel(props.job);
   const oneRisk = props.riskFlags.length > 0 ? props.riskFlags[0] : null;
 
+  /* Per-job readiness for scan-level color-coded badge (matches Saved Jobs list pattern). */
+  const readiness = deriveJobReadiness(props.matchInfo.overallMatchScore);
+
+  /* Selection uses accent-tinted bg (warmer, distinct from hover) matching Saved Jobs. */
   const rowBg =
-    props.isSelected ? 'var(--p-surface2)' : (hover ? 'var(--p-surface2)' : 'transparent');
+    props.isSelected
+      ? 'color-mix(in srgb, var(--p-accent) 8%, var(--p-surface))'
+      : (hover ? 'var(--p-surface2)' : 'transparent');
 
   /* Left match bar color by level: Strong = success-ish token, Moderate = accent-muted, Stretch = border-strong/dim. */
   const matchBarColor =
@@ -276,9 +291,22 @@ function JobListItem(props: {
             {props.tag}
           </span>
         ) : null}
-        <p className="text-sm font-medium truncate" style={{ color: 'var(--p-text)' }}>
-          {props.job.title}
-        </p>
+        {/* Title row: job title left, readiness score pill right (matches Saved Jobs scan signal). */}
+        <div className="flex items-center justify-between gap-2 mb-0.5">
+          <p className="text-sm font-medium truncate flex-1 min-w-0 leading-snug" style={{ color: 'var(--p-text)' }}>
+            {props.job.title}
+          </p>
+          <span
+            className="text-[11px] font-bold tabular-nums px-2 py-0.5 rounded-full flex-shrink-0"
+            style={{
+              background: 'color-mix(in srgb, ' + scoreTierColor(readiness) + ' 15%, transparent)',
+              color: scoreTierColor(readiness),
+            }}
+            title={'Readiness: ' + String(readiness) + '/100'}
+          >
+            {String(readiness)}%
+          </span>
+        </div>
         <p className="text-xs truncate mt-0.5" style={{ color: 'var(--p-text-muted)' }}>
           {props.job.agency}
           {props.job.location ? ' • ' + props.job.location : ''}
@@ -460,9 +488,386 @@ export interface QualificationSnapshot {
 }
 
 // ---------------------------------------------------------------------------
-// Job details panel — PathOS Snapshot (above tabs) + Tabs: Overview & Docs (default), Requirements, PathOS Brief
+// View mode type — top-level workspace mode for the selected-job detail panel
 // ---------------------------------------------------------------------------
 
+/**
+ * The two content modes available in the Job Search detail workspace.
+ *   - 'match': shows job info band + match intelligence + considerations (default)
+ *   - 'listing': shows sub-tabs (Overview & Docs / Requirements / PathOS Brief)
+ * Mirrors the Match Overview / Job Overview pattern established in Saved Jobs.
+ */
+type JobSearchViewMode = 'match' | 'listing';
+
+// ---------------------------------------------------------------------------
+// Per-job readiness derivation — varies per job so color tiers are exercised
+// ---------------------------------------------------------------------------
+
+/**
+ * Derive a per-job readiness score from the match score.
+ *
+ * In a full system this would combine Career Readiness signals with
+ * job-specific qualification alignment. For evaluation this uses the same
+ * formula as Saved Jobs: matchScore * 0.85 + 10, clamped to 0–100.
+ * This produces a spread across strong (>=80), medium (>=60), and weak (<60)
+ * tiers so the color-coded readiness treatment is visibly exercised.
+ */
+function deriveJobReadiness(matchScore: number | undefined): number {
+  if (matchScore === undefined) return 70;
+  const base = Math.round(matchScore * 0.85 + 10);
+  return base > 100 ? 100 : base;
+}
+
+// ---------------------------------------------------------------------------
+// Professional mode tab — matches WorkspaceModeTab pattern from Saved Jobs
+// ---------------------------------------------------------------------------
+
+/**
+ * A single tab in the top-level workspace mode switch (Match Overview / Job Details).
+ *
+ * INTERACTION STATES (per Interaction-State Standard):
+ *   hover (not selected): text brightens from dim to muted; faint underline appears
+ *   hover (selected): text stays accent; underline stays accent — no visual regression
+ *   focus-visible: standard accent ring via :focus-visible
+ *   active/pressed: brief opacity reduction (0.75) confirming the click registered
+ *   selected: accent text + 2px accent bottom bar + subtle accent bg tint —
+ *             persistent, visually stronger than hover, survives hover overlay
+ */
+function JobSearchModeTab(props: {
+  label: string;
+  isSelected: boolean;
+  id: string;
+  controlsId: string;
+  onClick: () => void;
+}) {
+  const [hover, setHover] = useState(false);
+  const [active, setActive] = useState(false);
+
+  /* Text color: selected = accent; hover = muted; default = dim. */
+  const textColor = props.isSelected
+    ? 'var(--p-accent)'
+    : (hover ? 'var(--p-text-muted)' : 'var(--p-text-dim)');
+
+  /* Underline: selected = accent; hover = dim hint; default = transparent. */
+  const underlineColor = props.isSelected
+    ? 'var(--p-accent)'
+    : (hover ? 'var(--p-text-dim)' : 'transparent');
+
+  const opacity = active ? 0.75 : 1;
+
+  return (
+    <button
+      type="button"
+      role="tab"
+      aria-selected={props.isSelected}
+      aria-controls={props.controlsId}
+      id={props.id}
+      tabIndex={props.isSelected ? 0 : -1}
+      onClick={props.onClick}
+      onMouseEnter={function () { setHover(true); }}
+      onMouseLeave={function () { setHover(false); setActive(false); }}
+      onMouseDown={function () { setActive(true); }}
+      onMouseUp={function () { setActive(false); }}
+      className="relative px-5 py-2.5 text-xs font-semibold tracking-wide uppercase outline-none transition-colors focus-visible:ring-2 focus-visible:ring-[var(--p-accent)] focus-visible:ring-inset"
+      style={{
+        color: textColor,
+        background: props.isSelected
+          ? 'color-mix(in srgb, var(--p-accent) 5%, transparent)'
+          : 'transparent',
+        border: 'none',
+        opacity: opacity,
+      }}
+    >
+      {props.label}
+      <span
+        className="absolute bottom-0 left-0 right-0 h-[2px] transition-all"
+        style={{ background: underlineColor }}
+        aria-hidden="true"
+      />
+    </button>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Professional sub-tab — matches AnnouncementSectionTab pattern from Saved Jobs
+// ---------------------------------------------------------------------------
+
+/**
+ * A single tab in the sub-tab navigation row (listing mode).
+ * Slightly smaller and lighter than the mode switch tabs because it
+ * represents section-level navigation within a mode.
+ *
+ * INTERACTION STATES:
+ *   hover (not selected): text brightens; subtle underline hint
+ *   hover (selected): text stays accent; underline stays — no regression
+ *   focus-visible: accent ring
+ *   active/pressed: opacity reduction confirming click
+ *   selected: accent text + 2px accent underline + faint accent bg tint
+ */
+function JobSearchSubTab(props: {
+  label: string;
+  sectionKey: string;
+  isActive: boolean;
+  id: string;
+  controlsId: string;
+  onClick: () => void;
+}) {
+  const [hover, setHover] = useState(false);
+  const [active, setActive] = useState(false);
+
+  const textColor = props.isActive
+    ? 'var(--p-accent)'
+    : (hover ? 'var(--p-text-muted)' : 'var(--p-text-dim)');
+
+  const underlineColor = props.isActive
+    ? 'var(--p-accent)'
+    : (hover ? 'var(--p-text-dim)' : 'transparent');
+
+  const opacity = active ? 0.75 : 1;
+
+  return (
+    <button
+      type="button"
+      role="tab"
+      aria-selected={props.isActive}
+      aria-controls={props.controlsId}
+      id={props.id}
+      tabIndex={props.isActive ? 0 : -1}
+      onClick={props.onClick}
+      onMouseEnter={function () { setHover(true); }}
+      onMouseLeave={function () { setHover(false); setActive(false); }}
+      onMouseDown={function () { setActive(true); }}
+      onMouseUp={function () { setActive(false); }}
+      className="relative px-3 py-2 text-[11px] font-medium whitespace-nowrap outline-none transition-colors focus-visible:ring-2 focus-visible:ring-[var(--p-accent)] focus-visible:ring-inset"
+      style={{
+        color: textColor,
+        background: props.isActive
+          ? 'color-mix(in srgb, var(--p-accent) 4%, transparent)'
+          : 'transparent',
+        border: 'none',
+        opacity: opacity,
+      }}
+    >
+      {props.label}
+      <span
+        className="absolute bottom-0 left-0 right-0 h-[2px] transition-all"
+        style={{ background: underlineColor }}
+        aria-hidden="true"
+      />
+    </button>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Job details panel — Parity with Saved Jobs fixed-zone architecture
+// ---------------------------------------------------------------------------
+
+/**
+ * Keys for the selectable announcement sections in Job Overview mode.
+ * Mirrors the exact 8-section structure from Saved Jobs plus a PathOS Brief
+ * section unique to Job Search. The section set matches standard USAJOBS
+ * announcement structure so the inner viewer reads like a professional
+ * document navigation system.
+ */
+type JobSearchAnnouncementSectionKey =
+  | 'overview'
+  | 'qualifications'
+  | 'requirements'
+  | 'documents'
+  | 'how-to-apply'
+  | 'evaluation'
+  | 'benefits'
+  | 'additional'
+  | 'pathosBrief';
+
+/**
+ * A single announcement section's metadata and content.
+ * Matches the AnnouncementSectionDef shape from Saved Jobs.
+ */
+interface JobSearchAnnouncementSectionDef {
+  key: JobSearchAnnouncementSectionKey;
+  label: string;
+  content: string;
+}
+
+/** ARIA helper: unique ID for a mode tab button (Match Overview / Job Overview). */
+function getSearchModeTabId(mode: JobSearchViewMode): string {
+  return 'job-search-mode-tab-' + mode;
+}
+
+/** ARIA helper: unique ID for the panel controlled by a mode tab. */
+function getSearchModePanelId(mode: JobSearchViewMode): string {
+  return 'job-search-mode-panel-' + mode;
+}
+
+/** ARIA helper: unique ID for an announcement section tab button. */
+function getSearchSectionTabId(sectionKey: JobSearchAnnouncementSectionKey): string {
+  return 'job-search-section-tab-' + sectionKey;
+}
+
+/** ARIA helper: unique ID for the panel controlled by a section tab. */
+function getSearchSectionPanelId(sectionKey: JobSearchAnnouncementSectionKey): string {
+  return 'job-search-section-panel-' + sectionKey;
+}
+
+/**
+ * Generate deterministic mock announcement sections for a Job Search job.
+ *
+ * PURPOSE: Provide the same information-dense federal announcement content
+ * structure that Saved Jobs uses, so the Job Overview viewer in Job Search
+ * reads like the same sibling document system. Content adapts to the job's
+ * title, agency, grade, and overview fields where available.
+ *
+ * Returns an array of 8 standard USAJOBS sections. The PathOS Brief section
+ * is handled separately since it uses structured decision-intelligence data
+ * rather than announcement prose.
+ */
+function getSearchAnnouncementSections(job: Job | JobWithOverview): JobSearchAnnouncementSectionDef[] {
+  const title = job.title;
+  const agency = job.agency;
+  const grade = job.grade !== undefined && job.grade !== '' ? job.grade : 'the advertised grade';
+  const location = job.location !== undefined && job.location !== '' ? job.location : 'the duty station';
+
+  return [
+    {
+      key: 'overview',
+      label: 'Role Overview',
+      content:
+        'This position serves as a ' + title + ' within ' + agency + ', located in ' + location + '. ' +
+        'The incumbent performs professional-level work supporting the agency\'s mission through specialized analysis, program support, and stakeholder coordination.\n\n' +
+        'Major duties include but are not limited to:\n\n' +
+        '- Conducting analysis of program operations, policies, and procedures to evaluate effectiveness and recommend improvements.\n' +
+        '- Preparing written reports, briefings, and decision memoranda for senior leadership summarizing findings and proposed courses of action.\n' +
+        '- Coordinating with internal and external stakeholders across organizational boundaries to ensure alignment of program objectives.\n' +
+        '- Monitoring program milestones, deliverables, and performance indicators; reporting variances and recommending corrective action.\n' +
+        '- Participating in working groups, task forces, and interagency committees as a subject-matter representative.\n' +
+        '- Reviewing and interpreting federal regulations, policies, and guidance applicable to the program area.\n\n' +
+        'This position offers the opportunity to contribute directly to ' + agency + '\'s strategic priorities while building specialized federal career experience at the ' + grade + ' level. ' +
+        'The work environment emphasizes analytical rigor, cross-functional collaboration, and evidence-based decision making.',
+    },
+    {
+      key: 'qualifications',
+      label: 'Qualifications',
+      content:
+        'To qualify for this position at the ' + grade + ' level, applicants must demonstrate one year of specialized experience equivalent to the next lower grade level in the federal service (or equivalent in other pay systems).\n\n' +
+        'Specialized experience is defined as experience that has equipped the applicant with the particular knowledge, skills, and abilities to successfully perform the duties of this position. ' +
+        'Examples of qualifying specialized experience include:\n\n' +
+        '- Applying analytical methods and techniques to evaluate program performance, identify trends, and develop recommendations for management action.\n' +
+        '- Preparing clear, well-organized written products (reports, memoranda, briefings) for technical and non-technical audiences.\n' +
+        '- Coordinating across organizational boundaries with multiple stakeholders to accomplish project or program objectives.\n' +
+        '- Using office productivity and data analysis tools (e.g., Excel, SharePoint, Power BI, Tableau, or equivalent) to organize, analyze, and present information.\n\n' +
+        'In addition to the specialized experience requirement, applicants should demonstrate:\n\n' +
+        '- Strong written and oral communication skills.\n' +
+        '- Ability to manage competing priorities and meet deadlines in a fast-paced environment.\n' +
+        '- Familiarity with federal regulations, policies, or procedures applicable to the program area.\n\n' +
+        'Experience may have been gained in the federal government, state or local government, the private sector, or a non-profit organization. Volunteer experience and experience obtained outside paid employment will be considered on the same basis as paid experience.',
+    },
+    {
+      key: 'requirements',
+      label: 'Requirements',
+      content:
+        'Conditions of Employment:\n\n' +
+        '- Must be a United States citizen or national.\n' +
+        '- Must successfully complete a background investigation and, where applicable, obtain and maintain the required security clearance.\n' +
+        '- Males born after December 31, 1959, must be registered with the Selective Service System or have an approved exemption.\n' +
+        '- Subject to satisfactory completion of a one-year probationary period if not previously completed.\n' +
+        '- Must meet all qualification requirements by the closing date of the announcement.\n\n' +
+        'Additional Requirements:\n\n' +
+        '- This position may require occasional travel (up to 10% of the time) for site visits, conferences, and stakeholder meetings.\n' +
+        '- A valid state driver\'s license may be required if travel by government vehicle is necessary.\n' +
+        '- Incumbent must be able to obtain and maintain a government-issued Personal Identity Verification (PIV) card.\n' +
+        '- Financial disclosure may be required in accordance with federal ethics regulations.\n\n' +
+        'Physical Requirements:\n\n' +
+        'The work is primarily sedentary. Some standing, walking, bending, and carrying of light items (files, notebooks, supplies) may be required. ' +
+        'No special physical demands are required to perform the work.',
+    },
+    {
+      key: 'documents',
+      label: 'Required Documents',
+      content:
+        'The following documents are required and must be submitted by the closing date of this announcement:\n\n' +
+        '1. Resume: Your resume must include the following for each position held: job title, employer name and address, start and end dates (month/year), hours worked per week, and a detailed description of duties performed. ' +
+        'Resumes exceeding 5 pages may not be fully reviewed.\n\n' +
+        '2. Transcripts: If qualifying based on education or a combination of education and experience, you must submit unofficial transcripts with your application. ' +
+        'Official transcripts will be required if selected.\n\n' +
+        '3. SF-50 (Notification of Personnel Action): Current or former federal employees must submit a copy of their most recent SF-50 showing tenure, grade, and pay plan.\n\n' +
+        '4. Veterans\' Preference Documentation: If claiming veterans\' preference, submit a DD-214 (Member Copy 4), SF-15, and any required VA documentation.\n\n' +
+        '5. Schedule A Letter: If applying under the Schedule A hiring authority for individuals with disabilities, submit your Schedule A letter from a licensed medical professional, vocational rehabilitation specialist, or any government agency that issues or provides disability benefits.\n\n' +
+        'Failure to provide required documents may result in disqualification. Ensure all documents are legible and properly formatted.',
+    },
+    {
+      key: 'how-to-apply',
+      label: 'How to Apply',
+      content:
+        'To apply for this position, you must complete the online application through USAJOBS:\n\n' +
+        '1. Create or log in to your USAJOBS account at www.usajobs.gov.\n' +
+        '2. Search for this announcement using the control number or job title.\n' +
+        '3. Click "Apply" and follow the prompts to complete the occupational questionnaire.\n' +
+        '4. Upload all required documents (see Required Documents section).\n' +
+        '5. Review your application package for completeness and submit.\n\n' +
+        'Your application must be received by 11:59 PM Eastern Time on the closing date. Late applications will not be accepted.\n\n' +
+        'Important Notes:\n\n' +
+        '- Ensure your USAJOBS profile is current and includes your most recent resume.\n' +
+        '- You may check the status of your application at any time through your USAJOBS account.\n' +
+        '- Applications submitted by any means other than the USAJOBS online application system will not be accepted.\n' +
+        '- If you experience technical difficulties with the application system, contact the Help Desk before the closing date.\n\n' +
+        'After submitting your application, you will receive a confirmation email. If you do not receive confirmation within 24 hours, contact the HR point of contact listed below.',
+    },
+    {
+      key: 'evaluation',
+      label: 'Evaluation',
+      content:
+        'Your application will be evaluated based on the following criteria:\n\n' +
+        'Initial Review: Applications will be reviewed for completeness and minimum qualifications. Applicants who do not meet the minimum qualifications or fail to submit required documents will be rated ineligible.\n\n' +
+        'Qualified applicants will be evaluated using a structured assessment process that considers:\n\n' +
+        '- Demonstrated specialized experience relevant to the duties of the position.\n' +
+        '- Quality and relevance of education, training, and professional development.\n' +
+        '- Responses to the occupational questionnaire, which measures job-related competencies.\n\n' +
+        'Competencies assessed include:\n\n' +
+        '- Analytical Thinking: Ability to interpret data, identify patterns, and develop evidence-based recommendations.\n' +
+        '- Communication: Skill in preparing clear written products and delivering oral presentations to diverse audiences.\n' +
+        '- Stakeholder Management: Effectiveness in building and maintaining productive working relationships across organizational boundaries.\n' +
+        '- Project/Program Management: Ability to plan, execute, and monitor work within scope, schedule, and resource constraints.\n\n' +
+        'Best-qualified applicants may be referred to the hiring manager for further consideration and interview. ' +
+        'Interview format may include structured panel interviews, writing samples, or work simulations.',
+    },
+    {
+      key: 'benefits',
+      label: 'Benefits',
+      content:
+        'As a federal employee of ' + agency + ', you are eligible for a comprehensive benefits package including:\n\n' +
+        'Health Insurance: Choice of several Federal Employees Health Benefits (FEHB) plans covering medical, dental, and vision. ' +
+        'The government pays a significant portion of the premium.\n\n' +
+        'Retirement: Federal Employees Retirement System (FERS) including a basic benefit plan, Thrift Savings Plan (TSP) with government matching contributions of up to 5%, and Social Security coverage.\n\n' +
+        'Leave: 13 days of annual leave per year (increasing to 20 and then 26 days with tenure), 13 days of sick leave per year, and 11 paid federal holidays.\n\n' +
+        'Life Insurance: Federal Employees Group Life Insurance (FEGLI) with multiple coverage options.\n\n' +
+        'Flexible Spending Accounts: Pre-tax accounts for health care and dependent care expenses.\n\n' +
+        'Transit Benefits: Monthly subsidy for public transportation or vanpool commuting costs.\n\n' +
+        'Work-Life Programs: Employee Assistance Program (EAP), fitness center access at many locations, telework and alternative work schedule options where available.\n\n' +
+        'Additional Benefits: Long-term care insurance, student loan repayment program (agency discretion), recruitment and relocation incentives (where authorized).',
+    },
+    {
+      key: 'additional',
+      label: 'Additional Information',
+      content:
+        'Agency Contact Information:\n' +
+        'For questions about this vacancy, contact the Human Resources Office of ' + agency + '.\n\n' +
+        'Telework: This position may be eligible for telework as determined by agency policy. ' +
+        'The specific telework arrangement will be discussed during the interview process and is subject to supervisor approval and organizational needs.\n\n' +
+        'Bargaining Unit: This position may be covered under a collective bargaining agreement. Contact the HR office for specific information about bargaining unit status.\n\n' +
+        'Equal Employment Opportunity: ' + agency + ' is an equal opportunity employer. ' +
+        'Selection will be made without regard to race, color, religion, sex, national origin, age, disability, sexual orientation, gender identity, or any other non-merit factor.\n\n' +
+        'Reasonable Accommodations: This agency provides reasonable accommodations to applicants with disabilities. ' +
+        'If you need an accommodation for any part of the application or hiring process, contact the HR office.\n\n' +
+        'This announcement may be used to fill additional vacancies in the same organizational unit within 90 days of the original selection. ' +
+        'Multiple selections may be made from this announcement.\n\n' +
+        'Applicants must meet all qualifications and eligibility requirements by the closing date of this announcement.',
+    },
+  ];
+}
+
+/** Legacy sub-tab type — kept for compatibility but PathOS Brief is now
+ * part of the announcement section navigation system. */
 type DetailsTab = 'overview' | 'requirements' | 'pathosBrief';
 
 function JobDetailsPanel(props: {
@@ -471,474 +876,728 @@ function JobDetailsPanel(props: {
   activeTab: DetailsTab;
   onTabChange: (tab: DetailsTab) => void;
   decisionBrief: import('../stores/decisionBriefsV1Store').DecisionBriefRecord | null;
-  /** Qualification snapshot for Snapshot panel; undefined when no job selected. Used for Explain in PathAdvisor fit briefing. */
   snapshot: QualificationSnapshot | undefined;
-  /** Job Match Snapshot v1 (readiness ↔ job); when set, panel shows Match for this job + breakdown. */
   jobMatchSnapshot: JobMatchSnapshot | undefined;
   onSave: () => void;
   onTailor: () => void;
   onAskPathAdvisor: () => void;
-  /** Open PathAdvisor rail with qualification briefing (no inline expansion). */
   onExplainInPathAdvisor: (snapshot: QualificationSnapshot) => void;
-  /** Navigate to Career Readiness with #action-plan focus (e.g. for "Fix <gap>" CTA). */
   onOpenCareerReadinessActionPlan: () => void;
-  /** Open PathAdvisor rail with dimension briefing for a Match Breakdown row. */
   onOpenDimensionBriefing: (dim: JobMatchDimension) => void;
 }) {
+  /* No-selection state — shown when no job is selected. */
   if (props.job === undefined || props.job === null) {
     return (
       <div
-        className="flex-1 flex flex-col items-center justify-center gap-3 p-8"
+        className="flex-1 flex flex-col items-center justify-center gap-3 p-8 text-center"
         style={{ color: 'var(--p-text-dim)' }}
       >
-        <Briefcase className="w-10 h-10 opacity-40" />
-        <p className="text-sm">Select a job to view details</p>
+        <div
+          className="w-12 h-12 rounded-full flex items-center justify-center"
+          style={{ background: 'var(--p-surface2)' }}
+        >
+          <Briefcase className="w-6 h-6 opacity-50" />
+        </div>
+        <p className="text-sm font-medium" style={{ color: 'var(--p-text-muted)' }}>
+          Select a job to view details
+        </p>
+        <p className="text-xs max-w-xs" style={{ color: 'var(--p-text-dim)' }}>
+          Choose a position from the results to review match intelligence, requirements, and next steps.
+        </p>
       </div>
     );
   }
 
+  /* Delegate to content component keyed by job id so internal state
+   * (viewMode) resets cleanly when the selected job changes. */
+  return (
+    <JobDetailsPanelContent
+      key={props.job.id}
+      job={props.job}
+      isSaved={props.isSaved}
+      activeTab={props.activeTab}
+      onTabChange={props.onTabChange}
+      decisionBrief={props.decisionBrief}
+      snapshot={props.snapshot}
+      jobMatchSnapshot={props.jobMatchSnapshot}
+      onSave={props.onSave}
+      onTailor={props.onTailor}
+      onAskPathAdvisor={props.onAskPathAdvisor}
+      onExplainInPathAdvisor={props.onExplainInPathAdvisor}
+      onOpenCareerReadinessActionPlan={props.onOpenCareerReadinessActionPlan}
+      onOpenDimensionBriefing={props.onOpenDimensionBriefing}
+    />
+  );
+}
+
+/**
+ * Inner content component for the selected-job detail panel.
+ *
+ * ARCHITECTURE: Follows the same fixed-zone pattern as SavedJobDetailsContent,
+ * now with structural parity in the Job Overview mode. Both screens use the
+ * same 8-section USAJOBS announcement navigation system with rich long-form
+ * content. The viewer reads like a professional document navigation system —
+ * not a loose metadata card.
+ *
+ *   FIXED ZONE 1: Job header (title, agency, readiness badge, match badge)
+ *   FIXED ZONE 2: Workspace mode tabs (Match Overview / Job Overview)
+ *   FIXED ZONE 3: Announcement section navigation (Job Overview mode only)
+ *   SCROLLABLE VIEWPORT: content that scrolls within the card
+ *   FIXED ZONE 4: Action bar (Save, Build Resume, USAJOBS, Ask PathAdvisor)
+ *   Trust footer
+ *
+ * This ensures the lower layout is structurally stable — the action bar
+ * never shifts position regardless of content length or tab switches.
+ */
+function JobDetailsPanelContent(props: {
+  job: Job | JobWithOverview;
+  isSaved: boolean;
+  activeTab: DetailsTab;
+  onTabChange: (tab: DetailsTab) => void;
+  decisionBrief: import('../stores/decisionBriefsV1Store').DecisionBriefRecord | null;
+  snapshot: QualificationSnapshot | undefined;
+  jobMatchSnapshot: JobMatchSnapshot | undefined;
+  onSave: () => void;
+  onTailor: () => void;
+  onAskPathAdvisor: () => void;
+  onExplainInPathAdvisor: (snapshot: QualificationSnapshot) => void;
+  onOpenCareerReadinessActionPlan: () => void;
+  onOpenDimensionBriefing: (dim: JobMatchDimension) => void;
+}) {
   const job = props.job;
   const usajobsUrl = job.url !== undefined && job.url !== '' ? job.url : 'https://www.usajobs.gov';
-  const checklist = getChecklistForJob(job.id);
   const brief = props.decisionBrief;
   const snapshot = props.snapshot;
   const jobMatch = props.jobMatchSnapshot;
   const hasOverview = 'overview' in job && job.overview !== undefined;
 
-  /* Meta chips: GS, Close date, Remote/Telework/Series if present (from summary/location). */
-  const hasRemote = job.summary && job.summary.toLowerCase().indexOf('remote') !== -1;
-  const hasTelework = job.summary && job.summary.toLowerCase().indexOf('telework') !== -1;
-  const seriesMatch = job.summary && job.summary.match(/\bSeries\s+(\d+)\b/);
-  const seriesLabel = seriesMatch ? seriesMatch[1] : null;
+  /* View mode: 'match' shows job info + match intelligence (default);
+   * 'listing' shows announcement section navigation (parity with Saved Jobs). */
+  const [viewMode, setViewMode] = useState<JobSearchViewMode>('match');
 
-  /* Use longhand border only (no shorthand border) to avoid React warning when mixing with borderBottom. */
-  const tabStyle = function (tab: DetailsTab) {
-    const active = props.activeTab === tab;
-    return {
-      background: active ? 'var(--p-surface2)' : 'transparent',
-      color: active ? 'var(--p-text)' : 'var(--p-text-muted)',
-      borderTop: 'none',
-      borderRight: 'none',
-      borderLeft: 'none',
-      borderBottom: active ? '2px solid var(--p-accent)' : '2px solid transparent',
-      padding: '8px 12px',
-      fontSize: '12px',
-      fontWeight: active ? 600 : 400,
-      cursor: 'pointer',
-    } as React.CSSProperties;
-  };
+  /* Announcement section state: which section is active in Job Overview.
+   * Default is 'overview' (Role Overview) — the most decision-relevant
+   * starting point, matching Saved Jobs default. */
+  const [announcementSection, setAnnouncementSection] = useState<JobSearchAnnouncementSectionKey>('overview');
+
+  /* Auto-switch to listing mode when parent sets pathOS brief tab
+   * (e.g. after save action triggers brief generation). */
+  useEffect(function () {
+    if (props.activeTab === 'pathosBrief') {
+      setViewMode('listing');
+      setAnnouncementSection('pathosBrief');
+    }
+  }, [props.activeTab]);
+
+  /* Per-job readiness score — derived from match score so each job exercises
+   * a different color tier (strong/green >= 80, medium/amber >= 60, weak/red < 60). */
+  const displayReadiness = jobMatch !== undefined
+    ? deriveJobReadiness(jobMatch.overallMatchScore)
+    : 70;
+  const readinessColor = scoreTierColor(displayReadiness);
+  const matchScoreColor = jobMatch !== undefined
+    ? scoreTierColor(jobMatch.overallMatchScore)
+    : 'var(--p-text-muted)';
+
+  /* Overview fields for the Decision Summary Band. */
+  const ov = hasOverview && 'overview' in job ? job.overview : undefined;
+  const remoteLabel = getRemoteTeleworkLabel(job);
+
+  /* Close-date display — uses mock close dates for evaluation. */
+  const closeDateLabel = MOCK_JOB_TAGS[job.id] === 'Close date updated' ? 'Closes soon' : 'Open';
+  const isUrgent = MOCK_JOB_TAGS[job.id] === 'Close date updated';
+
+  /* Announcement sections for the document viewer. Generated per-job so
+   * content references the job's title, agency, and grade for realism.
+   * Matches the same 8-section USAJOBS structure used in Saved Jobs. */
+  const announcementSections = getSearchAnnouncementSections(job);
+
+  /* Build the full section list including PathOS Brief as a 9th tab.
+   * PathOS Brief is Job Search-specific intelligence — it does not appear
+   * in Saved Jobs' announcement tabs (where it was moved to PathAdvisor).
+   * Including it here gives users document-level access to fit intelligence
+   * within the same navigation system. */
+  const allSections: Array<{ key: JobSearchAnnouncementSectionKey; label: string }> = [];
+  for (let i = 0; i < announcementSections.length; i++) {
+    allSections.push({ key: announcementSections[i].key, label: announcementSections[i].label });
+  }
+  allSections.push({ key: 'pathosBrief', label: 'PathOS Brief' });
+
+  /* Find the active announcement section content. Explicit loop to avoid ?.
+   * Default to first section if key not found. Returns empty string for
+   * PathOS Brief since that section renders structured data, not prose. */
+  let activeAnnouncementContent = '';
+  for (let i = 0; i < announcementSections.length; i++) {
+    if (announcementSections[i].key === announcementSection) {
+      activeAnnouncementContent = announcementSections[i].content;
+      break;
+    }
+  }
+  if (activeAnnouncementContent === '' && announcementSection !== 'pathosBrief' && announcementSections.length > 0) {
+    activeAnnouncementContent = announcementSections[0].content;
+  }
 
   return (
+    /* WORKSPACE FRAME: flex column fills the available card height.
+     * Fixed zones use flex-shrink-0 to stay in place; only the content
+     * viewport scrolls. This prevents the action bar from drifting. */
     <div className="flex-1 flex flex-col min-h-0">
-      {/* Match for this job: Job Match Snapshot v1 (readiness ↔ job); local-only Match Breakdown. */}
-      {jobMatch !== undefined ? (
-        <div
-          className="flex-shrink-0 px-4 pt-3 pb-3 border-b"
-          style={{
-            borderColor: 'var(--p-border)',
-            background: 'var(--p-surface)',
-          }}
-        >
-          <h3 className="text-[11px] font-semibold uppercase tracking-wider mb-2" style={{ color: 'var(--p-text-dim)' }}>
-            Match for this job
-          </h3>
-          <div className="space-y-2">
-            {/* Readiness vs Job match: both numbers visible to resolve confusion. */}
-            <div className="flex flex-wrap items-baseline gap-3 text-[11px]">
-              <span style={{ color: 'var(--p-text)' }}>
-                Readiness: {String(jobMatch.overallReadinessScore)}/{String(jobMatch.overallReadinessMax)}
-              </span>
-              <span style={{ color: 'var(--p-text)' }}>
-                Job match: {String(jobMatch.overallMatchScore)}/100 ({jobMatch.matchLevel})
-              </span>
-            </div>
-            <p className="text-[10px]" style={{ color: 'var(--p-text-dim)' }}>
-              Job match weights what this announcement emphasizes most.
+
+      {/* ── FIXED ZONE 1: Job header ──────────────────────────────────────
+       * Title and agency on the left; large readiness badge + match badge
+       * on the right. Matches Saved Jobs header hierarchy exactly. */}
+      <div
+        className="px-5 pt-4 pb-3 flex-shrink-0"
+        style={{ borderBottom: '1px solid var(--p-border)' }}
+      >
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex-1 min-w-0">
+            <h2
+              className="text-xl font-bold leading-snug"
+              style={{ color: 'var(--p-text)' }}
+            >
+              {job.title}
+            </h2>
+            <p
+              className="text-sm mt-0.5 flex items-center gap-1.5"
+              style={{ color: 'var(--p-text-muted)' }}
+            >
+              <Building2
+                className="w-3.5 h-3.5 flex-shrink-0"
+                style={{ color: 'var(--p-accent)' }}
+              />
+              {job.agency}
             </p>
-            {/* Match breakdown: 5 dimensions in consistent order; each row is interactive (opens dimension briefing in PathAdvisor). */}
-            <div className="mt-2">
-              <p className="text-[10px] font-semibold uppercase tracking-wider mb-1.5" style={{ color: 'var(--p-text-dim)' }}>
-                Match breakdown
-              </p>
-              <ul className="list-none space-y-1" role="list">
-                {jobMatch.dimensions.map(function (dim, i) {
-                  const emphasisLevel = dim.demandWeight >= 0.25 ? 'High' : dim.demandWeight >= 0.18 ? 'Medium' : 'Low';
-                  const gap = 100 - dim.matchScore;
-                  const rowTooltip = 'User: ' + String(dim.readinessScore) + '/100 • Job emphasis: ' + emphasisLevel + ' • Gap: ' + String(gap);
-                  return (
-                    <li key={i} className="flex flex-wrap items-center gap-2 text-[11px]">
-                      <Tooltip content={rowTooltip} contentId={'match-breakdown-dim-' + i}>
-                        <button
-                          type="button"
-                          onClick={function () {
-                            props.onOpenDimensionBriefing(dim);
-                          }}
-                          onKeyDown={function (e: React.KeyboardEvent) {
-                            if (e.key === 'Enter' || e.key === ' ') {
-                              e.preventDefault();
-                              props.onOpenDimensionBriefing(dim);
-                            }
-                          }}
-                          className={INTERACTIVE_HOVER_CLASS + ' group flex flex-wrap items-center gap-2 w-full text-left rounded px-1 py-0.5 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-[var(--p-accent)] focus-visible:ring-inset border border-transparent hover:border-[var(--p-border)] hover:bg-[var(--p-surface2)]'}
-                          style={{ background: 'transparent' }}
-                          aria-label={'Open dimension details for ' + dim.label}
-                        >
-                          <span className="w-32 flex-shrink-0" style={{ color: 'var(--p-text)' }}>
-                            {dim.label}
-                          </span>
-                          <span
-                            className="text-[10px] px-1 py-0.5 rounded flex-shrink-0"
-                            style={{
-                              background: 'var(--p-surface2)',
-                              color:
-                                dim.status === 'Good'
-                                  ? 'var(--p-success)'
-                                  : dim.status === 'Mixed'
-                                    ? 'var(--p-text-muted)'
-                                    : 'var(--p-text-dim)',
-                            }}
-                          >
-                            {dim.status}
-                          </span>
-                          <div
-                            className="flex-1 min-w-[60px] h-1 rounded overflow-hidden max-w-[80px]"
-                            style={{ background: 'var(--p-surface2)' }}
-                            aria-hidden
-                          >
-                            <div
-                              className="h-full rounded"
-                              style={{
-                                width: String(dim.matchScore) + '%',
-                                background: 'var(--p-accent)',
-                              }}
-                            />
-                          </div>
-                          <span className="text-[10px] flex-shrink-0" style={{ color: 'var(--p-text-dim)' }}>
-                            User: {String(dim.readinessScore)}/100
-                          </span>
-                          <span className="flex-1 min-w-0 truncate" style={{ color: 'var(--p-text-muted)' }}>
-                            {dim.why}
-                          </span>
-                          <span className="flex-shrink-0 opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100 flex items-center" style={{ color: 'var(--p-text-dim)' }}>
-                            <ChevronRight className="w-3.5 h-3.5" aria-hidden />
-                          </span>
-                        </button>
-                      </Tooltip>
-                    </li>
-                  );
-                })}
-              </ul>
-            </div>
-            {/* Day 62: What you're missing and primary blocker moved to PathAdvisor Context Log. */}
-            <p className="text-[10px] mt-2" style={{ color: 'var(--p-text-dim)' }}>
-              Details appear in PathAdvisor.
-            </p>
-            <div className="flex flex-wrap items-center gap-2 pt-1">
-              {props.isSaved ? (
-                <button
-                  type="button"
-                  onClick={props.onTailor}
-                  className={INTERACTIVE_HOVER_CLASS + ' text-[11px] font-medium'}
-                  style={{ color: 'var(--p-accent)' }}
-                >
-                  Start Tailoring
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  onClick={props.onSave}
-                  className={INTERACTIVE_HOVER_CLASS + ' text-[11px] font-medium'}
-                  style={{ color: 'var(--p-accent)' }}
-                >
-                  Save + Start Tailoring
-                </button>
-              )}
-              <Tooltip content={'Open Career Readiness and focus Action Plan: ' + jobMatch.topJobRelevantGap.label} contentId="snapshot-open-career-readiness">
-                <button
-                  type="button"
-                  onClick={props.onOpenCareerReadinessActionPlan}
-                  className={INTERACTIVE_HOVER_CLASS + ' text-[11px] font-medium'}
-                  style={{ color: 'var(--p-accent)' }}
-                >
-                  Open Career Readiness: Fix {jobMatch.topJobRelevantGap.label} (+{String(jobMatch.topJobRelevantGap.impactPoints)})
-                </button>
-              </Tooltip>
-              {snapshot !== undefined ? (
-                <Tooltip content="Open PathAdvisor rail with alignment summary, reasons, and next action." contentId="snapshot-explain-pathadvisor">
-                  <button
-                    type="button"
-                    onClick={function () {
-                      props.onExplainInPathAdvisor(snapshot);
-                    }}
-                    className={INTERACTIVE_HOVER_CLASS + ' text-[11px]'}
-                    style={{ color: 'var(--p-text-muted)' }}
-                  >
-                    Explain this match
-                  </button>
-                </Tooltip>
-              ) : null}
-            </div>
           </div>
+          {/* Right side: large readiness badge + match score badge */}
+          <div className="flex items-center gap-3 flex-shrink-0">
+            <div
+              className="flex flex-col items-center px-3 py-2 rounded-lg"
+              style={{
+                background: 'color-mix(in srgb, ' + readinessColor + ' 10%, var(--p-surface))',
+                border: '1px solid color-mix(in srgb, ' + readinessColor + ' 20%, var(--p-border))',
+              }}
+            >
+              <span
+                className="text-2xl font-bold tabular-nums leading-none"
+                style={{ color: readinessColor }}
+              >
+                {String(displayReadiness)}
+              </span>
+              <span
+                className="text-[9px] font-semibold uppercase tracking-wider mt-1 leading-none"
+                style={{ color: 'var(--p-text-dim)' }}
+              >
+                Readiness
+              </span>
+            </div>
+            {jobMatch !== undefined ? (
+              <span
+                className="text-sm font-semibold tabular-nums px-2 py-1 rounded-md"
+                style={{
+                  color: matchScoreColor,
+                  background: 'color-mix(in srgb, ' + matchScoreColor + ' 10%, transparent)',
+                }}
+              >
+                {String(jobMatch.overallMatchScore)}/100 Match
+              </span>
+            ) : null}
+          </div>
+        </div>
+      </div>
+
+      {/* ── FIXED ZONE 2: Workspace mode tabs ─────────────────────────────
+       * Professional underline tabs matching Saved Jobs WorkspaceModeTab pattern.
+       * Match Overview (default) shows job info + match intelligence.
+       * Job Overview shows announcement section navigation (parity with Saved Jobs).
+       * RENAMED from "Job Details" to "Job Overview" to match Saved Jobs exactly. */}
+      <div
+        className="flex items-stretch flex-shrink-0"
+        style={{ borderBottom: '1px solid var(--p-border)' }}
+        role="tablist"
+        aria-label="Detail view mode"
+      >
+        <JobSearchModeTab
+          label="Match Overview"
+          id={getSearchModeTabId('match')}
+          controlsId={getSearchModePanelId('match')}
+          isSelected={viewMode === 'match'}
+          onClick={function () { setViewMode('match'); }}
+        />
+        <JobSearchModeTab
+          label="Job Overview"
+          id={getSearchModeTabId('listing')}
+          controlsId={getSearchModePanelId('listing')}
+          isSelected={viewMode === 'listing'}
+          onClick={function () { setViewMode('listing'); }}
+        />
+      </div>
+
+      {/* ── FIXED ZONE 3: Job Overview section navigation ──────────────────
+       * Visible only in Job Overview mode. Professional document-navigation
+       * row using JobSearchSubTab components — structurally identical to
+       * the AnnouncementSectionTab row in Saved Jobs.
+       *
+       * 8 standard USAJOBS sections + PathOS Brief (Job Search-specific).
+       * overflow-x-auto allows horizontal scrolling when all 9 tabs
+       * exceed the available width. flex-shrink-0 keeps the row pinned. */}
+      {viewMode === 'listing' ? (
+        <div
+          className="flex items-stretch overflow-x-auto flex-shrink-0 px-3"
+          style={{ borderBottom: '1px solid var(--p-border)' }}
+          role="tablist"
+          aria-label="Job Overview sections"
+        >
+          {allSections.map(function (sec) {
+            return (
+              <JobSearchSubTab
+                key={sec.key}
+                label={sec.label}
+                sectionKey={sec.key}
+                id={getSearchSectionTabId(sec.key)}
+                controlsId={getSearchSectionPanelId(sec.key)}
+                isActive={sec.key === announcementSection}
+                onClick={function () { setAnnouncementSection(sec.key); }}
+              />
+            );
+          })}
         </div>
       ) : null}
 
-      {/* Tab row: Overview & Docs (first/default) | Requirements | PathOS Brief */}
+      {/* ── SCROLLABLE CONTENT VIEWPORT ──────────────────────────────────
+       * Only this region scrolls. Everything above (header, mode tabs,
+       * section nav) and below (action bar, trust footer) stays fixed.
+       * flex-1 + min-h-0 fills remaining space; overflow-y-auto scrolls. */}
       <div
-        className="flex border-b flex-shrink-0"
-        style={{ borderColor: 'var(--p-border)', background: 'var(--p-surface)' }}
+        className="flex-1 min-h-0 overflow-y-auto"
+        style={{ overscrollBehavior: 'contain' }}
       >
-        <button type="button" className={INTERACTIVE_HOVER_CLASS} onClick={function () { props.onTabChange('overview'); }} style={tabStyle('overview')}>
-          Overview & Docs
-        </button>
-        <button type="button" className={INTERACTIVE_HOVER_CLASS} onClick={function () { props.onTabChange('requirements'); }} style={tabStyle('requirements')}>
-          Requirements
-        </button>
-        <button type="button" className={INTERACTIVE_HOVER_CLASS} onClick={function () { props.onTabChange('pathosBrief'); }} style={tabStyle('pathosBrief')}>
-          PathOS Brief
-        </button>
-      </div>
 
-      <div className="flex-1 overflow-y-auto p-4 space-y-5" style={{ lineHeight: 'var(--p-line-height-body)' }}>
-        {props.activeTab === 'pathosBrief' ? (
-          /* PathOS Brief tab: fit stars + confidence, risks, effort, 3 next actions; compact, no paragraphs */
-          <div className="space-y-4">
-            <h2 className="text-lg font-semibold" style={{ color: 'var(--p-text)' }}>
-              {job.title}
-            </h2>
-            {brief !== null ? (
-              <>
-                <div className="flex flex-wrap gap-2 items-center">
-                  <FitStarsRow fitAssessment={brief.fitAssessment} />
-                  <Tooltip content={fitTooltips.effort} contentId="details-effort">
-                    <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: 'var(--p-surface2)', color: 'var(--p-text-muted)' }}>
-                      Effort: {brief.effortEstimate}
-                    </span>
-                  </Tooltip>
-                </div>
-                {brief.risks.length > 0 ? (
-                  <div className="flex flex-wrap gap-1">
-                    {brief.risks.map(function (r, i) {
-                      const tip = chipTooltips[r] !== undefined ? chipTooltips[r] : '';
-                      const chip = (
-                        <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: 'var(--p-surface2)', color: 'var(--p-text-dim)' }}>
-                          {r}
-                        </span>
-                      );
-                      return tip !== '' ? (
-                        <Tooltip key={i} content={tip} contentId={'details-risk-' + i}>
-                          {chip}
-                        </Tooltip>
-                      ) : (
-                        <span key={i}>{chip}</span>
-                      );
-                    })}
-                  </div>
-                ) : null}
-                <div>
-                  <h3 className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: 'var(--p-text-dim)' }}>
-                    Next actions
-                  </h3>
-                  <ul className="list-none space-y-1">
-                    {brief.nextActions.map(function (a, i) {
-                      return (
-                        <li key={i} className="flex items-start gap-2 text-sm" style={{ color: 'var(--p-text-muted)' }}>
-                          <Check className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: 'var(--p-success)' }} aria-hidden />
-                          {a}
-                        </li>
-                      );
-                    })}
-                  </ul>
-                </div>
-                <p className="text-[11px]" style={{ color: 'var(--p-text-dim)' }}>
-                  Based on: {brief.fitAssessment.inputsUsed.join(', ') || 'target role and job data'}
-                </p>
-              </>
-            ) : (
-              <p className="text-sm" style={{ color: 'var(--p-text-muted)' }}>
-                Save this job to generate a PathOS Brief (fit, risks, next actions).
-              </p>
-            )}
-          </div>
-        ) : props.activeTab === 'requirements' ? (
-          /* Requirements tab: checklists only (no plain-English toggle) */
-          <>
-            <div className="space-y-2">
-              <h2 className="text-lg font-semibold" style={{ color: 'var(--p-text)' }}>{job.title}</h2>
-            </div>
-            {checklist !== null ? (
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <h3 className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--p-text-dim)' }}>
-                    Specialized experience
-                  </h3>
-                  <ul className="list-none space-y-1.5">
-                    {checklist.specializedExperience.map(function (item, i) {
-                      return (
-                        <li key={i} className="flex items-start gap-2 text-sm" style={{ color: 'var(--p-text-muted)' }}>
-                          <Check className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: 'var(--p-success)' }} aria-hidden />
-                          {item}
-                        </li>
-                      );
-                    })}
-                  </ul>
-                </div>
-                <div className="space-y-2">
-                  <h3 className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--p-text-dim)' }}>
-                    Skills & keywords
-                  </h3>
-                  <div className="flex flex-wrap gap-2">
-                    {checklist.skillsKeywords.map(function (item, i) {
-                      return (
-                        <span key={i} className="text-[12px] px-2 py-1 rounded" style={{ background: 'var(--p-surface2)', color: 'var(--p-text-muted)' }}>
-                          {item}
-                        </span>
-                      );
-                    })}
-                  </div>
-                </div>
-                <div className="space-y-1.5">
-                  <h3 className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--p-text-dim)' }}>
-                    Documents needed
-                  </h3>
-                  <ul className="list-none space-y-1">
-                    {checklist.documentsNeeded.map(function (item, i) {
-                      return (
-                        <li key={i} className="flex items-start gap-2 text-sm" style={{ color: 'var(--p-text-muted)' }}>
-                          <Check className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" style={{ color: 'var(--p-success)' }} aria-hidden />
-                          {item}
-                        </li>
-                      );
-                    })}
-                  </ul>
-                </div>
+      {viewMode === 'match' ? (
+        <div
+          role="tabpanel"
+          id={getSearchModePanelId('match')}
+          aria-labelledby={getSearchModeTabId('match')}
+        >
+          {/* ── Decision Summary Band ─────────────────────────────────────
+           * Key decision factors at first glance: salary, grade/promotion,
+           * work mode, and deadline. Tile order matches Saved Jobs' band.
+           * Agency lives in the fixed header above (identity first, then
+           * detail tiles — consistent with how Saved Jobs structures it). */}
+          <div className="px-5 py-3" style={{ borderBottom: '1px solid var(--p-border)' }}>
+            <div
+              className="grid gap-2"
+              style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))' }}
+            >
+              {/* Salary — monetary decision factor, displayed first in success green. */}
+              <div
+                className="px-3 py-2 rounded-md"
+                style={{ background: 'var(--p-surface2)', border: '1px solid var(--p-border)' }}
+              >
+                <span
+                  className="text-[9px] uppercase tracking-wider font-medium flex items-center gap-1 mb-0.5"
+                  style={{ color: 'var(--p-text-dim)' }}
+                >
+                  <DollarSign className="w-2.5 h-2.5 flex-shrink-0" />
+                  Salary
+                </span>
+                <span
+                  className="text-xs font-bold leading-snug block"
+                  style={{ color: 'var(--p-success)' }}
+                >
+                  {ov !== undefined && ov.payRange !== undefined && ov.payRange !== ''
+                    ? ov.payRange
+                    : 'See announcement'}
+                </span>
               </div>
-            ) : null}
-          </>
-        ) : (
-          /* Overview & Docs: Key Facts 2-col grid, Risk Flags chips, required docs, View on USAJOBS first */
-          <>
-            <div className="space-y-2">
-              <h2 className="text-lg font-semibold" style={{ color: 'var(--p-text)' }}>{job.title}</h2>
-              <p className="text-sm" style={{ color: 'var(--p-text-muted)' }}>
-                {job.agency}
-                {job.location ? ' · ' + job.location : ''}
-              </p>
+
+              {/* Grade & Promotion — career trajectory at a glance. */}
+              <div
+                className="px-3 py-2 rounded-md"
+                style={{ background: 'var(--p-surface2)', border: '1px solid var(--p-border)' }}
+              >
+                <span
+                  className="text-[9px] uppercase tracking-wider font-medium flex items-center gap-1 mb-0.5"
+                  style={{ color: 'var(--p-text-dim)' }}
+                >
+                  <TrendingUp className="w-2.5 h-2.5 flex-shrink-0" />
+                  Grade & Promotion
+                </span>
+                <span
+                  className="text-xs font-bold leading-snug block"
+                  style={{ color: 'var(--p-text)' }}
+                >
+                  {(function () {
+                    if (job.grade === undefined || job.grade === '') return 'See announcement';
+                    const gradeMatch = job.grade.match(/GS-(\d+)/);
+                    if (gradeMatch) {
+                      const current = parseInt(gradeMatch[1], 10);
+                      const next = current + 1;
+                      if (next <= 15) return job.grade + ' \u2192 GS-' + String(next);
+                      return job.grade + ' (at ceiling)';
+                    }
+                    return job.grade;
+                  })()}
+                </span>
+              </div>
+
+              {/* Work Mode — remote / telework / on-site flexibility. */}
+              <div
+                className="px-3 py-2 rounded-md"
+                style={{ background: 'var(--p-surface2)', border: '1px solid var(--p-border)' }}
+              >
+                <span
+                  className="text-[9px] uppercase tracking-wider font-medium mb-0.5 block"
+                  style={{ color: 'var(--p-text-dim)' }}
+                >
+                  Work Mode
+                </span>
+                <span
+                  className="text-xs font-bold leading-snug block"
+                  style={{ color: 'var(--p-text)' }}
+                >
+                  {remoteLabel !== null ? remoteLabel : 'On-site'}
+                </span>
+              </div>
+
+              {/* Deadline — time-sensitivity signal with accent urgency. */}
+              <div
+                className="px-3 py-2 rounded-md"
+                style={{ background: 'var(--p-surface2)', border: '1px solid var(--p-border)' }}
+              >
+                <span
+                  className="text-[9px] uppercase tracking-wider font-medium flex items-center gap-1 mb-0.5"
+                  style={{ color: 'var(--p-text-dim)' }}
+                >
+                  <Calendar className="w-2.5 h-2.5 flex-shrink-0" />
+                  Deadline
+                </span>
+                <span
+                  className="text-xs font-bold leading-snug block"
+                  style={{ color: isUrgent ? 'var(--p-accent)' : 'var(--p-text)' }}
+                >
+                  {closeDateLabel}{isUrgent ? ' \u2014 act now' : ''}
+                </span>
+              </div>
             </div>
-            {hasOverview && job.overview !== undefined ? (
-              <>
-                <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
-                  {job.grade !== undefined && job.grade !== '' ? (
-                    <>
-                      <span style={{ color: 'var(--p-text-dim)' }}>Grade</span>
-                      <span style={{ color: 'var(--p-text)' }}>{job.grade}</span>
-                    </>
-                  ) : null}
-                  {job.overview.payRange !== undefined && job.overview.payRange !== '' ? (
-                    <>
-                      <span style={{ color: 'var(--p-text-dim)' }}>Pay range</span>
-                      <span style={{ color: 'var(--p-text)' }}>{job.overview.payRange}</span>
-                    </>
-                  ) : null}
-                  {job.overview.workSchedule !== undefined && job.overview.workSchedule !== '' ? (
-                    <>
-                      <span style={{ color: 'var(--p-text-dim)' }}>Schedule</span>
-                      <span style={{ color: 'var(--p-text)' }}>{job.overview.workSchedule}</span>
-                    </>
-                  ) : null}
-                  {job.overview.remoteJob !== undefined && job.overview.remoteJob !== '' ? (
-                    <>
-                      <span style={{ color: 'var(--p-text-dim)' }}>Remote</span>
-                      <span style={{ color: 'var(--p-text)' }}>{job.overview.remoteJob}</span>
-                    </>
-                  ) : null}
-                  {job.overview.promotionPotential !== undefined && job.overview.promotionPotential !== '' ? (
-                    <>
-                      <span style={{ color: 'var(--p-text-dim)' }}>Promotion potential</span>
-                      <span style={{ color: 'var(--p-text)' }}>{job.overview.promotionPotential}</span>
-                    </>
-                  ) : null}
-                  {job.overview.appointmentType !== undefined && job.overview.appointmentType !== '' ? (
-                    <>
-                      <span style={{ color: 'var(--p-text-dim)' }}>Appointment type</span>
-                      <span style={{ color: 'var(--p-text)' }}>{job.overview.appointmentType}</span>
-                    </>
-                  ) : null}
-                </div>
-                {getRiskFlagLabels(job).length > 0 ? (
-                  <div className="flex flex-wrap gap-1">
-                    {getRiskFlagLabels(job).map(function (label, i) {
-                      const tip = chipTooltips[label] !== undefined ? chipTooltips[label] : '';
-                      const chip = (
-                        <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: 'var(--p-surface2)', color: 'var(--p-text-dim)' }}>
-                          {label}
-                        </span>
-                      );
-                      return tip !== '' ? (
-                        <Tooltip key={i} content={tip} contentId={'overview-risk-' + i}>
-                          {chip}
-                        </Tooltip>
-                      ) : (
-                        <span key={i}>{chip}</span>
-                      );
-                    })}
-                  </div>
-                ) : null}
-              </>
-            ) : null}
-            {checklist !== null ? (
-              <div className="space-y-1.5">
-                <h3 className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--p-text-dim)' }}>
-                  Required documents
-                </h3>
-                <ul className="list-none space-y-1">
-                  {checklist.documentsNeeded.map(function (item, i) {
+
+            {/* Secondary metadata row: location, schedule, security, appointment type */}
+            <div
+              className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-2 text-[11px]"
+              style={{ color: 'var(--p-text-dim)' }}
+            >
+              <span className="flex items-center gap-1">
+                <MapPin className="w-3 h-3 flex-shrink-0" />
+                {job.location !== undefined && job.location !== '' ? job.location : 'Location TBD'}
+              </span>
+              {ov !== undefined && ov.workSchedule !== undefined && ov.workSchedule !== '' ? (
+                <span>{ov.workSchedule}</span>
+              ) : null}
+              {ov !== undefined && ov.securityClearance !== undefined && ov.securityClearance !== '' && ov.securityClearance.toLowerCase() !== 'none' ? (
+                <span>{ov.securityClearance}</span>
+              ) : null}
+              {ov !== undefined && ov.appointmentType !== undefined && ov.appointmentType !== '' ? (
+                <span>{ov.appointmentType}</span>
+              ) : null}
+              {ov !== undefined && ov.promotionPotential !== undefined && ov.promotionPotential !== '' ? (
+                <span>Promotion to {ov.promotionPotential}</span>
+              ) : null}
+            </div>
+          </div>
+
+          {/* ── Match Intelligence Section ───────────────────────────────
+           * Match for this job: readiness ↔ job breakdown with dimensions.
+           * Preserves all Job Search-specific match intelligence while
+           * following the Saved Jobs section density and seriousness. */}
+          {jobMatch !== undefined ? (
+            <div className="px-5 py-4" style={{ borderBottom: '1px solid var(--p-border)' }}>
+              <h3
+                className="text-xs font-semibold uppercase tracking-wider mb-3 flex items-center gap-1.5"
+                style={{ color: 'var(--p-text-dim)' }}
+              >
+                <BarChart2 className="w-3.5 h-3.5" style={{ color: 'var(--p-accent)' }} aria-hidden />
+                Match for this job
+              </h3>
+
+              {/* Compact advisory — preserves the primary-blocker guidance that
+               * was in the removed summary grid, but without repeating the headline
+               * Readiness and Job Match values already visible in FIXED ZONE 1 badges.
+               * Single subdued line sits between the section heading and the breakdown
+               * table so the user sees actionable advice without redundant metrics. */}
+              <p
+                className="text-[11px] mb-3 pb-2"
+                style={{
+                  color: 'var(--p-text-muted)',
+                  borderBottom: '1px solid var(--p-border)',
+                }}
+              >
+                {jobMatch.primaryBlocker}
+              </p>
+
+              {/* Match breakdown: shared table component for dimension bars.
+               * Uses the canonical MatchBreakdownHeader + MatchBreakdownRow
+               * components so alignment and interaction behavior are identical
+               * to the Saved Jobs match breakdown. */}
+              <div>
+                <p
+                  className="text-[10px] font-semibold uppercase tracking-wider mb-2"
+                  style={{ color: 'var(--p-text-dim)' }}
+                >
+                  Match breakdown
+                </p>
+
+                <MatchBreakdownHeader />
+
+                <ul className="list-none space-y-1.5" role="list">
+                  {jobMatch.dimensions.map(function (dim, i) {
+                    const emphasisLevel = dim.demandWeight >= 0.25 ? 'High' : dim.demandWeight >= 0.18 ? 'Medium' : 'Low';
+                    const statusColor = dim.status === 'Good'
+                      ? 'var(--p-success)'
+                      : dim.status === 'Mixed'
+                        ? 'var(--p-warning, #eab308)'
+                        : 'var(--p-danger, #ef4444)';
+                    const rowData: MatchBreakdownRowData = {
+                      label: dim.label,
+                      score: dim.matchScore,
+                      emphasisLevel: emphasisLevel,
+                      statusLabel: dim.status,
+                      statusColor: statusColor,
+                      tooltipText: 'User: ' + String(dim.readinessScore) + '/100 \u2022 Job emphasis: ' + emphasisLevel + ' \u2022 Gap: ' + String(100 - dim.matchScore),
+                      ariaLabel: 'Open dimension details for ' + dim.label,
+                    };
+                    /* Capture dim in a local constant so the closure does not
+                     * close over the loop variable. */
+                    const capturedDim = dim;
                     return (
-                      <li key={i} className="flex items-start gap-2 text-sm" style={{ color: 'var(--p-text-muted)' }}>
-                        <Check className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" style={{ color: 'var(--p-success)' }} aria-hidden />
-                        {item}
-                      </li>
+                      <MatchBreakdownRow
+                        key={i}
+                        data={rowData}
+                        tooltipIdSuffix={'search-dim-' + i}
+                        onRowClick={function () {
+                          props.onOpenDimensionBriefing(capturedDim);
+                        }}
+                      />
                     );
                   })}
                 </ul>
               </div>
-            ) : null}
-            <p className="text-[11px]" style={{ color: 'var(--p-text-dim)' }}>
-              View on USAJOBS for full announcement. PathOS does not access your USAJOBS account.
-            </p>
-          </>
-        )}
-      </div>
 
-      {/* Action bar: sticky at bottom of details panel so primary actions stay visible when scrolling. */}
+              {/* Match intelligence actions — search-specific: save, tailor, career readiness. */}
+              <div className="flex flex-wrap items-center gap-2 pt-3 mt-3" style={{ borderTop: '1px solid var(--p-border)' }}>
+                {props.isSaved ? (
+                  <button
+                    type="button"
+                    onClick={props.onTailor}
+                    className={INTERACTIVE_HOVER_CLASS + ' text-[11px] font-medium rounded px-2 py-1'}
+                    style={{ color: 'var(--p-accent)', border: '1px solid transparent' }}
+                  >
+                    Start Tailoring
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={props.onSave}
+                    className={INTERACTIVE_HOVER_CLASS + ' text-[11px] font-medium rounded px-2 py-1'}
+                    style={{ color: 'var(--p-accent)', border: '1px solid transparent' }}
+                  >
+                    Save + Start Tailoring
+                  </button>
+                )}
+                <Tooltip content={'Open Career Readiness action plan to address: ' + jobMatch.topJobRelevantGap.label + ' (+' + String(jobMatch.topJobRelevantGap.impactPoints) + ' pts)'} contentId="snapshot-open-career-readiness">
+                  <button
+                    type="button"
+                    onClick={props.onOpenCareerReadinessActionPlan}
+                    className={INTERACTIVE_HOVER_CLASS + ' text-[11px] font-medium rounded px-2 py-1'}
+                    style={{ color: 'var(--p-accent)', border: '1px solid transparent' }}
+                  >
+                    Fix {jobMatch.topJobRelevantGap.label}
+                  </button>
+                </Tooltip>
+                {snapshot !== undefined ? (
+                  <Tooltip content="Open PathAdvisor with alignment summary and next action." contentId="snapshot-explain-pathadvisor">
+                    <button
+                      type="button"
+                      onClick={function () {
+                        props.onExplainInPathAdvisor(snapshot);
+                      }}
+                      className={INTERACTIVE_HOVER_CLASS + ' text-[11px] rounded px-2 py-1'}
+                      style={{ color: 'var(--p-text-muted)', border: '1px solid transparent' }}
+                    >
+                      Explain Match
+                    </button>
+                  </Tooltip>
+                ) : null}
+              </div>
+            </div>
+          ) : null}
+        </div>
+      ) : (
+        /* ── JOB OVERVIEW MODE: announcement document viewer ──
+         * Section navigation tabs are in FIXED ZONE 3 above. Only the
+         * selected section's content renders here. Content flows naturally
+         * inside the scrollable viewport — matching Saved Jobs' viewer. */
+        <div
+          role="tabpanel"
+          id={getSearchModePanelId('listing')}
+          aria-labelledby={getSearchModeTabId('listing')}
+        >
+
+        {/* PathOS Brief section — Job Search-specific structured intelligence */}
+        {announcementSection === 'pathosBrief' ? (
+          <div
+            className="px-5 py-4"
+            role="tabpanel"
+            id={getSearchSectionPanelId('pathosBrief')}
+            aria-labelledby={getSearchSectionTabId('pathosBrief')}
+          >
+            <div className="space-y-4">
+              {brief !== null ? (
+                <>
+                  <div className="flex flex-wrap gap-2 items-center">
+                    <FitStarsRow fitAssessment={brief.fitAssessment} />
+                    <Tooltip content={fitTooltips.effort} contentId="details-effort">
+                      <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: 'var(--p-surface2)', color: 'var(--p-text-muted)' }}>
+                        Effort: {brief.effortEstimate}
+                      </span>
+                    </Tooltip>
+                  </div>
+                  {brief.risks.length > 0 ? (
+                    <div className="flex flex-wrap gap-1">
+                      {brief.risks.map(function (r, i) {
+                        const tip = chipTooltips[r] !== undefined ? chipTooltips[r] : '';
+                        const chip = (
+                          <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: 'var(--p-surface2)', color: 'var(--p-text-dim)' }}>
+                            {r}
+                          </span>
+                        );
+                        return tip !== '' ? (
+                          <Tooltip key={i} content={tip} contentId={'details-risk-' + i}>
+                            {chip}
+                          </Tooltip>
+                        ) : (
+                          <span key={i}>{chip}</span>
+                        );
+                      })}
+                    </div>
+                  ) : null}
+                  <div>
+                    <h3 className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: 'var(--p-text-dim)' }}>
+                      Next actions
+                    </h3>
+                    <ul className="list-none space-y-1">
+                      {brief.nextActions.map(function (a, i) {
+                        return (
+                          <li key={i} className="flex items-start gap-2 text-sm" style={{ color: 'var(--p-text-muted)' }}>
+                            <Check className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: 'var(--p-success)' }} aria-hidden />
+                            {a}
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </div>
+                  <p className="text-[11px]" style={{ color: 'var(--p-text-dim)' }}>
+                    Based on: {brief.fitAssessment.inputsUsed.join(', ') || 'target role and job data'}
+                  </p>
+                </>
+              ) : (
+                <div className="space-y-2 text-sm" style={{ color: 'var(--p-text-muted)' }}>
+                  <p>
+                    Save this job to generate a PathOS Brief with fit assessment, risk analysis, and recommended next actions.
+                  </p>
+                  <p className="text-[11px]" style={{ color: 'var(--p-text-dim)' }}>
+                    The brief combines your career readiness profile with this announcement's requirements to produce tailored decision intelligence.
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+        ) : (
+          /* ── Standard announcement section content ──
+           * Renders the content of the currently selected announcement section.
+           * Content is split on double-newline into paragraphs for readable layout.
+           * Lines starting with "- " are rendered as list items; other lines as
+           * normal paragraph text. Dense enough to test scroll and reading flow.
+           * This rendering logic mirrors Saved Jobs' announcement viewer exactly. */
+          <div
+            className="px-5 py-4"
+            role="tabpanel"
+            id={getSearchSectionPanelId(announcementSection)}
+            aria-labelledby={getSearchSectionTabId(announcementSection)}
+          >
+            <div className="space-y-3 text-sm leading-relaxed" style={{ color: 'var(--p-text-muted)' }}>
+              {activeAnnouncementContent.split('\n\n').map(function (para, pIdx) {
+                /* Detect list blocks: if the paragraph starts with "- " render as <ul>. */
+                const trimmed = para.trim();
+                if (trimmed.indexOf('- ') === 0) {
+                  const items = trimmed.split('\n');
+                  return (
+                    <ul key={pIdx} className="list-none space-y-1.5 pl-1">
+                      {items.map(function (item, iIdx) {
+                        const text = item.replace(/^-\s*/, '');
+                        if (text.trim() === '') return null;
+                        return (
+                          <li key={iIdx} className="flex items-start gap-2">
+                            <span
+                              className="flex-shrink-0 mt-[7px] w-1.5 h-1.5 rounded-full"
+                              style={{ background: 'var(--p-text-dim)' }}
+                              aria-hidden
+                            />
+                            <span>{text}</span>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  );
+                }
+                /* Detect numbered list blocks: "1. " or "2. " etc. */
+                if (/^\d+\.\s/.test(trimmed)) {
+                  return (
+                    <p key={pIdx}>{trimmed}</p>
+                  );
+                }
+                return (
+                  <p key={pIdx}>{trimmed}</p>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        </div>
+      )}
+
+      </div>
+      {/* ── END SCROLLABLE CONTENT VIEWPORT ── */}
+
+      {/* ── FIXED ZONE 4: Action bar ──────────────────────────────────────
+       * Structurally anchored at the bottom of the workspace frame.
+       * flex-shrink-0 prevents compression. Does NOT move when switching
+       * between tabs or when content length changes. */}
       <div
-        className="flex flex-wrap items-center gap-3 p-4 border-t flex-shrink-0"
-        style={{
-          position: 'sticky',
-          bottom: 0,
-          borderColor: 'var(--p-border)',
-          background: 'var(--p-surface)',
-        }}
+        className="flex flex-wrap items-center gap-3 px-5 py-3 flex-shrink-0"
+        style={{ borderTop: '1px solid var(--p-border)', background: 'var(--p-surface)' }}
       >
         <Tooltip content={props.isSaved ? 'Saved to your list' : 'Save job and create PathOS Brief'} contentId="details-save-btn">
-        <button
-          type="button"
-          onClick={props.isSaved ? function () {} : props.onSave}
-          className={INTERACTIVE_HOVER_CLASS + ' inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded'}
-          style={{
-            background: props.isSaved ? 'var(--p-accent)' : 'var(--p-accent)',
-            color: 'var(--p-bg)',
-            border: '1px solid transparent',
-            borderRadius: 'var(--p-radius)',
-          }}
-        >
-          {props.isSaved ? <BookmarkCheck className="w-4 h-4" /> : <BookmarkPlus className="w-4 h-4" />}
-          {props.isSaved ? 'Saved' : 'Save + Start Tailoring'}
-        </button>
+          <button
+            type="button"
+            onClick={props.isSaved ? function () {} : props.onSave}
+            className={INTERACTIVE_HOVER_CLASS + ' inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded'}
+            style={{
+              background: 'var(--p-accent)',
+              color: 'var(--p-bg)',
+              border: '1px solid transparent',
+              borderRadius: 'var(--p-radius)',
+            }}
+          >
+            {props.isSaved ? <BookmarkCheck className="w-4 h-4" /> : <BookmarkPlus className="w-4 h-4" />}
+            {props.isSaved ? 'Saved' : 'Save + Start Tailoring'}
+          </button>
         </Tooltip>
         <button
           type="button"
           onClick={props.onTailor}
           className={INTERACTIVE_HOVER_CLASS + ' inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded'}
+          data-testid="build-resume-action"
           style={{
             background: 'var(--p-surface2)',
             color: 'var(--p-text-muted)',
@@ -954,24 +1613,26 @@ function JobDetailsPanel(props: {
           tooltipText="Get briefing for this job from PathAdvisor."
         />
         <Tooltip content="Open full announcement on USAJOBS in your browser" contentId="details-usajobs-link">
-        <a
-          href={usajobsUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className={INTERACTIVE_HOVER_CLASS + ' inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded'}
-          style={{
-            background: 'var(--p-surface2)',
-            color: 'var(--p-text-muted)',
-            border: '1px solid var(--p-border)',
-            borderRadius: 'var(--p-radius)',
-          }}
-        >
-          <ExternalLink className="w-4 h-4" />
-          View on USAJOBS
-        </a>
+          <a
+            href={usajobsUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={INTERACTIVE_HOVER_CLASS + ' inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded'}
+            style={{
+              background: 'var(--p-surface2)',
+              color: 'var(--p-text-muted)',
+              border: '1px solid var(--p-border)',
+              borderRadius: 'var(--p-radius)',
+            }}
+          >
+            <ExternalLink className="w-4 h-4" />
+            View on USAJOBS
+          </a>
         </Tooltip>
       </div>
-      <p className="text-[11px] px-4 pb-2" style={{ color: 'var(--p-text-dim)' }}>
+
+      {/* ── Trust footer ── */}
+      <p className="text-[11px] px-5 pb-3 flex-shrink-0" style={{ color: 'var(--p-text-dim)' }}>
         Opens in your browser. PathOS does not access your USAJOBS account.
       </p>
     </div>
@@ -1561,8 +2222,11 @@ export function JobSearchScreen(props: JobSearchScreenProps) {
         className="mx-4 mt-3 flex flex-wrap items-center gap-3"
         style={{ borderBottom: '1px solid var(--p-border)', paddingBottom: '12px' }}
       >
-        <div className="flex items-center gap-2 flex-1 min-w-[200px]">
-          <Search className="w-4 h-4 flex-shrink-0" style={{ color: 'var(--p-text-dim)' }} />
+        <div className="relative flex-1 min-w-[200px]">
+          <Search
+            className="absolute left-3 top-1/2 w-4 h-4 pointer-events-none"
+            style={{ color: 'var(--p-text-dim)', transform: 'translateY(-50%)' }}
+          />
           <input
             type="text"
             placeholder="Job title, keywords, or series..."
@@ -1573,7 +2237,7 @@ export function JobSearchScreen(props: JobSearchScreenProps) {
                 location: store.lastQuery.location,
               });
             }}
-            className="flex-1 min-w-0 px-3 py-2 text-sm rounded border bg-transparent outline-none"
+            className="w-full pl-9 pr-3 py-2 text-sm rounded border bg-transparent outline-none focus-visible:ring-2 focus-visible:ring-[var(--p-accent)] focus-visible:ring-inset transition-shadow"
             style={{
               borderColor: 'var(--p-border)',
               color: 'var(--p-text)',
@@ -1592,7 +2256,7 @@ export function JobSearchScreen(props: JobSearchScreenProps) {
                 location: e.target.value.trim() !== '' ? e.target.value : undefined,
               });
             }}
-            className="flex-1 min-w-0 px-3 py-2 text-sm rounded border bg-transparent outline-none"
+            className="flex-1 min-w-0 px-3 py-2 text-sm rounded border bg-transparent outline-none focus-visible:ring-2 focus-visible:ring-[var(--p-accent)] focus-visible:ring-inset transition-shadow"
             style={{
               borderColor: 'var(--p-border)',
               color: 'var(--p-text)',
@@ -1637,9 +2301,6 @@ export function JobSearchScreen(props: JobSearchScreenProps) {
           Describe what you want (optional)
         </button>
       </div>
-      <p className="text-[11px] mx-4 mt-0.5" style={{ color: 'var(--p-text-dim)' }}>
-        PathOS will translate it into filters you can review.
-      </p>
 
       {/* Expanded Describe panel: same component as before, compact; no duplicate Search button. */}
       {describePanelExpanded ? (
@@ -1900,10 +2561,6 @@ export function JobSearchScreen(props: JobSearchScreenProps) {
         </div>
       ) : null}
 
-      <p className="text-[11px] mx-4 mt-1" style={{ color: 'var(--p-text-dim)' }} title="Sorted by selected option; order is deterministic and reproducible.">
-        Results shown from saved snapshots (mock). Sorted by {sortBy === 'likelihood' ? 'Likelihood of success (fit score)' : sortBy === 'effortToReward' ? 'Effort-to-reward' : sortBy === 'strategic' ? 'Strategic value' : 'Urgency (close date)'}.
-      </p>
-
       {/* Sort by + Filters bar: token-styled portaled dropdowns (Overlay Rule v1). */}
       <div className="mx-4 mt-3 flex flex-wrap items-center gap-2">
         <span className="text-xs" style={{ color: 'var(--p-text-dim)' }}>Sort by</span>
@@ -2100,11 +2757,13 @@ export function JobSearchScreen(props: JobSearchScreenProps) {
 
       </div>
 
-      {/* Workspace viewport: fills remaining height (flex-1 min-h-0 CRITICAL so panes can scroll). */}
+      {/* Workspace viewport: fills remaining height (flex-1 min-h-0 CRITICAL so panes can scroll).
+       * Grid proportions aligned with Saved Jobs for layout parity:
+       * left results column at ~30% (250-360px), detail workspace fills the rest. */}
       <div
-        className="mt-4 grid gap-4 flex-1 min-h-0"
+        className="mt-3 grid gap-3.5 flex-1 min-h-0 px-4 pb-3"
         style={{
-          gridTemplateColumns: 'clamp(480px, 38vw, 560px) minmax(420px, 1fr)',
+          gridTemplateColumns: 'clamp(250px, 30%, 360px) minmax(320px, 1fr)',
         }}
       >
         {/* Results pane: fixed-height column; status line above list; list scrolls independently. */}

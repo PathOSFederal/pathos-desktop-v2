@@ -213,11 +213,13 @@ describe('JobSearchScreen', function () {
     expect(output.indexOf('Open dimension details') !== -1).toBe(true);
   });
 
-  it('when a job is selected and snapshot visible Open Career Readiness CTA exists', function () {
+  it('when a job is selected and snapshot visible a Fix gap CTA exists for career readiness', function () {
     useJobSearchV1Store.getState().loadSampleJobs();
     const output = renderJobSearch();
     if (output.indexOf('Match for this job') === -1) return;
-    expect(output.indexOf('Open Career Readiness') !== -1).toBe(true);
+    /* Day 74: CTA simplified from "Open Career Readiness: Fix X (+N)" to "Fix X".
+     * The button text starts with "Fix " followed by the weakest dimension label. */
+    expect(output.indexOf('Fix ') !== -1).toBe(true);
   });
 
   it('when a job is selected and snapshot visible primary blocker line is present and may include a weak dimension label', function () {
@@ -440,13 +442,12 @@ describe('JobSearchScreen', function () {
     expect(state.results.length).toBe(Math.min(state.pageSize, state.totalCount));
   });
 
-  it('Day 62: match panel shows Details appear in PathAdvisor and does not show What you\'re missing block', function () {
+  it('Day 62/74: match panel does not show What you\'re missing block (intelligence moved to PathAdvisor)', function () {
     useJobSearchV1Store.getState().loadSampleJobs();
     const output = renderJobSearch();
     if (output.indexOf('Loading job search') !== -1) {
       return;
     }
-    expect(output).toContain('Details appear in PathAdvisor');
     expect(output).not.toContain("What you're missing");
   });
 
@@ -479,6 +480,101 @@ describe('JobSearchScreen', function () {
     const entries = getEntriesForAnchor(usePathAdvisorContextLogStore.getState().entriesByAnchor, keys[0]);
     expect(entries.length).toBeGreaterThanOrEqual(1);
     expect(entries[entries.length - 1].title).toContain('Job match');
+  });
+
+  /* ── Day 74: Structural parity tests — Job Search matches Saved Jobs architecture ── */
+
+  it('Day 74: selected job detail panel shows job title and agency in fixed header zone', function () {
+    useJobSearchV1Store.getState().loadSampleJobs();
+    const output = renderJobSearch();
+    if (output.indexOf('Loading job search') !== -1) return;
+    const firstJob = useJobSearchV1Store.getState().results[0];
+    if (firstJob === undefined) return;
+    expect(output.indexOf(firstJob.title) !== -1).toBe(true);
+    expect(output.indexOf(firstJob.agency) !== -1).toBe(true);
+  });
+
+  it('Day 74: selected job shows Readiness badge with numeric score', function () {
+    useJobSearchV1Store.getState().loadSampleJobs();
+    const output = renderJobSearch();
+    if (output.indexOf('Loading job search') !== -1) return;
+    expect(output.indexOf('Readiness') !== -1).toBe(true);
+  });
+
+  it('Day 74: detail panel has Match Overview and Job Overview mode tabs (sibling parity with Saved Jobs)', function () {
+    useJobSearchV1Store.getState().loadSampleJobs();
+    const output = renderJobSearch();
+    if (output.indexOf('Loading job search') !== -1) return;
+    expect(output.indexOf('Match Overview') !== -1).toBe(true);
+    expect(output.indexOf('Job Overview') !== -1).toBe(true);
+  });
+
+  it('Day 74: action bar contains Build Resume button', function () {
+    useJobSearchV1Store.getState().loadSampleJobs();
+    const output = renderJobSearch();
+    if (output.indexOf('Loading job search') !== -1) return;
+    expect(output.indexOf('Build Resume') !== -1).toBe(true);
+  });
+
+  it('Day 74: action bar contains View on USAJOBS link', function () {
+    useJobSearchV1Store.getState().loadSampleJobs();
+    const output = renderJobSearch();
+    if (output.indexOf('Loading job search') !== -1) return;
+    expect(output.indexOf('View on USAJOBS') !== -1).toBe(true);
+  });
+
+  it('Day 74: decision summary band shows Salary, Grade, Work Mode, and Deadline tiles (Agency in header, not tiles)', function () {
+    useJobSearchV1Store.getState().loadSampleJobs();
+    const output = renderJobSearch();
+    if (output.indexOf('Loading job search') !== -1) return;
+    if (output.indexOf('Match Overview') === -1) return;
+    expect(output.indexOf('Salary') !== -1).toBe(true);
+    expect(output.indexOf('Grade') !== -1).toBe(true);
+    expect(output.indexOf('Work Mode') !== -1).toBe(true);
+    expect(output.indexOf('Deadline') !== -1).toBe(true);
+  });
+
+  it('Day 74: match breakdown section header and dimension bars present in match overview', function () {
+    useJobSearchV1Store.getState().loadSampleJobs();
+    const output = renderJobSearch();
+    if (output.indexOf('Loading job search') !== -1) return;
+    if (output.indexOf('Match for this job') === -1) return;
+    expect(output.indexOf('Match breakdown') !== -1).toBe(true);
+    expect(output.indexOf('Dimension') !== -1).toBe(true);
+  });
+
+  it('Day 74: list items show readiness percentage badge with color-coded treatment', function () {
+    useJobSearchV1Store.getState().loadSampleJobs();
+    const output = renderJobSearch();
+    if (output.indexOf('Loading job search') !== -1) return;
+    /* Readiness badges render as "N%" where N varies per job. At least one should be present. */
+    const hasPercentBadge = output.indexOf('%') !== -1;
+    expect(hasPercentBadge).toBe(true);
+  });
+
+  it('Day 74: search controls (Search, Reset, filter dropdowns) remain present', function () {
+    useJobSearchV1Store.getState().loadSampleJobs();
+    const output = renderJobSearch();
+    if (output.indexOf('Loading job search') !== -1) return;
+    expect(output.indexOf('Search') !== -1).toBe(true);
+    expect(output.indexOf('Reset') !== -1).toBe(true);
+    expect(output.indexOf('Sort by') !== -1).toBe(true);
+    expect(output.indexOf('Clear all filters') !== -1).toBe(true);
+  });
+
+  it('Day 74: save action button present in selected-job panel (Save + Start Tailoring or Saved)', function () {
+    useJobSearchV1Store.getState().loadSampleJobs();
+    const output = renderJobSearch();
+    if (output.indexOf('Loading job search') !== -1) return;
+    const hasSaveAction = output.indexOf('Save + Start Tailoring') !== -1 || output.indexOf('Saved') !== -1;
+    expect(hasSaveAction).toBe(true);
+  });
+
+  it('Day 74: Primary blocker line visible in match overview when snapshot present', function () {
+    useJobSearchV1Store.getState().loadSampleJobs();
+    const output = renderJobSearch();
+    if (output.indexOf('Match for this job') === -1) return;
+    expect(output.indexOf('Primary blocker') !== -1).toBe(true);
   });
 
   it('Day 62: dimension explain appends context log entry with title containing Match breakdown', function () {

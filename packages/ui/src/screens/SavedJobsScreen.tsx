@@ -52,7 +52,7 @@ import {
   FileText,
 } from 'lucide-react';
 import { useNav } from '@pathos/adapters';
-import { RESUME_BUILDER } from '../routes/routes';
+import { CAREER_READINESS, RESUME_BUILDER } from '../routes/routes';
 import {
   loadSavedJobsStore,
   saveSavedJobsStore,
@@ -75,6 +75,16 @@ import {
 import type { PathAdvisorContextEntry } from '../stores/pathAdvisorContextLogStore';
 import { INTERACTIVE_HOVER_CLASS } from '../styles/interactiveHover';
 import { scoreTierColor } from '../styles/scoreTiers';
+import { MatchBreakdownHeader, MatchBreakdownRow } from '../components/MatchBreakdownTable';
+import type { MatchBreakdownRowData } from '../components/MatchBreakdownTable';
+import {
+  buildDimensionBriefingPayload,
+  DimensionKey,
+  JobMatchDimension,
+  JobMatchSnapshot,
+  MatchLevel,
+} from '../lib/jobMatchSnapshot';
+import { publishDimensionExplainContext } from '../lib/pathAdvisorPublish';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -784,6 +794,65 @@ export function deriveMatchSummary(job: Job): MatchSummary {
   };
 }
 
+function mapSavedJobStatusToMatchLevel(status: SavedJobStatus | undefined): MatchLevel {
+  if (status === 'high-match' || status === 'ready') return 'Strong';
+  if (status === 'needs-review') return 'Moderate';
+  if (status === 'backup') return 'Stretch';
+  return 'Moderate';
+}
+
+const DIMENSION_LABEL_TO_KEY: Record<string, DimensionKey> = {
+  'Target Alignment': 'Target Alignment',
+  'Specialized Experience': 'Specialized Experience',
+  'Resume Evidence': 'Resume Evidence',
+  'Keywords Coverage': 'Keywords Coverage',
+  'Leadership / Scope': 'Leadership & Scope',
+};
+
+function dimensionLabelToKey(label: string): DimensionKey {
+  return DIMENSION_LABEL_TO_KEY[label] !== undefined ? DIMENSION_LABEL_TO_KEY[label] : 'Target Alignment';
+}
+
+function convertMatchDimensionToJobMatchDimension(dim: MatchDimension): JobMatchDimension {
+  const status: 'Good' | 'Mixed' | 'Weak' =
+    dim.score >= 80 ? 'Good' : (dim.score >= 60 ? 'Mixed' : 'Weak');
+  return {
+    key: dimensionLabelToKey(dim.label),
+    label: dim.label,
+    readinessScore: dim.score,
+    demandWeight: dim.weight,
+    matchScore: dim.score,
+    status: status,
+    why: `${dim.gapState} gap state • ${dim.jobEmphasis} emphasis`,
+  };
+}
+
+export function buildSavedJobMatchSnapshot(job: Job, dims: MatchDimension[], summary: MatchSummary): JobMatchSnapshot {
+  const matchScore = job.matchScore !== undefined && job.matchScore !== null ? job.matchScore : 70;
+  let lowestScore = 100;
+  for (let i = 0; i < dims.length; i++) {
+    if (dims[i].score < lowestScore) lowestScore = dims[i].score;
+  }
+  const impactPoints = Math.max(1, Math.round((100 - lowestScore) / 5));
+  return {
+    matchLevel: mapSavedJobStatusToMatchLevel(job.status),
+    overallMatchScore: matchScore,
+    overallReadinessScore: summary.readiness,
+    overallReadinessMax: 100,
+    primaryBlocker: summary.topAction,
+    topJobRelevantGap: {
+      label: summary.limitingFactor,
+      impactPoints: impactPoints,
+    },
+    missingEvidence: [],
+    dimensions: dims.map(convertMatchDimensionToJobMatchDimension),
+    audit: {
+      rulesFired: ['saved-jobs-match-overview'],
+      localOnly: true,
+    },
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Detail view mode — Match Overview vs Job Overview
 // ---------------------------------------------------------------------------
@@ -1460,6 +1529,8 @@ function SavedJobDetailsContent(props: SavedJobDetailsContentProps) {
 
   /* Compact match summary — headline-level summary of match intelligence. */
   const matchSummary = deriveMatchSummary(job);
+  const matchDims = deriveMatchDimensions(job);
+  const jobMatchSnapshot = buildSavedJobMatchSnapshot(job, matchDims, matchSummary);
 
   /* Close-date urgency check — used by Job Details and consideration bullets. */
   const isSoon = isCloseDateSoon(job.closeDate, 14);
@@ -1804,56 +1875,21 @@ function SavedJobDetailsContent(props: SavedJobDetailsContentProps) {
           Match Overview
         </h3>
 
-        {/* ── Compact match summary row ──────────────────────────────────
-         * Four scannable data points distilled from the dimension breakdown.
-         * Sits above the bars so users see the headline before the detail.
-         * Grid layout: Readiness | Weighted Fit | Limiting Factor | Action */}
-        <div
-          className="grid gap-x-4 gap-y-2 mb-4 pb-3"
+        {/* Compact advisory — preserves the Top Action recommendation that was
+         * in the removed summary grid. The redundant Readiness and Weighted Fit
+         * values are already visible in the header badges (FIXED ZONE 1).
+         * This single subdued line provides actionable guidance without
+         * restating headline metrics. Sits between the section heading and the
+         * breakdown table for a clean, professional transition. */}
+        <p
+          className="text-[11px] mb-3 pb-2"
           style={{
-            gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
+            color: 'var(--p-text-muted)',
             borderBottom: '1px solid var(--p-border)',
           }}
         >
-          {/* Readiness */}
-          <div>
-            <span className="text-[9px] uppercase tracking-wider font-medium block mb-0.5" style={{ color: 'var(--p-text-dim)' }}>
-              Readiness
-            </span>
-            <span className="text-sm font-bold tabular-nums" style={{ color: scoreTierColor(matchSummary.readiness) }}>
-              {String(matchSummary.readiness)}/100
-            </span>
-          </div>
-          {/* Weighted Fit */}
-          <div>
-            <span className="text-[9px] uppercase tracking-wider font-medium block mb-0.5" style={{ color: 'var(--p-text-dim)' }}>
-              Weighted Fit
-            </span>
-            <span className="text-sm font-bold tabular-nums" style={{ color: scoreTierColor(matchSummary.weightedFit) }}>
-              {String(matchSummary.weightedFit)}/100
-            </span>
-          </div>
-          {/* Limiting Factor — always the weakest dimension, so colored as
-           * a caution signal. Uses danger (red) for weak scores, warning (amber)
-           * for moderate, matching the shared score-tier scale. */}
-          <div>
-            <span className="text-[9px] uppercase tracking-wider font-medium block mb-0.5" style={{ color: 'var(--p-text-dim)' }}>
-              Limiting Factor
-            </span>
-            <span className="text-xs font-medium" style={{ color: 'var(--p-danger, #ef4444)' }}>
-              {matchSummary.limitingFactor}
-            </span>
-          </div>
-          {/* Top Action */}
-          <div>
-            <span className="text-[9px] uppercase tracking-wider font-medium block mb-0.5" style={{ color: 'var(--p-text-dim)' }}>
-              Top Action
-            </span>
-            <span className="text-[11px]" style={{ color: 'var(--p-text-muted)' }}>
-              {matchSummary.topAction}
-            </span>
-          </div>
-        </div>
+          Top action: {matchSummary.topAction}
+        </p>
 
         {/* Weighted dimension breakdown — decision-oriented graph block.
          * Each row shows five pieces of information:
@@ -1866,80 +1902,79 @@ function SavedJobDetailsContent(props: SavedJobDetailsContentProps) {
          * This structure helps users quickly understand WHY they fit or don't fit,
          * and which dimensions need attention before applying. More comprehensive
          * than a single match number or a generic chart. */}
+        {/* Shared match-breakdown table: uses the canonical MatchBreakdownHeader +
+         * MatchBreakdownRow components so alignment and interaction behavior are
+         * identical to the Job Search match breakdown. Rows are now interactive
+         * with hover, focus-visible, tooltip, and chevron — matching the stronger
+         * pattern established in Job Search. Clicking a row shows dimension detail
+         * in the tooltip; the chevron signals inspectability. */}
         <div className="space-y-2.5">
-          {/* Column headers for scannable reading */}
-          <div className="flex items-center gap-2 text-[9px] uppercase tracking-wider font-medium" style={{ color: 'var(--p-text-dim)' }}>
-            <span className="w-[120px] flex-shrink-0">Dimension</span>
-            <span className="flex-1">Score</span>
-            <span className="w-[32px] text-right">Pts</span>
-            <span className="w-[48px] text-center">Demand</span>
-            <span className="w-[56px] text-right">Status</span>
-          </div>
-          {deriveMatchDimensions(job).map(function (dim, idx) {
-            const barColor = scoreTierColor(dim.score);
-            /* Gap state color: matches the shared score-tier scale (green/amber/red).
-             * Strong → success (green), Adequate → warning (amber), Gap → danger (red).
-             * Consistent with scoreTierColor() thresholds so bar colors and gap labels
-             * use the same visual language. */
-            const gapColor = dim.gapState === 'Strong'
-              ? 'var(--p-success)'
-              : (dim.gapState === 'Gap' ? 'var(--p-danger, #ef4444)' : 'var(--p-warning, #eab308)');
-            return (
-              <div key={idx} className="flex items-center gap-2">
-                {/* Dimension label with weight indicator */}
-                <span className="text-[11px] font-medium w-[120px] flex-shrink-0 truncate" style={{ color: 'var(--p-text-muted)' }}>
-                  {dim.label}
-                </span>
-                {/* Horizontal bar: track (surface2 bg) + fill (colored by score tier) */}
-                <div
-                  className="flex-1 h-2 rounded-full overflow-hidden"
-                  style={{ background: 'var(--p-surface2)' }}
-                >
-                  <div
-                    className="h-full rounded-full"
-                    style={{
-                      width: String(dim.score) + '%',
-                      background: barColor,
-                      minWidth: '4px',
-                    }}
-                    role="progressbar"
-                    aria-valuenow={dim.score}
-                    aria-valuemin={0}
-                    aria-valuemax={100}
-                    aria-label={dim.label + ' score'}
-                  />
-                </div>
-                {/* Numeric score */}
-                <span
-                  className="text-[11px] font-semibold tabular-nums w-[32px] text-right"
-                  style={{ color: barColor }}
-                >
-                  {String(dim.score)}
-                </span>
-                {/* Job emphasis badge: how much this role demands this dimension */}
-                <span
-                  className="text-[9px] font-medium w-[48px] text-center px-1 py-0.5 rounded"
-                  style={{
-                    background: dim.jobEmphasis === 'High'
-                      ? 'color-mix(in srgb, var(--p-accent) 10%, transparent)'
-                      : 'var(--p-surface2)',
-                    color: dim.jobEmphasis === 'High'
-                      ? 'var(--p-accent)'
-                      : 'var(--p-text-dim)',
+          <MatchBreakdownHeader />
+
+          <ul className="list-none space-y-1.5" role="list">
+            {deriveMatchDimensions(job).map(function (dim, idx) {
+              /* Gap state color: Strong → green, Gap → red, Adequate → amber.
+               * Matches the shared score-tier scale used across all surfaces. */
+              const gapColor = dim.gapState === 'Strong'
+                ? 'var(--p-success)'
+                : (dim.gapState === 'Gap' ? 'var(--p-danger, #ef4444)' : 'var(--p-warning, #eab308)');
+
+              const rowData: MatchBreakdownRowData = {
+                label: dim.label,
+                score: dim.score,
+                emphasisLevel: dim.jobEmphasis,
+                statusLabel: dim.gapState,
+                statusColor: gapColor,
+                tooltipText: dim.label + ': ' + String(dim.score) + '/100 \u2022 Weight: ' + String(Math.round(dim.weight * 100)) + '% \u2022 Emphasis: ' + dim.jobEmphasis + ' \u2022 ' + dim.gapState,
+                ariaLabel: 'Explain ' + dim.label + ' dimension in PathAdvisor',
+              };
+
+              /* Capture dim in a local constant so the closure does not
+               * close over the loop variable when onClick fires later. */
+              const capturedDim = dim;
+              const capturedJob = job;
+
+              return (
+                <MatchBreakdownRow
+                  key={idx}
+                  data={rowData}
+                  tooltipIdSuffix={'saved-dim-' + idx}
+                  onRowClick={function () {
+                    /* Publish a dimension-explanation entry to PathAdvisor,
+                     * mirroring the same interaction pattern used in Job Search.
+                     * Saved Jobs constructs the payload from the local MatchDimension
+                     * data rather than a full JobMatchSnapshot, but the resulting
+                     * PathAdvisor entry has the same structure and intent:
+                     * users click a breakdown row → PathAdvisor receives context
+                     * about that dimension for explanation. */
+                    const signalText = capturedDim.gapState === 'Strong'
+                      ? 'Strong alignment — this dimension supports your competitiveness.'
+                      : capturedDim.gapState === 'Adequate'
+                        ? 'Moderate alignment — improving this could strengthen your fit.'
+                        : 'Gap detected — this dimension is limiting competitiveness.';
+
+                    publishDimensionExplainContext({
+                      screen: 'saved-jobs',
+                      anchor: {
+                        type: 'job',
+                        id: capturedJob.id,
+                        label: capturedJob.title !== undefined && capturedJob.title !== '' ? capturedJob.title : capturedJob.id,
+                      },
+                      dimension: capturedDim.label,
+                      payload: {
+                        whatMeasures: [capturedDim.label + ' (' + String(Math.round(capturedDim.weight * 100)) + '% weight): measures alignment on this dimension.'],
+                        yourSignal: signalText,
+                        fastestFix: capturedDim.gapState !== 'Strong'
+                          ? 'Review your resume and career readiness inputs for ' + capturedDim.label.toLowerCase() + '.'
+                          : undefined,
+                      },
+                      dedupeKey: 'dimension:' + capturedDim.label + ':' + String(capturedDim.score),
+                    });
                   }}
-                >
-                  {dim.jobEmphasis}
-                </span>
-                {/* Gap state: Strong / Adequate / Gap */}
-                <span
-                  className="text-[10px] font-semibold w-[56px] text-right"
-                  style={{ color: gapColor }}
-                >
-                  {dim.gapState}
-                </span>
-              </div>
-            );
-          })}
+                />
+              );
+            })}
+          </ul>
         </div>
 
         {/* Consideration bullets — derived from job data, placed under the bars
